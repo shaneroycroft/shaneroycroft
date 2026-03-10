@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>projects | shane roycroft</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .project-list { display: flex; flex-direction: column; gap: 4rem; }
+        .project-card { display: grid; grid-template-columns: 120px 1fr; gap: 2rem; border-top: 1px solid var(--border); padding-top: 2rem; }
+        .project-year { font-size: 0.7rem; color: var(--secondary); letter-spacing: 1px; }
+        .project-info h3 { font-size: 1.1rem; text-transform: lowercase; margin-bottom: 0.5rem; }
+        .project-info p { font-size: 0.85rem; color: #666; max-width: 500px; margin-bottom: 1rem; }
+        .project-link { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text); text-decoration: none; border-bottom: 1px solid var(--text); padding-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo serif">shane roycroft</a>
+        <div class="nav-links">
+            <a href="index.html">about</a>
+            <a href="photography.html">photography</a>
+            <a href="projects.html" class="active">projects</a>
+            <a href="contact.html">contact</a>
+        </div>
+    </nav>
+
+    <div class="container fade-in">
+        <div class="project-list">
+            <div class="project-card">
+                <div class="project-year">2026 / dev</div>
+                <div class="project-info">
+                    <h3 class="serif">cardano ticketing protocol</h3>
+                    <p>a 3-pillar architecture separating sales logic from minting. built for flexibility and secondary market security.</p>
+                    <a href="#" class="project-link">view repository</a>
+                </div>
+            </div>
+            
+            <div class="project-card">
+                <div class="project-year">2025 / photo</div>
+                <div class="project-info">
+                    <h3 class="serif">monoliths of the east</h3>
+                    <p>a photo-essay documenting the brutalist architecture of tokyo's outskirts.</p>
+                    <a href="photography.html#japan" class="project-link">view gallery</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>&copy; 2026 shane roycroft</footer>
+</body>
+</html>

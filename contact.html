@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>contact | shane roycroft</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo serif">shane roycroft</a>
+        <div class="nav-links">
+            <a href="index.html">about</a>
+            <a href="photography.html">photography</a>
+            <a href="projects.html">projects</a>
+            <a href="contact.html" class="active">contact</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 500px;">
+        <h2 class="serif" style="font-size: 2rem; margin-bottom: 2rem;">get in touch.</h2>
+        
+        <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div>
+                <label style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.5rem;">name</label>
+                <input type="text" name="name" required style="width: 100%; border: none; border-bottom: 1px solid #ddd; padding: 0.5rem 0; outline: none; font-family: inherit;">
+            </div>
+            
+            <div>
+                <label style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.5rem;">email</label>
+                <input type="email" name="_replyto" required style="width: 100%; border: none; border-bottom: 1px solid #ddd; padding: 0.5rem 0; outline: none; font-family: inherit;">
+            </div>
+
+            <div>
+                <label style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.5rem;">message</label>
+                <textarea name="message" rows="4" required style="width: 100%; border: none; border-bottom: 1px solid #ddd; padding: 0.5rem 0; outline: none; font-family: inherit; resize: none;"></textarea>
+            </div>
+
+            <button type="submit" style="background: black; color: white; border: none; padding: 1rem; cursor: pointer; text-transform: lowercase; letter-spacing: 2px; font-size: 0.8rem; margin-top: 1rem;">send</button>
+        </form>
+    </div>
+
+    <footer>&copy; 2026 shane roycroft</footer>
+</body>
+</html>

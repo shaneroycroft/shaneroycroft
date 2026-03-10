@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@300;400&family=Playfair+Display:ital,wght@0,400;1,400&display=swap');
+
+:root {
+    --bg: #ffffff;
+    --text: #000000;
+    --secondary: #999999;
+    --border: #f2f2f2;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Archivo', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+.serif { font-family: 'Playfair Display', serif; font-weight: 400; font-style: italic; letter-spacing: -0.01em; }
+
+/* --- Navigation --- */
+nav { padding: 4rem 2rem 2rem; display: flex; flex-direction: column; align-items: center; }
+.logo { font-size: 1.4rem; letter-spacing: 4px; text-transform: lowercase; margin-bottom: 2.5rem; text-decoration: none; color: var(--text); }
+.nav-links { display: flex; gap: 2.5rem; text-transform: lowercase; font-size: 0.75rem; letter-spacing: 2px; }
+.nav-links a { text-decoration: none; color: var(--secondary); transition: 0.3s; padding-bottom: 4px; cursor: pointer; }
+.nav-links a:hover, .nav-links a.active { color: var(--text); border-bottom: 1px solid var(--text); }
+
+.sub-nav { margin-top: 2rem; display: flex; gap: 2rem; font-size: 0.65rem; letter-spacing: 1px; color: var(--secondary); }
+.sub-nav span { cursor: pointer; transition: 0.3s; }
+.sub-nav span:hover, .sub-nav span.active { color: var(--text); }
+
+/* --- Layout --- */
+.container { max-width: 900px; margin: 0 auto; padding: 4rem 2rem; min-height: 60vh; }
+.fade-in { animation: fadeIn 0.8s ease forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- Photography Grid --- */
+.gallery { columns: 2; column-gap: 1.5rem; }
+.gallery-item { margin-bottom: 1.5rem; break-inside: avoid; cursor: crosshair; }
+.gallery-item img { width: 100%; height: auto; filter: grayscale(100%); transition: 0.7s ease; display: block; }
+.gallery-item:hover img { filter: grayscale(0%); }
+
+/* --- Lightbox --- */
+#lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: none; justify-content: center; align-items: center; z-index: 1000; cursor: zoom-out; }
+#lightbox img { max-width: 90%; max-height: 85vh; object-fit: contain; }
+
+footer { padding: 6rem 2rem 4rem; text-align: center; font-size: 0.6rem; color: #ccc; text-transform: lowercase; letter-spacing: 2px; }
+
+@media (max-width: 768px) { .gallery { columns: 1; } .nav-links { gap: 1.5rem; } }

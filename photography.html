@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>photography | shane roycroft</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo serif">shane roycroft</a>
+        <div class="nav-links">
+            <a href="index.html">about</a>
+            <a href="photography.html" class="active">photography</a>
+            <a href="projects.html">projects</a>
+            <a href="contact.html">contact</a>
+        </div>
+        <div class="sub-nav">
+            <span id="tab-japan" onclick="setCategory('japan')">japan</span>
+            <span id="tab-desert" onclick="setCategory('the desert')">the desert</span>
+            <span id="tab-more" onclick="setCategory('more')">more</span>
+        </div>
+    </nav>
+
+    <div class="container fade-in">
+        <div class="gallery" id="photo-grid"></div>
+    </div>
+
+    <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img"></div>
+
+    <script>
+        const categories = {
+            'japan': ['images/japan/1.jpg', 'images/japan/2.jpg'],
+            'the desert': ['images/desert/1.jpg', 'images/desert/2.jpg'],
+            'more': ['images/more/1.jpg']
+        };
+
+        function setCategory(cat) {
+            window.location.hash = cat.replace(' ', '-');
+            render(cat);
+        }
+
+        function render(cat) {
+            const grid = document.getElementById('photo-grid');
+            grid.innerHTML = '';
+            
+            // UI Update
+            document.querySelectorAll('.sub-nav span').forEach(s => s.classList.remove('active'));
+            const safeId = 'tab-' + (cat === 'the desert' ? 'desert' : cat);
+            if(document.getElementById(safeId)) document.getElementById(safeId).classList.add('active');
+
+            // Image Injection (Uses placeholders if files don't exist yet)
+            const list = categories[cat] || [];
+            if(list.length > 0) {
+                list.forEach(src => {
+                    const div = document.createElement('div');
+                    div.className = 'gallery-item';
+                    div.innerHTML = `<img src="${src}" loading="lazy" onclick="openLightbox('${src}')">`;
+                    grid.appendChild(div);
+                });
+            } else {
+                // Placeholder logic so page isn't empty during setup
+                for(let i=1; i<=4; i++) {
+                    const src = `https://picsum.photos/800/${600+i*50}?grayscale&sig=${cat+i}`;
+                    const div = document.createElement('div');
+                    div.className = 'gallery-item';
+                    div.innerHTML = `<img src="${src}" onclick="openLightbox('${src}')">`;
+                    grid.appendChild(div);
+                }
+            }
+        }
+
+        function openLightbox(src) {
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox').style.display = 'flex';
+        }
+
+        // Handle direct links like photography.html#the-desert
+        window.onload = () => {
+            const hash = window.location.hash.replace('#', '').replace('-', ' ');
+            render(categories[hash] ? hash : 'japan');
+        };
+    </script>
+</body>
+</html>
