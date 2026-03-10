@@ -7,7 +7,7 @@
 </head>
 <body>
     <nav>
-        <a href="index.html" class="logo serif">shane roycroft</a>
+        <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
             <a href="index.html">about</a>
             <a href="photography.html" class="active">photography</a>
@@ -28,14 +28,15 @@
     <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img"></div>
 
     <script>
+        // Once you upload real images, put their paths here: ['images/japan/pic.jpg']
         const categories = {
-            'japan': ['images/japan/1.jpg', 'images/japan/2.jpg'],
-            'the desert': ['images/desert/1.jpg', 'images/desert/2.jpg'],
-            'more': ['images/more/1.jpg']
+            'japan': [], 
+            'the desert': [],
+            'more': []
         };
 
         function setCategory(cat) {
-            window.location.hash = cat.replace(' ', '-');
+            window.location.hash = cat.replace(/\s+/g, '-');
             render(cat);
         }
 
@@ -48,25 +49,25 @@
             const safeId = 'tab-' + (cat === 'the desert' ? 'desert' : cat);
             if(document.getElementById(safeId)) document.getElementById(safeId).classList.add('active');
 
-            // Image Injection (Uses placeholders if files don't exist yet)
             const list = categories[cat] || [];
-            if(list.length > 0) {
-                list.forEach(src => {
-                    const div = document.createElement('div');
-                    div.className = 'gallery-item';
-                    div.innerHTML = `<img src="${src}" loading="lazy" onclick="openLightbox('${src}')">`;
-                    grid.appendChild(div);
-                });
-            } else {
-                // Placeholder logic so page isn't empty during setup
-                for(let i=1; i<=4; i++) {
-                    const src = `https://picsum.photos/800/${600+i*50}?grayscale&sig=${cat+i}`;
-                    const div = document.createElement('div');
-                    div.className = 'gallery-item';
-                    div.innerHTML = `<img src="${src}" onclick="openLightbox('${src}')">`;
-                    grid.appendChild(div);
+            
+            // If the array is empty, we inject sample photos so the site isn't blank
+            if(list.length === 0) {
+                for(let i=1; i<=6; i++) {
+                    const seed = cat.replace(' ', '') + i;
+                    const src = `https://picsum.photos/seed/${seed}/800/${i % 2 === 0 ? 1000 : 600}?grayscale`;
+                    createGalleryItem(src, grid);
                 }
+            } else {
+                list.forEach(src => createGalleryItem(src, grid));
             }
+        }
+
+        function createGalleryItem(src, container) {
+            const div = document.createElement('div');
+            div.className = 'gallery-item';
+            div.innerHTML = `<img src="${src}" loading="lazy" onclick="openLightbox('${src}')">`;
+            container.appendChild(div);
         }
 
         function openLightbox(src) {
@@ -74,7 +75,6 @@
             document.getElementById('lightbox').style.display = 'flex';
         }
 
-        // Handle direct links like photography.html#the-desert
         window.onload = () => {
             const hash = window.location.hash.replace('#', '').replace('-', ' ');
             render(categories[hash] ? hash : 'japan');
