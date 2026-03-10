@@ -7,7 +7,6 @@
     --border: #f0f0f0;
 }
 
-/* --- Base Reset --- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -18,7 +17,6 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* The "lost." title style you liked */
 .serif { 
     font-family: 'Playfair Display', serif; 
     font-style: italic; 
@@ -38,11 +36,12 @@ nav {
     z-index: 100;
 }
 
+/* Logo size set to match your 404 reference */
 .logo { 
     font-family: 'Playfair Display', serif;
-    font-weight: 700;
+    font-weight: 400;
     font-style: italic;
-    font-size: 1.6rem; 
+    font-size: 1.4rem; 
     letter-spacing: 0.5px; 
     text-transform: lowercase; 
     margin-bottom: 2rem;
@@ -70,7 +69,7 @@ nav {
     border-bottom: 1px solid var(--text); 
 }
 
-/* Sub-navigation for Photography categories */
+/* --- Photography Sub-Nav --- */
 .sub-nav { 
     margin-top: 2rem; 
     display: flex; 
@@ -83,12 +82,18 @@ nav {
 .sub-nav span { cursor: pointer; transition: 0.3s; }
 .sub-nav span:hover, .sub-nav span.active { color: var(--text); font-weight: 600; }
 
-/* --- Layout Containers --- */
+/* --- Layout --- */
 .container { 
     max-width: 1000px; 
     margin: 0 auto; 
     padding: 4rem 2rem; 
     min-height: 70vh; 
+}
+
+/* Reduced "Coming Soon" / Section Title Size */
+h1.serif, h2.serif {
+    font-size: 2.2rem;
+    margin-bottom: 1.5rem;
 }
 
 .fade-in { 
@@ -102,7 +107,7 @@ nav {
 
 /* --- Photography Grid --- */
 .gallery { columns: 2; column-gap: 1.5rem; }
-.gallery-item { margin-bottom: 1.5rem; break-inside: avoid; cursor: crosshair; }
+.gallery-item { margin-bottom: 1.5rem; break-inside: avoid; }
 .gallery-item img { 
     width: 100%; 
     height: auto; 
@@ -112,9 +117,8 @@ nav {
 }
 .gallery-item:hover img { filter: grayscale(0%); }
 
-/* --- Projects Section --- */
+/* --- Projects --- */
 .project-list { display: flex; flex-direction: column; gap: 4rem; }
-
 .project-card { 
     display: grid; 
     grid-template-columns: 140px 1fr; 
@@ -127,11 +131,10 @@ nav {
     font-size: 0.7rem; 
     color: var(--secondary); 
     letter-spacing: 1px; 
-    text-transform: uppercase; 
 }
 
 .project-info h3 { 
-    font-size: 1.5rem; 
+    font-size: 1.3rem; 
     margin-bottom: 0.5rem; 
     font-weight: 400; 
     font-family: 'Playfair Display', serif; 
@@ -142,7 +145,6 @@ nav {
     color: var(--secondary); 
     font-size: 0.9rem; 
     max-width: 550px; 
-    line-height: 1.8;
 }
 
 /* --- Lightbox --- */
@@ -153,7 +155,6 @@ nav {
 }
 #lightbox img { max-width: 90%; max-height: 85vh; }
 
-/* --- Footer --- */
 footer { 
     padding: 6rem 2rem; 
     text-align: center; 
@@ -166,5 +167,5 @@ footer {
 @media (max-width: 768px) {
     .gallery { columns: 1; }
     .project-card { grid-template-columns: 1fr; gap: 0.5rem; }
-    nav { padding: 2rem 1rem; }
+    h1.serif, h2.serif { font-size: 1.8rem; }
 }
