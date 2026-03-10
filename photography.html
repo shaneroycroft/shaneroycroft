@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Photography | Shane Roycroft</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>photography | shane roycroft</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav>
-        <a href="index.html" class="logo">SHANE ROYCROFT</a>
+        <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
             <a href="index.html">about</a>
             <a href="photography.html" class="active">photography</a>
@@ -29,7 +30,7 @@
 
     <script>
         const categories = {
-            'japan': [], 
+            'japan': [],
             'the desert': [],
             'more': []
         };
@@ -42,13 +43,13 @@
         function render(cat) {
             const grid = document.getElementById('photo-grid');
             grid.innerHTML = '';
-            
+
             document.querySelectorAll('.sub-nav span').forEach(s => s.classList.remove('active'));
             const safeId = 'tab-' + (cat === 'the desert' ? 'desert' : cat);
             if(document.getElementById(safeId)) document.getElementById(safeId).classList.add('active');
 
             const list = categories[cat] || [];
-            
+
             if(list.length === 0) {
                 // Generates 6 high-quality sample photos for testing
                 for(let i=1; i<=6; i++) {

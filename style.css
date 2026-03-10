@@ -96,6 +96,23 @@ h1.serif, h2.serif {
     margin-bottom: 1.5rem;
 }
 
+.text-secondary { color: var(--secondary); }
+.text-muted { color: #bbb; font-size: 0.85rem; }
+
+.btn-outline {
+    display: inline-block;
+    text-transform: lowercase;
+    letter-spacing: 2px;
+    font-size: 0.75rem;
+    color: var(--text);
+    text-decoration: none;
+    border: 1px solid var(--text);
+    padding: 1rem 2rem;
+    transition: opacity 0.3s;
+}
+
+.btn-outline:hover { opacity: 0.5; }
+
 .fade-in { 
     animation: fadeIn 0.8s ease forwards; 
 }
@@ -141,11 +158,78 @@ h1.serif, h2.serif {
     font-style: italic; 
 }
 
-.project-info p { 
-    color: var(--secondary); 
-    font-size: 0.9rem; 
-    max-width: 550px; 
+.project-info p {
+    color: var(--secondary);
+    font-size: 0.9rem;
+    max-width: 550px;
 }
+
+.project-link {
+    display: inline-block;
+    margin-top: 1rem;
+    font-size: 0.75rem;
+    letter-spacing: 1.5px;
+    text-transform: lowercase;
+    color: var(--secondary);
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.project-link:hover { color: var(--text); }
+
+/* --- Contact --- */
+.contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-field label {
+    font-size: 0.75rem;
+    text-transform: lowercase;
+    letter-spacing: 1px;
+    color: var(--secondary);
+}
+
+.form-field input,
+.form-field textarea {
+    border: none;
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 0;
+    outline: none;
+    font-family: inherit;
+    font-size: 1rem;
+    background: transparent;
+    color: var(--text);
+    resize: none;
+    transition: border-color 0.3s;
+}
+
+.form-field input:focus,
+.form-field textarea:focus {
+    border-bottom-color: var(--text);
+}
+
+.btn-submit {
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    padding: 1.2rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
+    text-transform: lowercase;
+    letter-spacing: 1.5px;
+    transition: opacity 0.3s;
+}
+
+.btn-submit:hover { opacity: 0.7; }
 
 /* --- Lightbox --- */
 #lightbox {

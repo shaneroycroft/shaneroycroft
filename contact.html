@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact | Shane Roycroft</title>
+    <title>contact | shane roycroft</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav>
-        <a href="index.html" class="logo">SHANE ROYCROFT</a>
+        <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
             <a href="index.html">about</a>
             <a href="photography.html">photography</a>
@@ -18,28 +18,28 @@
     </nav>
 
     <div class="container fade-in" style="max-width: 600px;">
-        <h2 style="font-size: 2rem; font-weight: 300; margin-bottom: 2rem;">Get in touch.</h2>
-        
-        <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" style="display: flex; flex-direction: column; gap: 2rem;">
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <label style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Name</label>
-                <input type="text" name="name" required style="border: none; border-bottom: 1px solid var(--border); padding: 0.8rem 0; outline: none; font-family: inherit; font-size: 1rem;">
+        <h2 class="serif">get in touch.</h2>
+
+        <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" class="contact-form">
+            <div class="form-field">
+                <label for="name">name</label>
+                <input type="text" id="name" name="name" required>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <label style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Email</label>
-                <input type="email" name="email" required style="border: none; border-bottom: 1px solid var(--border); padding: 0.8rem 0; outline: none; font-family: inherit; font-size: 1rem;">
+            <div class="form-field">
+                <label for="email">email</label>
+                <input type="email" id="email" name="email" required>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <label style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Message</label>
-                <textarea name="message" rows="4" required style="border: none; border-bottom: 1px solid var(--border); padding: 0.8rem 0; outline: none; font-family: inherit; font-size: 1rem; resize: none;"></textarea>
+            <div class="form-field">
+                <label for="message">message</label>
+                <textarea id="message" name="message" rows="4" required></textarea>
             </div>
 
-            <button type="submit" style="background: #1a1a1a; color: white; border: none; padding: 1.2rem; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; transition: opacity 0.3s;">Send Message</button>
+            <button type="submit" class="btn-submit">send message</button>
         </form>
     </div>
 
-    <footer>&copy; 2026 Shane Roycroft</footer>
+    <footer>&copy; 2026 shane roycroft</footer>
 </body>
 </html>
