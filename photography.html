@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>photography | shane roycroft</title>
+    <title>Photography | Shane Roycroft</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav>
-        <a href="index.html" class="logo">shane roycroft</a>
+        <a href="index.html" class="logo">SHANE ROYCROFT</a>
         <div class="nav-links">
             <a href="index.html">about</a>
             <a href="photography.html" class="active">photography</a>
@@ -28,7 +28,6 @@
     <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img"></div>
 
     <script>
-        // Once you upload real images, put their paths here: ['images/japan/pic.jpg']
         const categories = {
             'japan': [], 
             'the desert': [],
@@ -44,26 +43,24 @@
             const grid = document.getElementById('photo-grid');
             grid.innerHTML = '';
             
-            // UI Update
             document.querySelectorAll('.sub-nav span').forEach(s => s.classList.remove('active'));
             const safeId = 'tab-' + (cat === 'the desert' ? 'desert' : cat);
             if(document.getElementById(safeId)) document.getElementById(safeId).classList.add('active');
 
             const list = categories[cat] || [];
             
-            // If the array is empty, we inject sample photos so the site isn't blank
             if(list.length === 0) {
+                // Generates 6 high-quality sample photos for testing
                 for(let i=1; i<=6; i++) {
-                    const seed = cat.replace(' ', '') + i;
-                    const src = `https://picsum.photos/seed/${seed}/800/${i % 2 === 0 ? 1000 : 600}?grayscale`;
-                    createGalleryItem(src, grid);
+                    const src = `https://picsum.photos/seed/${cat+i}/800/${i % 2 === 0 ? 1100 : 700}`;
+                    createItem(src, grid);
                 }
             } else {
-                list.forEach(src => createGalleryItem(src, grid));
+                list.forEach(src => createItem(src, grid));
             }
         }
 
-        function createGalleryItem(src, container) {
+        function createItem(src, container) {
             const div = document.createElement('div');
             div.className = 'gallery-item';
             div.innerHTML = `<img src="${src}" loading="lazy" onclick="openLightbox('${src}')">`;
