@@ -76,6 +76,33 @@
             transition: border-color 0.3s;
         }
         .btn-ghost:hover { border-color: var(--text); }
+
+        /* Border tool */
+        .border-tool-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        @media (max-width: 640px) { .border-tool-grid { grid-template-columns: 1fr; } }
+        .border-controls { display: flex; flex-direction: column; gap: 1.5rem; }
+        .slider-row { display: flex; flex-direction: column; gap: 0.4rem; }
+        .slider-row label { font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); display: flex; justify-content: space-between; }
+        .slider-row input[type=range] { width: 100%; accent-color: var(--text); }
+        .color-row { display: flex; align-items: center; gap: 1rem; }
+        .color-row label { font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
+        .color-row input[type=color] { width: 2.5rem; height: 2rem; border: 1px solid var(--border); cursor: pointer; padding: 0; background: none; }
+        #border-canvas-wrap { background: repeating-conic-gradient(#e0e0e0 0% 25%, #fff 0% 50%) 0 0 / 16px 16px; display: flex; justify-content: center; align-items: center; min-height: 200px; }
+        #border-canvas { max-width: 100%; max-height: 400px; display: block; }
+        #border-placeholder { font-size: 0.8rem; color: var(--secondary); padding: 2rem; }
+        .border-drop {
+            border: 1px dashed var(--border); padding: 2rem; text-align: center;
+            cursor: pointer; transition: border-color 0.3s; margin-bottom: 1rem;
+        }
+        .border-drop:hover, .border-drop.dragover { border-color: var(--text); }
+        .border-drop p { font-size: 0.85rem; color: var(--secondary); }
+        .border-drop input { display: none; }
+        .border-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
     </style>
 </head>
 <body>
@@ -141,6 +168,42 @@
             </div>
             <div class="existing-grid" id="existing-grid"></div>
             <p class="text-muted" style="font-size:0.75rem; margin-top: 1rem;" id="manage-hint"></p>
+        </div>
+        <!-- Border Tool -->
+        <div class="admin-section">
+            <h3>add white border</h3>
+            <div class="border-tool-grid">
+                <div class="border-controls">
+                    <div class="border-drop" id="border-drop" onclick="document.getElementById('border-file').click()">
+                        <p>drop an image or click to open</p>
+                        <input type="file" id="border-file" accept="image/*">
+                    </div>
+
+                    <div class="slider-row">
+                        <label>horizontal (left &amp; right) <span id="bx-val">40px</span></label>
+                        <input type="range" id="bx" min="0" max="300" value="40" oninput="updateBorder()">
+                    </div>
+                    <div class="slider-row">
+                        <label>vertical (top &amp; bottom) <span id="by-val">40px</span></label>
+                        <input type="range" id="by" min="0" max="300" value="40" oninput="updateBorder()">
+                    </div>
+                    <div class="color-row">
+                        <label>border colour</label>
+                        <input type="color" id="bcolor" value="#ffffff" oninput="updateBorder()">
+                    </div>
+
+                    <div class="border-actions">
+                        <button class="btn-sm" id="border-dl" onclick="downloadBordered()" disabled>download</button>
+                        <button class="btn-ghost" onclick="clearBorderTool()">clear</button>
+                    </div>
+                    <p class="text-muted" style="font-size:0.75rem;" id="border-info"></p>
+                </div>
+
+                <div id="border-canvas-wrap">
+                    <canvas id="border-canvas" style="display:none;"></canvas>
+                    <span id="border-placeholder">preview will appear here</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -422,6 +485,73 @@
                 alert('failed to save: ' + e.message);
                 manifest[cat].splice(index, 0, manifest[cat][index]); // rollback
             }
+        }
+
+        // ─── Border Tool ───────────────────────────────────
+        let borderImg = null;
+        let borderOrigName = 'photo';
+
+        const borderDrop = document.getElementById('border-drop');
+        const borderFileInput = document.getElementById('border-file');
+
+        borderDrop.addEventListener('dragover', e => { e.preventDefault(); borderDrop.classList.add('dragover'); });
+        borderDrop.addEventListener('dragleave', () => borderDrop.classList.remove('dragover'));
+        borderDrop.addEventListener('drop', e => { e.preventDefault(); borderDrop.classList.remove('dragover'); loadBorderFile(e.dataTransfer.files[0]); });
+        borderFileInput.addEventListener('change', () => loadBorderFile(borderFileInput.files[0]));
+
+        function loadBorderFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            borderOrigName = file.name.replace(/\.[^.]+$/, '');
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                borderImg = img;
+                URL.revokeObjectURL(url);
+                updateBorder();
+                document.getElementById('border-dl').disabled = false;
+            };
+            img.src = url;
+        }
+
+        function updateBorder() {
+            if (!borderImg) return;
+            const bx = parseInt(document.getElementById('bx').value);
+            const by = parseInt(document.getElementById('by').value);
+            const color = document.getElementById('bcolor').value;
+            document.getElementById('bx-val').textContent = bx + 'px';
+            document.getElementById('by-val').textContent = by + 'px';
+
+            const canvas = document.getElementById('border-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = borderImg.naturalWidth + bx * 2;
+            canvas.height = borderImg.naturalHeight + by * 2;
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(borderImg, bx, by);
+
+            canvas.style.display = 'block';
+            document.getElementById('border-placeholder').style.display = 'none';
+            document.getElementById('border-info').textContent =
+                `output: ${canvas.width} × ${canvas.height}px`;
+        }
+
+        function downloadBordered() {
+            const canvas = document.getElementById('border-canvas');
+            const a = document.createElement('a');
+            a.download = borderOrigName + '_bordered.png';
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+        }
+
+        function clearBorderTool() {
+            borderImg = null;
+            borderOrigName = 'photo';
+            const canvas = document.getElementById('border-canvas');
+            canvas.style.display = 'none';
+            document.getElementById('border-placeholder').style.display = '';
+            document.getElementById('border-info').textContent = '';
+            document.getElementById('border-dl').disabled = true;
+            borderFileInput.value = '';
         }
 
         // ─── Init ──────────────────────────────────────────
