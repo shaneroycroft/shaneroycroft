@@ -281,7 +281,18 @@ h1.serif, h2.serif {
     background: rgba(255,255,255,0.98); display: none; justify-content: center; align-items: center;
     z-index: 1000; cursor: zoom-out;
 }
-#lightbox img { max-width: 90%; max-height: 85vh; }
+#lightbox img { max-width: 90%; max-height: 80vh; }
+#lightbox-caption {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.8rem;
+    color: var(--secondary);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    pointer-events: none;
+}
 #lightbox-prev, #lightbox-next {
     position: absolute;
     top: 50%;

@@ -31,16 +31,24 @@
         .drop-zone:hover, .drop-zone.dragover { border-color: var(--text); }
         .drop-zone p { font-size: 0.85rem; color: var(--secondary); }
         .drop-zone input { display: none; }
-        .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .preview-item { position: relative; }
-        .preview-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
-        .preview-item button {
-            position: absolute; top: 4px; right: 4px;
-            background: rgba(255,255,255,0.9); border: none; cursor: pointer;
-            font-size: 0.7rem; padding: 2px 5px; color: var(--text);
+        .preview-grid { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+        .preview-item { position: relative; display: flex; gap: 1rem; align-items: center; }
+        .preview-item img { width: 72px; height: 72px; object-fit: cover; display: block; flex-shrink: 0; }
+        .preview-meta { flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
+        .preview-caption {
+            width: 100%; font-family: inherit; font-size: 0.8rem;
+            border: 1px solid var(--border); padding: 0.4rem 0.6rem;
+            background: var(--bg); color: var(--text); outline: none;
         }
+        .preview-caption:focus { border-color: var(--text); }
+        .preview-remove {
+            align-self: flex-start; background: none; border: none; cursor: pointer;
+            font-size: 0.7rem; color: var(--secondary); font-family: inherit;
+            letter-spacing: 0.5px; padding: 0; transition: color 0.2s;
+        }
+        .preview-remove:hover { color: #c0392b; }
         .preview-item .progress-bar {
-            position: absolute; bottom: 0; left: 0; height: 3px;
+            position: absolute; bottom: 0; left: 0; height: 2px;
             background: var(--text); width: 0%; transition: width 0.3s;
         }
         .preview-item .status-icon {
@@ -216,7 +224,7 @@
 
         let uploadCat = 'japan';
         let manageCat = 'japan';
-        let queue = []; // { file, objectUrl, name }
+        let queue = []; // { file, objectUrl, name, caption }
         let manifest = null;
 
         // ─── PAT ───────────────────────────────────────────
@@ -265,7 +273,18 @@
 
         // ─── Manifest ──────────────────────────────────────
         async function loadManifest() {
+            // When we have a PAT, fetch directly from GitHub API so we always
+            // get the latest version, bypassing GitHub Pages cache delays.
             try {
+                if (getPAT()) {
+                    const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${MANIFEST}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        manifest = JSON.parse(atob(data.content.replace(/\n/g, '')));
+                        return manifest;
+                    }
+                }
+                // Fallback: fetch from the live site (no PAT or API error)
                 const res = await fetch('photos.json?t=' + Date.now());
                 manifest = await res.json();
             } catch {
@@ -321,7 +340,7 @@
                 const objectUrl = URL.createObjectURL(file);
                 // Sanitize filename
                 const name = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').toLowerCase();
-                queue.push({ file, objectUrl, name, status: 'pending' });
+                queue.push({ file, objectUrl, name, caption: '', status: 'pending' });
             }
             renderQueue();
             document.getElementById('upload-btn').disabled = queue.length === 0;
@@ -336,7 +355,16 @@
                 div.id = 'preview-' + i;
                 div.innerHTML = `
                     <img src="${item.objectUrl}" alt="">
-                    <button onclick="removeFromQueue(${i})">✕</button>
+                    <div class="preview-meta">
+                        <input
+                            type="text"
+                            class="preview-caption"
+                            placeholder="caption (optional)"
+                            value="${item.caption.replace(/"/g, '&quot;')}"
+                            oninput="queue[${i}].caption = this.value"
+                        >
+                        <button class="preview-remove" onclick="removeFromQueue(${i})">remove</button>
+                    </div>
                     <div class="progress-bar" id="bar-${i}"></div>
                     <div class="status-icon" id="icon-${i}" style="display:none"></div>
                 `;
@@ -400,7 +428,10 @@
 
                     setBar(i, 80);
                     const rawUrl = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/${path}`;
-                    manifest[uploadCat].push(rawUrl);
+                    const entry = item.caption.trim()
+                        ? { src: rawUrl, caption: item.caption.trim() }
+                        : rawUrl;
+                    manifest[uploadCat].push(entry);
                     setIcon(i, '✓');
                     setBar(i, 100);
                     success++;

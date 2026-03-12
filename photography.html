@@ -36,22 +36,25 @@
 
     <div id="lightbox" onclick="closeLightbox()">
         <img id="lightbox-img" alt="">
+        <p id="lightbox-caption"></p>
         <button id="lightbox-prev" onclick="event.stopPropagation(); shiftLightbox(-1)">&#8592;</button>
         <button id="lightbox-next" onclick="event.stopPropagation(); shiftLightbox(1)">&#8594;</button>
     </div>
 
     <script>
-        const PHOTOS_URL = 'photos.json';
+        const PHOTOS_URL = 'photos.json?t=' + Date.now();
         let categories = { 'japan': [], 'the desert': [], 'more': [] };
-        let currentList = [];
+        let currentList = []; // always normalised to {src, caption} objects
         let currentIndex = 0;
+
+        // Normalise a manifest entry — may be a plain string or {src, caption}
+        function norm(entry) {
+            return typeof entry === 'string' ? { src: entry, caption: '' } : entry;
+        }
 
         fetch(PHOTOS_URL)
             .then(r => r.json())
-            .then(data => {
-                categories = data;
-                initPage();
-            })
+            .then(data => { categories = data; initPage(); })
             .catch(() => initPage());
 
         function initPage() {
@@ -73,24 +76,24 @@
             const tab = document.getElementById(safeId);
             if (tab) tab.classList.add('active');
 
-            const list = categories[cat] || [];
-            currentList = list;
+            const raw = categories[cat] || [];
+            currentList = raw.map(norm);
 
-            if (list.length === 0) {
+            if (currentList.length === 0) {
                 grid.innerHTML = '<p class="text-muted" style="padding-top:2rem;">no photos yet.</p>';
                 return;
             }
 
-            list.forEach((src, i) => createItem(src, i, grid));
+            currentList.forEach((item, i) => createItem(item, i, grid));
         }
 
-        function createItem(src, index, container) {
+        function createItem(item, index, container) {
             const div = document.createElement('div');
             div.className = 'gallery-item';
             const img = document.createElement('img');
-            img.src = src;
+            img.src = item.src;
             img.loading = 'lazy';
-            img.alt = '';
+            img.alt = item.caption || '';
             img.onclick = () => openLightbox(index);
             div.appendChild(img);
             container.appendChild(div);
@@ -98,7 +101,11 @@
 
         function openLightbox(index) {
             currentIndex = index;
-            document.getElementById('lightbox-img').src = currentList[index];
+            const item = currentList[index];
+            document.getElementById('lightbox-img').src = item.src;
+            const cap = document.getElementById('lightbox-caption');
+            cap.textContent = item.caption || '';
+            cap.style.display = item.caption ? 'block' : 'none';
             document.getElementById('lightbox').style.display = 'flex';
             document.getElementById('lightbox-prev').style.display = currentList.length > 1 ? 'block' : 'none';
             document.getElementById('lightbox-next').style.display = currentList.length > 1 ? 'block' : 'none';
@@ -110,7 +117,11 @@
 
         function shiftLightbox(dir) {
             currentIndex = (currentIndex + dir + currentList.length) % currentList.length;
-            document.getElementById('lightbox-img').src = currentList[currentIndex];
+            const item = currentList[currentIndex];
+            document.getElementById('lightbox-img').src = item.src;
+            const cap = document.getElementById('lightbox-caption');
+            cap.textContent = item.caption || '';
+            cap.style.display = item.caption ? 'block' : 'none';
         }
 
         document.addEventListener('keydown', e => {
