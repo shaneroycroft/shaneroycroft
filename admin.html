@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>admin | shane roycroft</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-section { margin-bottom: 3rem; }
+        .admin-section h3 { font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin-bottom: 1.5rem; }
+        .pat-row { display: flex; gap: 1rem; align-items: flex-end; }
+        .pat-row .form-field { flex: 1; }
+        .pat-status { font-size: 0.8rem; color: var(--secondary); margin-top: 0.5rem; }
+        .pat-status.ok { color: #27ae60; }
+        .pat-status.err { color: #c0392b; }
+        .category-tabs { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+        .category-tabs span { font-size: 0.8rem; text-transform: lowercase; letter-spacing: 1px; cursor: pointer; color: var(--secondary); padding-bottom: 4px; transition: 0.2s; }
+        .category-tabs span.active { color: var(--text); border-bottom: 1px solid var(--text); }
+        .drop-zone {
+            border: 1px dashed var(--border);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            margin-bottom: 1.5rem;
+        }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--text); }
+        .drop-zone p { font-size: 0.85rem; color: var(--secondary); }
+        .drop-zone input { display: none; }
+        .preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .preview-item { position: relative; }
+        .preview-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+        .preview-item button {
+            position: absolute; top: 4px; right: 4px;
+            background: rgba(255,255,255,0.9); border: none; cursor: pointer;
+            font-size: 0.7rem; padding: 2px 5px; color: var(--text);
+        }
+        .preview-item .progress-bar {
+            position: absolute; bottom: 0; left: 0; height: 3px;
+            background: var(--text); width: 0%; transition: width 0.3s;
+        }
+        .preview-item .status-icon {
+            position: absolute; top: 4px; left: 4px;
+            background: rgba(255,255,255,0.9); font-size: 0.7rem; padding: 2px 5px;
+        }
+        .existing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.75rem; }
+        .existing-item { position: relative; }
+        .existing-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; filter: grayscale(100%); transition: 0.4s; }
+        .existing-item:hover img { filter: grayscale(0%); }
+        .existing-item button {
+            position: absolute; top: 4px; right: 4px;
+            background: rgba(255,255,255,0.9); border: none; cursor: pointer;
+            font-size: 0.65rem; padding: 2px 4px; color: #c0392b;
+            display: none;
+        }
+        .existing-item:hover button { display: block; }
+        .log { font-size: 0.75rem; color: var(--secondary); line-height: 1.8; min-height: 2rem; }
+        .log .err { color: #c0392b; }
+        .log .ok { color: #27ae60; }
+        .btn-sm {
+            background: var(--text); color: var(--bg); border: none;
+            padding: 0.7rem 1.5rem; cursor: pointer; font-family: inherit;
+            font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1px;
+            transition: opacity 0.3s;
+        }
+        .btn-sm:hover { opacity: 0.7; }
+        .btn-sm:disabled { opacity: 0.3; cursor: default; }
+        .btn-ghost {
+            background: none; color: var(--text); border: 1px solid var(--border);
+            padding: 0.7rem 1.5rem; cursor: pointer; font-family: inherit;
+            font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1px;
+            transition: border-color 0.3s;
+        }
+        .btn-ghost:hover { border-color: var(--text); }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="logo">shane roycroft</a>
+        <div class="nav-links">
+            <a href="index.html">about</a>
+            <a href="photography.html">photography</a>
+            <a href="projects.html">projects</a>
+            <a href="contact.html">contact</a>
+        </div>
+    </nav>
+
+    <div class="container fade-in" style="max-width: 800px;">
+        <h2 class="serif" style="margin-bottom: 0.5rem;">photo admin.</h2>
+        <p class="text-muted" style="margin-bottom: 3rem;">manage photography — not indexed by search engines.</p>
+
+        <!-- PAT Setup -->
+        <div class="admin-section">
+            <h3>github access</h3>
+            <div class="pat-row">
+                <div class="form-field">
+                    <label for="pat-input">personal access token</label>
+                    <input type="password" id="pat-input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+                </div>
+                <button class="btn-sm" onclick="savePAT()">save</button>
+                <button class="btn-ghost" onclick="clearPAT()">clear</button>
+            </div>
+            <p class="pat-status" id="pat-status"></p>
+            <p class="text-muted" style="margin-top: 0.5rem; font-size: 0.75rem;">
+                stored in localStorage — never sent anywhere except the GitHub API.
+                needs <code>Contents: Read &amp; Write</code> on <strong>shaneroycroft/shaneroycroft</strong>.
+            </p>
+        </div>
+
+        <!-- Upload -->
+        <div class="admin-section">
+            <h3>upload photos</h3>
+            <div class="category-tabs" id="upload-tabs">
+                <span class="active" onclick="selectUploadCat('japan')">japan</span>
+                <span onclick="selectUploadCat('the desert')">the desert</span>
+                <span onclick="selectUploadCat('more')">more</span>
+            </div>
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                <p>drop images here or click to browse</p>
+                <input type="file" id="file-input" multiple accept="image/*">
+            </div>
+            <div class="preview-grid" id="preview-grid"></div>
+            <div style="display:flex; gap: 1rem; align-items: center;">
+                <button class="btn-sm" id="upload-btn" onclick="uploadAll()" disabled>upload all</button>
+                <button class="btn-ghost" onclick="clearQueue()">clear</button>
+                <span class="log" id="upload-log"></span>
+            </div>
+        </div>
+
+        <!-- Manage existing -->
+        <div class="admin-section">
+            <h3>manage existing</h3>
+            <div class="category-tabs" id="manage-tabs">
+                <span class="active" onclick="selectManageCat('japan')">japan</span>
+                <span onclick="selectManageCat('the desert')">the desert</span>
+                <span onclick="selectManageCat('more')">more</span>
+            </div>
+            <div class="existing-grid" id="existing-grid"></div>
+            <p class="text-muted" style="font-size:0.75rem; margin-top: 1rem;" id="manage-hint"></p>
+        </div>
+    </div>
+
+    <footer>&copy; 2026 shane roycroft</footer>
+
+    <script>
+        const REPO = 'shaneroycroft/shaneroycroft';
+        const BRANCH = 'main';
+        const MANIFEST = 'photos.json';
+
+        let uploadCat = 'japan';
+        let manageCat = 'japan';
+        let queue = []; // { file, objectUrl, name }
+        let manifest = null;
+
+        // ─── PAT ───────────────────────────────────────────
+        function getPAT() { return localStorage.getItem('sr_gh_pat') || ''; }
+
+        function savePAT() {
+            const val = document.getElementById('pat-input').value.trim();
+            if (!val) return;
+            localStorage.setItem('sr_gh_pat', val);
+            document.getElementById('pat-input').value = '';
+            setPatStatus('saved — verifying...', '');
+            verifyPAT();
+        }
+
+        function clearPAT() {
+            localStorage.removeItem('sr_gh_pat');
+            document.getElementById('pat-input').value = '';
+            setPatStatus('cleared.', '');
+        }
+
+        function setPatStatus(msg, cls) {
+            const el = document.getElementById('pat-status');
+            el.textContent = msg;
+            el.className = 'pat-status' + (cls ? ' ' + cls : '');
+        }
+
+        async function verifyPAT() {
+            try {
+                const res = await ghFetch(`https://api.github.com/repos/${REPO}`);
+                if (res.ok) setPatStatus('connected to ' + REPO, 'ok');
+                else setPatStatus('token invalid or no repo access.', 'err');
+            } catch { setPatStatus('connection error.', 'err'); }
+        }
+
+        function ghFetch(url, opts = {}) {
+            return fetch(url, {
+                ...opts,
+                headers: {
+                    'Authorization': 'Bearer ' + getPAT(),
+                    'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    ...(opts.headers || {})
+                }
+            });
+        }
+
+        // ─── Manifest ──────────────────────────────────────
+        async function loadManifest() {
+            try {
+                const res = await fetch('photos.json?t=' + Date.now());
+                manifest = await res.json();
+            } catch {
+                manifest = { 'japan': [], 'the desert': [], 'more': [] };
+            }
+            return manifest;
+        }
+
+        async function saveManifest() {
+            const content = btoa(unescape(encodeURIComponent(JSON.stringify(manifest, null, 2) + '\n')));
+            // Get current SHA
+            const shaRes = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${MANIFEST}`);
+            let sha;
+            if (shaRes.ok) {
+                const data = await shaRes.json();
+                sha = data.sha;
+            }
+            const body = { message: 'update photos.json', content, branch: BRANCH };
+            if (sha) body.sha = sha;
+            const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${MANIFEST}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error('failed to save manifest');
+        }
+
+        // ─── Upload ────────────────────────────────────────
+        function selectUploadCat(cat) {
+            uploadCat = cat;
+            document.querySelectorAll('#upload-tabs span').forEach(s => s.classList.remove('active'));
+            const label = cat === 'the desert' ? 'the desert' : cat;
+            document.querySelectorAll('#upload-tabs span').forEach(s => {
+                if (s.textContent === label) s.classList.add('active');
+            });
+        }
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            addFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+        function addFiles(files) {
+            for (const file of files) {
+                if (!file.type.startsWith('image/')) continue;
+                const objectUrl = URL.createObjectURL(file);
+                // Sanitize filename
+                const name = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').toLowerCase();
+                queue.push({ file, objectUrl, name, status: 'pending' });
+            }
+            renderQueue();
+            document.getElementById('upload-btn').disabled = queue.length === 0;
+        }
+
+        function renderQueue() {
+            const grid = document.getElementById('preview-grid');
+            grid.innerHTML = '';
+            queue.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.id = 'preview-' + i;
+                div.innerHTML = `
+                    <img src="${item.objectUrl}" alt="">
+                    <button onclick="removeFromQueue(${i})">✕</button>
+                    <div class="progress-bar" id="bar-${i}"></div>
+                    <div class="status-icon" id="icon-${i}" style="display:none"></div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function removeFromQueue(i) {
+            URL.revokeObjectURL(queue[i].objectUrl);
+            queue.splice(i, 1);
+            renderQueue();
+            document.getElementById('upload-btn').disabled = queue.length === 0;
+        }
+
+        function clearQueue() {
+            queue.forEach(item => URL.revokeObjectURL(item.objectUrl));
+            queue = [];
+            renderQueue();
+            document.getElementById('upload-btn').disabled = true;
+            document.getElementById('upload-log').innerHTML = '';
+        }
+
+        async function uploadAll() {
+            if (!getPAT()) { log('no token saved — enter your github PAT above.', 'err'); return; }
+            if (queue.length === 0) return;
+
+            const btn = document.getElementById('upload-btn');
+            btn.disabled = true;
+            log('loading manifest...', '');
+
+            await loadManifest();
+            if (!manifest[uploadCat]) manifest[uploadCat] = [];
+
+            let success = 0;
+            for (let i = 0; i < queue.length; i++) {
+                const item = queue[i];
+                const path = `images/${uploadCat === 'the desert' ? 'desert' : uploadCat}/${Date.now()}_${item.name}`;
+                log(`uploading ${item.name}...`, '');
+                setBar(i, 40);
+
+                try {
+                    const b64 = await toBase64(item.file);
+                    // Check if file already exists (to get SHA for update)
+                    let sha;
+                    const checkRes = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${path}`);
+                    if (checkRes.ok) { const d = await checkRes.json(); sha = d.sha; }
+
+                    const body = { message: `add photo: ${item.name}`, content: b64, branch: BRANCH };
+                    if (sha) body.sha = sha;
+
+                    const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+
+                    if (!res.ok) {
+                        const err = await res.json();
+                        throw new Error(err.message || 'upload failed');
+                    }
+
+                    setBar(i, 80);
+                    const rawUrl = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/${path}`;
+                    manifest[uploadCat].push(rawUrl);
+                    setIcon(i, '✓');
+                    setBar(i, 100);
+                    success++;
+                } catch (e) {
+                    setIcon(i, '✕');
+                    log(`failed: ${item.name} — ${e.message}`, 'err');
+                }
+            }
+
+            if (success > 0) {
+                log('saving manifest...', '');
+                try {
+                    await saveManifest();
+                    log(`done. ${success} photo${success > 1 ? 's' : ''} uploaded.`, 'ok');
+                    renderManageGrid();
+                } catch (e) {
+                    log('photos uploaded but manifest save failed: ' + e.message, 'err');
+                }
+            }
+
+            btn.disabled = false;
+        }
+
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function setBar(i, pct) {
+            const el = document.getElementById('bar-' + i);
+            if (el) el.style.width = pct + '%';
+        }
+
+        function setIcon(i, icon) {
+            const el = document.getElementById('icon-' + i);
+            if (el) { el.textContent = icon; el.style.display = 'block'; }
+        }
+
+        function log(msg, cls) {
+            const el = document.getElementById('upload-log');
+            el.innerHTML = `<span class="${cls}">${msg}</span>`;
+        }
+
+        // ─── Manage Existing ───────────────────────────────
+        function selectManageCat(cat) {
+            manageCat = cat;
+            document.querySelectorAll('#manage-tabs span').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('#manage-tabs span').forEach(s => {
+                if (s.textContent === (cat === 'the desert' ? 'the desert' : cat)) s.classList.add('active');
+            });
+            renderManageGrid();
+        }
+
+        function renderManageGrid() {
+            const grid = document.getElementById('existing-grid');
+            const hint = document.getElementById('manage-hint');
+            grid.innerHTML = '';
+            if (!manifest) { hint.textContent = 'load manifest first by uploading or refreshing.'; return; }
+            const list = manifest[manageCat] || [];
+            if (list.length === 0) { hint.textContent = 'no photos in this category yet.'; return; }
+            hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''} — hover to delete.`;
+            list.forEach((src, i) => {
+                const div = document.createElement('div');
+                div.className = 'existing-item';
+                div.innerHTML = `<img src="${src}" loading="lazy" alt=""><button onclick="deletePhoto('${manageCat}', ${i})">delete</button>`;
+                grid.appendChild(div);
+            });
+        }
+
+        async function deletePhoto(cat, index) {
+            if (!confirm('delete this photo from the manifest? (the file will remain in the repo)')) return;
+            if (!manifest) { alert('manifest not loaded.'); return; }
+            manifest[cat].splice(index, 1);
+            try {
+                await saveManifest();
+                renderManageGrid();
+            } catch (e) {
+                alert('failed to save: ' + e.message);
+                manifest[cat].splice(index, 0, manifest[cat][index]); // rollback
+            }
+        }
+
+        // ─── Init ──────────────────────────────────────────
+        window.addEventListener('load', async () => {
+            if (getPAT()) {
+                document.getElementById('pat-status').textContent = 'token found — verifying...';
+                verifyPAT();
+            }
+            await loadManifest();
+            renderManageGrid();
+        });
+    </script>
+</body>
+</html>

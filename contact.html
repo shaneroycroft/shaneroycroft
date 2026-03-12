@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>contact | shane roycroft</title>
+    <meta name="description" content="Get in touch with Shane Roycroft.">
+    <meta property="og:title" content="contact | shane roycroft">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.shaneroycroft.com/contact.html">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,7 +27,7 @@
     <div class="container fade-in" style="max-width: 600px;">
         <h2 class="serif">get in touch.</h2>
 
-        <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" class="contact-form">
+        <form id="contact-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST" class="contact-form">
             <div class="form-field">
                 <label for="name">name</label>
                 <input type="text" id="name" name="name" required>
@@ -36,10 +43,50 @@
                 <textarea id="message" name="message" rows="4" required></textarea>
             </div>
 
-            <button type="submit" class="btn-submit">send message</button>
+            <button type="submit" class="btn-submit" id="submit-btn">send message</button>
         </form>
+
+        <div id="form-success" class="form-feedback form-feedback--success" style="display:none;">
+            <p>message sent — i'll be in touch soon.</p>
+        </div>
+        <div id="form-error" class="form-feedback form-feedback--error" style="display:none;">
+            <p>something went wrong. please try again or email me directly.</p>
+        </div>
     </div>
 
     <footer>&copy; 2026 shane roycroft</footer>
+
+    <script>
+        const form = document.getElementById('contact-form');
+        const btn = document.getElementById('submit-btn');
+        const success = document.getElementById('form-success');
+        const error = document.getElementById('form-error');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            btn.textContent = 'sending...';
+            btn.disabled = true;
+            success.style.display = 'none';
+            error.style.display = 'none';
+
+            try {
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (res.ok) {
+                    form.style.display = 'none';
+                    success.style.display = 'block';
+                } else {
+                    throw new Error();
+                }
+            } catch {
+                error.style.display = 'block';
+                btn.textContent = 'send message';
+                btn.disabled = false;
+            }
+        });
+    </script>
 </body>
 </html>

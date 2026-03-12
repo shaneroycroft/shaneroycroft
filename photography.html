@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>photography | shane roycroft</title>
+    <meta name="description" content="Photography by Shane Roycroft — Japan, the desert, and more.">
+    <meta property="og:title" content="photography | shane roycroft">
+    <meta property="og:description" content="Photography by Shane Roycroft.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.shaneroycroft.com/photography.html">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,14 +34,30 @@
         <div class="gallery" id="photo-grid"></div>
     </div>
 
-    <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img"></div>
+    <div id="lightbox" onclick="closeLightbox()">
+        <img id="lightbox-img" alt="">
+        <button id="lightbox-prev" onclick="event.stopPropagation(); shiftLightbox(-1)">&#8592;</button>
+        <button id="lightbox-next" onclick="event.stopPropagation(); shiftLightbox(1)">&#8594;</button>
+    </div>
 
     <script>
-        const categories = {
-            'japan': [],
-            'the desert': [],
-            'more': []
-        };
+        const PHOTOS_URL = 'photos.json';
+        let categories = { 'japan': [], 'the desert': [], 'more': [] };
+        let currentList = [];
+        let currentIndex = 0;
+
+        fetch(PHOTOS_URL)
+            .then(r => r.json())
+            .then(data => {
+                categories = data;
+                initPage();
+            })
+            .catch(() => initPage());
+
+        function initPage() {
+            const hash = window.location.hash.replace('#', '').replace(/-/g, ' ');
+            render(categories[hash] !== undefined ? hash : 'japan');
+        }
 
         function setCategory(cat) {
             window.location.hash = cat.replace(/\s+/g, '-');
@@ -46,37 +70,56 @@
 
             document.querySelectorAll('.sub-nav span').forEach(s => s.classList.remove('active'));
             const safeId = 'tab-' + (cat === 'the desert' ? 'desert' : cat);
-            if(document.getElementById(safeId)) document.getElementById(safeId).classList.add('active');
+            const tab = document.getElementById(safeId);
+            if (tab) tab.classList.add('active');
 
             const list = categories[cat] || [];
+            currentList = list;
 
-            if(list.length === 0) {
-                // Generates 6 high-quality sample photos for testing
-                for(let i=1; i<=6; i++) {
-                    const src = `https://picsum.photos/seed/${cat+i}/800/${i % 2 === 0 ? 1100 : 700}`;
-                    createItem(src, grid);
-                }
-            } else {
-                list.forEach(src => createItem(src, grid));
+            if (list.length === 0) {
+                grid.innerHTML = '<p class="text-muted" style="padding-top:2rem;">no photos yet.</p>';
+                return;
             }
+
+            list.forEach((src, i) => createItem(src, i, grid));
         }
 
-        function createItem(src, container) {
+        function createItem(src, index, container) {
             const div = document.createElement('div');
             div.className = 'gallery-item';
-            div.innerHTML = `<img src="${src}" loading="lazy" onclick="openLightbox('${src}')">`;
+            const img = document.createElement('img');
+            img.src = src;
+            img.loading = 'lazy';
+            img.alt = '';
+            img.onclick = () => openLightbox(index);
+            div.appendChild(img);
             container.appendChild(div);
         }
 
-        function openLightbox(src) {
-            document.getElementById('lightbox-img').src = src;
+        function openLightbox(index) {
+            currentIndex = index;
+            document.getElementById('lightbox-img').src = currentList[index];
             document.getElementById('lightbox').style.display = 'flex';
+            document.getElementById('lightbox-prev').style.display = currentList.length > 1 ? 'block' : 'none';
+            document.getElementById('lightbox-next').style.display = currentList.length > 1 ? 'block' : 'none';
         }
 
-        window.onload = () => {
-            const hash = window.location.hash.replace('#', '').replace('-', ' ');
-            render(categories[hash] ? hash : 'japan');
-        };
+        function closeLightbox() {
+            document.getElementById('lightbox').style.display = 'none';
+        }
+
+        function shiftLightbox(dir) {
+            currentIndex = (currentIndex + dir + currentList.length) % currentList.length;
+            document.getElementById('lightbox-img').src = currentList[currentIndex];
+        }
+
+        document.addEventListener('keydown', e => {
+            const lb = document.getElementById('lightbox');
+            if (lb.style.display !== 'flex') return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') shiftLightbox(-1);
+            if (e.key === 'ArrowRight') shiftLightbox(1);
+        });
     </script>
 </body>
 </html>
