@@ -148,6 +148,24 @@
         .border-drop p { font-size: 0.85rem; color: var(--secondary); }
         .border-drop input { display: none; }
         .border-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+        /* ── New category inline form ────────────────────── */
+        .cat-add-btn {
+            background: none; border: none; cursor: pointer; font-family: inherit;
+            font-size: 0.8rem; color: var(--secondary); letter-spacing: 1px;
+            padding: 0 0 4px; transition: color 0.2s;
+        }
+        .cat-add-btn:hover { color: var(--text); }
+        .cat-new-form {
+            display: none; align-items: center; gap: 0.5rem; margin-bottom: 2rem;
+        }
+        .cat-new-form.visible { display: flex; }
+        .cat-new-input {
+            font-family: inherit; font-size: 0.8rem; background: var(--bg);
+            color: var(--text); border: 1px solid var(--border); padding: 0.3rem 0.6rem;
+            outline: none; width: 160px;
+        }
+        .cat-new-input:focus { border-color: var(--text); }
     </style>
 </head>
 <body>
@@ -189,10 +207,11 @@
         <!-- Upload tab -->
         <div class="tab-panel active" id="tab-upload">
             <div class="admin-section">
-                <div class="category-tabs" id="upload-tabs">
-                    <span class="active" onclick="selectUploadCat('japan')">japan</span>
-                    <span onclick="selectUploadCat('the desert')">the desert</span>
-                    <span onclick="selectUploadCat('more')">more</span>
+                <div class="category-tabs" id="upload-tabs"></div>
+                <div class="cat-new-form" id="upload-new-form">
+                    <input class="cat-new-input" id="upload-new-input" placeholder="category name" maxlength="40">
+                    <button class="btn-sm" onclick="createCategory('upload')">create</button>
+                    <button class="btn-ghost" onclick="hideCatForm('upload')">cancel</button>
                 </div>
                 <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
                     <p>drop images here or click to browse</p>
@@ -210,10 +229,11 @@
         <!-- Manage tab -->
         <div class="tab-panel" id="tab-manage">
             <div class="admin-section">
-                <div class="category-tabs" id="manage-tabs">
-                    <span class="active" onclick="selectManageCat('japan')">japan</span>
-                    <span onclick="selectManageCat('the desert')">the desert</span>
-                    <span onclick="selectManageCat('more')">more</span>
+                <div class="category-tabs" id="manage-tabs"></div>
+                <div class="cat-new-form" id="manage-new-form">
+                    <input class="cat-new-input" id="manage-new-input" placeholder="category name" maxlength="40">
+                    <button class="btn-sm" onclick="createCategory('manage')">create</button>
+                    <button class="btn-ghost" onclick="hideCatForm('manage')">cancel</button>
                 </div>
                 <div class="existing-grid" id="existing-grid"></div>
                 <p class="text-muted" style="font-size:0.75rem; margin-top: 1rem;" id="manage-hint"></p>
@@ -421,14 +441,77 @@
             });
         }
 
+        // ─── Category tabs (dynamic) ────────────────────────
+        function renderCategoryTabs(tabId, activeCat, onSelect) {
+            const container = document.getElementById(tabId);
+            container.innerHTML = '';
+            Object.keys(manifest || {}).forEach(cat => {
+                const span = document.createElement('span');
+                span.textContent = cat;
+                if (cat === activeCat) span.classList.add('active');
+                span.onclick = () => onSelect(cat);
+                container.appendChild(span);
+            });
+            // "+ new" button
+            const add = document.createElement('button');
+            add.className = 'cat-add-btn';
+            add.textContent = '+ new';
+            const context = tabId === 'upload-tabs' ? 'upload' : 'manage';
+            add.onclick = () => showCatForm(context);
+            container.appendChild(add);
+        }
+
+        function showCatForm(context) {
+            document.getElementById(context + '-new-form').classList.add('visible');
+            document.getElementById(context + '-new-input').focus();
+        }
+
+        function hideCatForm(context) {
+            document.getElementById(context + '-new-form').classList.remove('visible');
+            document.getElementById(context + '-new-input').value = '';
+        }
+
+        async function createCategory(context) {
+            const input = document.getElementById(context + '-new-input');
+            const name = input.value.trim().toLowerCase();
+            if (!name) return;
+            if (manifest[name] !== undefined) {
+                hideCatForm(context);
+                if (context === 'upload') selectUploadCat(name);
+                else selectManageCat(name);
+                return;
+            }
+            manifest[name] = [];
+            try {
+                log('saving...', '');
+                await saveManifest();
+                hideCatForm(context);
+                renderAllCategoryTabs();
+                if (context === 'upload') selectUploadCat(name);
+                else selectManageCat(name);
+                log('category created.', 'ok');
+            } catch (e) {
+                delete manifest[name];
+                log('failed to save: ' + e.message, 'err');
+            }
+        }
+
+        // Enter key submits the new-category form
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            if (document.getElementById('upload-new-form').classList.contains('visible')) createCategory('upload');
+            else if (document.getElementById('manage-new-form').classList.contains('visible')) createCategory('manage');
+        });
+
+        function renderAllCategoryTabs() {
+            renderCategoryTabs('upload-tabs', uploadCat, selectUploadCat);
+            renderCategoryTabs('manage-tabs', manageCat, selectManageCat);
+        }
+
         // ─── Upload ────────────────────────────────────────
         function selectUploadCat(cat) {
             uploadCat = cat;
-            document.querySelectorAll('#upload-tabs span').forEach(s => s.classList.remove('active'));
-            const label = cat === 'the desert' ? 'the desert' : cat;
-            document.querySelectorAll('#upload-tabs span').forEach(s => {
-                if (s.textContent === label) s.classList.add('active');
-            });
+            renderCategoryTabs('upload-tabs', cat, selectUploadCat);
         }
 
         const dropZone = document.getElementById('drop-zone');
@@ -601,10 +684,7 @@
         // ─── Manage Existing ───────────────────────────────
         function selectManageCat(cat) {
             manageCat = cat;
-            document.querySelectorAll('#manage-tabs span').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('#manage-tabs span').forEach(s => {
-                if (s.textContent === (cat === 'the desert' ? 'the desert' : cat)) s.classList.add('active');
-            });
+            renderCategoryTabs('manage-tabs', cat, selectManageCat);
             renderManageGrid();
         }
 
@@ -616,7 +696,8 @@
             const list = manifest[manageCat] || [];
             if (list.length === 0) { hint.textContent = 'no photos in this category yet.'; return; }
             hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''} — hover to delete.`;
-            list.forEach((src, i) => {
+            list.forEach((entry, i) => {
+                const src = typeof entry === 'string' ? entry : entry.src;
                 const div = document.createElement('div');
                 div.className = 'existing-item';
                 div.innerHTML = `<img src="${src}" loading="lazy" alt=""><button onclick="deletePhoto('${manageCat}', ${i})">delete</button>`;
@@ -711,6 +792,11 @@
                 verifyPAT();
             }
             await loadManifest();
+            // Default active category to first key in manifest
+            const cats = Object.keys(manifest);
+            uploadCat = cats[0] || 'japan';
+            manageCat = cats[0] || 'japan';
+            renderAllCategoryTabs();
             renderManageGrid();
         });
     </script>

@@ -23,11 +23,7 @@
             <a href="projects.html">projects</a>
             <a href="contact.html">contact</a>
         </div>
-        <div class="sub-nav">
-            <span id="tab-japan" onclick="setCategory('japan')">japan</span>
-            <span id="tab-desert" onclick="setCategory('the desert')">the desert</span>
-            <span id="tab-more" onclick="setCategory('more')">more</span>
-        </div>
+        <div class="sub-nav" id="sub-nav"></div>
     </nav>
 
     <div class="container fade-in">
@@ -57,9 +53,22 @@
             .then(data => { categories = data; initPage(); })
             .catch(() => initPage());
 
+        function buildSubNav(activecat) {
+            const nav = document.getElementById('sub-nav');
+            nav.innerHTML = '';
+            Object.keys(categories).forEach(cat => {
+                const span = document.createElement('span');
+                span.textContent = cat;
+                if (cat === activecat) span.classList.add('active');
+                span.onclick = () => setCategory(cat);
+                nav.appendChild(span);
+            });
+        }
+
         function initPage() {
             const hash = window.location.hash.replace('#', '').replace(/-/g, ' ');
-            render(categories[hash] !== undefined ? hash : 'japan');
+            const first = Object.keys(categories)[0] || 'japan';
+            render(categories[hash] !== undefined ? hash : first);
         }
 
         function setCategory(cat) {
@@ -71,10 +80,7 @@
             const grid = document.getElementById('photo-grid');
             grid.innerHTML = '';
 
-            document.querySelectorAll('.sub-nav span').forEach(s => s.classList.remove('active'));
-            const safeId = 'tab-' + (cat === 'the desert' ? 'desert' : cat);
-            const tab = document.getElementById(safeId);
-            if (tab) tab.classList.add('active');
+            buildSubNav(cat);
 
             const raw = categories[cat] || [];
             currentList = raw.map(norm);
