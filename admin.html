@@ -197,8 +197,8 @@
             <button class="btn-ghost" onclick="clearPAT()">clear</button>
         </div>
 
-        <!-- Tab bar -->
-        <div class="admin-tabs">
+        <!-- Tab bar — hidden until PAT verified -->
+        <div class="admin-tabs" id="admin-tabs" style="display:none;">
             <span class="admin-tab active" onclick="switchTab('upload')">upload</span>
             <span class="admin-tab" onclick="switchTab('manage')">manage</span>
             <span class="admin-tab" onclick="switchTab('tools')">tools</span>
@@ -326,6 +326,7 @@
             document.getElementById('pat-input').value = '';
             document.getElementById('pat-form').classList.remove('visible');
             setPatStatus('no token saved', '');
+            setAdminVisible(false);
         }
 
         function setPatStatus(msg, cls) {
@@ -337,12 +338,34 @@
             btn.textContent = cls === 'ok' ? 'change' : 'configure';
         }
 
+        function setAdminVisible(visible) {
+            document.getElementById('admin-tabs').style.display = visible ? 'flex' : 'none';
+            document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+            if (visible) {
+                const active = document.querySelector('.tab-panel.active') || document.getElementById('tab-upload');
+                active.style.display = 'block';
+            }
+        }
+
         async function verifyPAT() {
             try {
                 const res = await ghFetch(`https://api.github.com/repos/${REPO}`);
-                if (res.ok) setPatStatus('connected — ' + REPO, 'ok');
-                else setPatStatus('token invalid or no repo access', 'err');
-            } catch { setPatStatus('connection error', 'err'); }
+                if (res.ok) {
+                    setPatStatus('connected — ' + REPO, 'ok');
+                    await loadManifest();
+                    const cats = Object.keys(manifest);
+                    uploadCat = cats[0] || 'japan';
+                    manageCat = cats[0] || 'japan';
+                    renderAllCategoryTabs();
+                    setAdminVisible(true);
+                } else {
+                    setPatStatus('token invalid or no repo access', 'err');
+                    setAdminVisible(false);
+                }
+            } catch {
+                setPatStatus('connection error', 'err');
+                setAdminVisible(false);
+            }
         }
 
         function ghFetch(url, opts = {}) {
@@ -791,18 +814,14 @@
         }
 
         // ─── Init ──────────────────────────────────────────
-        window.addEventListener('load', async () => {
+        window.addEventListener('load', () => {
             if (getPAT()) {
                 setPatStatus('verifying...', '');
                 verifyPAT();
+            } else {
+                // No token — show the PAT form immediately
+                document.getElementById('pat-form').classList.add('visible');
             }
-            await loadManifest();
-            // Default active category to first key in manifest
-            const cats = Object.keys(manifest);
-            uploadCat = cats[0] || 'japan';
-            manageCat = cats[0] || 'japan';
-            renderAllCategoryTabs();
-            renderManageGrid();
         });
     </script>
 </body>
