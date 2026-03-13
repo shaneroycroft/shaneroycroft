@@ -96,13 +96,22 @@
         .existing-item { position: relative; }
         .existing-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; filter: grayscale(100%); transition: 0.4s; }
         .existing-item:hover img { filter: grayscale(0%); }
-        .existing-item button {
+        .existing-item .item-actions {
             position: absolute; top: 4px; right: 4px;
-            background: rgba(255,255,255,0.9); border: none; cursor: pointer;
-            font-size: 0.65rem; padding: 2px 4px; color: #c0392b;
-            display: none;
+            display: none; flex-direction: column; gap: 3px;
         }
-        .existing-item:hover button { display: block; }
+        .existing-item:hover .item-actions { display: flex; }
+        .existing-item .item-actions button {
+            background: rgba(255,255,255,0.92); border: none; cursor: pointer;
+            font-size: 0.65rem; padding: 2px 5px; color: var(--text); line-height: 1.4;
+        }
+        .existing-item .item-actions .btn-delete { color: #c0392b; }
+        .existing-item .pin-dot {
+            position: absolute; top: 4px; left: 4px;
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--text); display: none;
+        }
+        .existing-item.pinned .pin-dot { display: block; }
         .log { font-size: 0.75rem; color: var(--secondary); line-height: 1.8; min-height: 2rem; }
         .log .err { color: #c0392b; }
         .log .ok { color: #27ae60; }
@@ -297,9 +306,9 @@
         // ─── Tabs ───────────────────────────────────────────
         function switchTab(name) {
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
             document.querySelector(`.admin-tab[onclick="switchTab('${name}')"]`).classList.add('active');
-            document.getElementById('tab-' + name).classList.add('active');
+            document.getElementById('tab-' + name).style.display = 'block';
             if (name === 'manage') renderManageGrid();
         }
 
@@ -723,14 +732,45 @@
             if (!manifest) { hint.textContent = 'load manifest first by uploading or refreshing.'; return; }
             const list = manifest[manageCat] || [];
             if (list.length === 0) { hint.textContent = 'no photos in this category yet.'; return; }
-            hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''} — hover to delete.`;
+            const pinned = list.filter(e => (typeof e === 'object' && e.pinned)).length;
+            hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''}${pinned ? ` — ${pinned} pinned` : ''} — hover to manage.`;
             list.forEach((entry, i) => {
                 const src = typeof entry === 'string' ? entry : entry.src;
+                const isPinned = typeof entry === 'object' && entry.pinned;
                 const div = document.createElement('div');
-                div.className = 'existing-item';
-                div.innerHTML = `<img src="${src}" loading="lazy" alt=""><button onclick="deletePhoto('${manageCat}', ${i})">delete</button>`;
+                div.className = 'existing-item' + (isPinned ? ' pinned' : '');
+                div.innerHTML = `
+                    <img src="${src}" loading="lazy" alt="">
+                    <div class="pin-dot"></div>
+                    <div class="item-actions">
+                        <button onclick="togglePin('${manageCat}', ${i})">${isPinned ? 'unpin' : 'pin'}</button>
+                        <button class="btn-delete" onclick="deletePhoto('${manageCat}', ${i})">delete</button>
+                    </div>`;
                 grid.appendChild(div);
             });
+        }
+
+        async function togglePin(cat, index) {
+            const entry = manifest[cat][index];
+            const asObj = typeof entry === 'string' ? { src: entry } : { ...entry };
+            if (asObj.pinned) {
+                delete asObj.pinned;
+            } else {
+                asObj.pinned = true;
+            }
+            manifest[cat][index] = asObj;
+            // Sort: pinned first, preserving relative order within each group
+            manifest[cat].sort((a, b) => {
+                const pa = typeof a === 'object' && a.pinned ? 1 : 0;
+                const pb = typeof b === 'object' && b.pinned ? 1 : 0;
+                return pb - pa;
+            });
+            try {
+                await saveManifest();
+                renderManageGrid();
+            } catch (e) {
+                alert('failed to save: ' + e.message);
+            }
         }
 
         async function deletePhoto(cat, index) {
