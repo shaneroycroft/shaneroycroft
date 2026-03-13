@@ -24,69 +24,25 @@
         </div>
     </nav>
 
-    <div class="container fade-in" style="max-width: 600px;">
-        <h2 class="serif">get in touch.</h2>
-
-        <form id="contact-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST" class="contact-form">
-            <div class="form-field">
-                <label for="name">name</label>
-                <input type="text" id="name" name="name" required>
-            </div>
-
-            <div class="form-field">
-                <label for="email">email</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-
-            <div class="form-field">
-                <label for="message">message</label>
-                <textarea id="message" name="message" rows="4" required></textarea>
-            </div>
-
-            <button type="submit" class="btn-submit" id="submit-btn">send message</button>
-        </form>
-
-        <div id="form-success" class="form-feedback form-feedback--success" style="display:none;">
-            <p>message sent — i'll be in touch soon.</p>
-        </div>
-        <div id="form-error" class="form-feedback form-feedback--error" style="display:none;">
-            <p>something went wrong. please try again or email me directly.</p>
-        </div>
+    <div class="container fade-in">
+        <h2 class="serif">say hello.</h2>
+        <p class="text-secondary" style="margin-bottom: 2.5rem; max-width: 420px; line-height: 1.8;">
+            the best way to reach me is on x.
+        </p>
+        <a href="https://x.com/helloiamshane" target="_blank" rel="noopener" class="home-link" style="max-width: 320px; display: flex; text-decoration: none;">
+            <span class="home-link-label">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;fill:currentColor;vertical-align:middle;margin-right:0.5rem;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                @helloiamshane
+            </span>
+            <span class="home-link-arrow">→</span>
+        </a>
     </div>
 
-    <footer>&copy; 2026 shane roycroft</footer>
-
-    <script>
-        const form = document.getElementById('contact-form');
-        const btn = document.getElementById('submit-btn');
-        const success = document.getElementById('form-success');
-        const error = document.getElementById('form-error');
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            btn.textContent = 'sending...';
-            btn.disabled = true;
-            success.style.display = 'none';
-            error.style.display = 'none';
-
-            try {
-                const res = await fetch(form.action, {
-                    method: 'POST',
-                    body: new FormData(form),
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (res.ok) {
-                    form.style.display = 'none';
-                    success.style.display = 'block';
-                } else {
-                    throw new Error();
-                }
-            } catch {
-                error.style.display = 'block';
-                btn.textContent = 'send message';
-                btn.disabled = false;
-            }
-        });
-    </script>
+    <footer>
+        <span>&copy; 2026 shane roycroft</span>
+        <a href="https://x.com/helloiamshane" target="_blank" rel="noopener" class="footer-x" aria-label="X / Twitter">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+    </footer>
 </body>
 </html>
