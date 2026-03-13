@@ -815,11 +815,11 @@
 
         // ─── Init ──────────────────────────────────────────
         window.addEventListener('load', () => {
+            setAdminVisible(false);
             if (getPAT()) {
                 setPatStatus('verifying...', '');
                 verifyPAT();
             } else {
-                // No token — show the PAT form immediately
                 document.getElementById('pat-form').classList.add('visible');
             }
         });
