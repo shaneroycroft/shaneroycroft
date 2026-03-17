@@ -295,7 +295,7 @@
         <!-- Tools tab -->
         <div class="tab-panel" id="tab-tools">
             <div class="admin-section">
-                <p class="text-muted" style="font-size:0.8rem; margin-bottom: 1.5rem;">all tools are processed locally — nothing is sent anywhere.</p>
+                <p class="text-muted" style="font-size:0.8rem; margin-bottom: 1.5rem;">all tools are processed locally — nothing is sent anywhere. <a href="editor.html" target="_blank" style="color:var(--text); font-size:0.78rem;">open full editor →</a></p>
 
                 <!-- Tool sub-nav -->
                 <div class="tool-subnav">
@@ -1088,8 +1088,8 @@
         function downloadEdited() {
             const canvas = document.getElementById('edit-canvas');
             const a = document.createElement('a');
-            a.download = editOrigName + '_edited.jpg';
-            a.href = canvas.toDataURL('image/jpeg', 0.92);
+            a.download = editOrigName + '_edited.png';
+            a.href = canvas.toDataURL('image/png');
             a.click();
         }
 

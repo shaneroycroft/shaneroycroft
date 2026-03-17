@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>editor | shane roycroft</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        html, body { height: 100%; overflow: hidden; }
+
+        /* ── Top bar ──────────────────────────────────────── */
+        .e-bar {
+            height: 46px;
+            display: flex; align-items: center; gap: 1.25rem;
+            padding: 0 1.25rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        .e-bar-title { font-size: 0.72rem; letter-spacing: 2px; color: var(--secondary); flex-shrink: 0; }
+        .e-bar-sep   { color: var(--border); }
+        .e-bar-btn {
+            background: none; border: none; cursor: pointer; font-family: inherit;
+            font-size: 0.72rem; color: var(--secondary); letter-spacing: 0.5px;
+            padding: 0; transition: color 0.2s; text-decoration: none; white-space: nowrap; flex-shrink: 0;
+        }
+        .e-bar-btn:hover { color: var(--text); }
+        .e-bar-btn.primary {
+            background: var(--text); color: var(--bg);
+            padding: 0.3rem 0.85rem;
+        }
+        .e-bar-btn.primary:hover { opacity: 0.7; }
+        .e-bar-btn:disabled, button:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+        .e-bar-spacer { flex: 1; }
+
+        .grid-label {
+            display: flex; align-items: center; gap: 0.4rem;
+            font-size: 0.72rem; color: var(--secondary); cursor: pointer; flex-shrink: 0;
+        }
+        .grid-label input { accent-color: var(--text); cursor: pointer; }
+        #grid-type {
+            font-family: inherit; font-size: 0.7rem; background: var(--bg);
+            color: var(--text); border: 1px solid var(--border); padding: 0.15rem 0.3rem; cursor: pointer;
+        }
+
+        /* ── Layout ───────────────────────────────────────── */
+        .e-layout {
+            display: flex;
+            height: calc(100vh - 46px);
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ──────────────────────────────────────── */
+        .e-sidebar {
+            width: 262px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            background: var(--bg);
+        }
+
+        /* Accordion */
+        .e-sec { border-bottom: 1px solid var(--border); }
+        .e-sec summary {
+            font-size: 0.72rem; text-transform: lowercase; letter-spacing: 1px;
+            cursor: pointer; padding: 0.75rem 1.2rem;
+            user-select: none; list-style: none;
+            display: flex; justify-content: space-between; align-items: center;
+            color: var(--text);
+        }
+        .e-sec summary::-webkit-details-marker { display: none; }
+        .e-sec summary::after { content: '+'; color: var(--secondary); }
+        .e-sec[open] summary::after { content: '−'; }
+        .e-body { padding: 0.25rem 1.2rem 1.1rem; }
+
+        /* Sliders */
+        .s-row { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
+        .s-row:last-of-type { margin-bottom: 0; }
+        .s-row label {
+            font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px;
+            color: var(--secondary); display: flex; justify-content: space-between;
+        }
+        .s-row input[type=range] { width: 100%; accent-color: var(--text); }
+        .c-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
+        .c-row label { font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
+        .c-row input[type=color] { width: 2.2rem; height: 1.75rem; border: 1px solid var(--border); cursor: pointer; padding: 0; background: none; }
+
+        /* Tiny buttons */
+        .s-link { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.7rem; color: var(--secondary); padding: 0; text-decoration: underline; transition: color 0.2s; }
+        .s-link:hover { color: var(--text); }
+        .s-link.red { color: #c0392b; }
+        .s-row-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.7rem; }
+        .s-btn { background: var(--text); color: var(--bg); border: none; padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
+        .s-btn-ghost { background: none; color: var(--text); border: 1px solid var(--border); padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
+        .s-note { font-size: 0.68rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.65rem; }
+
+        /* Curve canvas */
+        #curve-canvas { display: block; cursor: crosshair; border: 1px solid var(--border); margin: 0.35rem 0 0.5rem; }
+
+        /* ── Canvas area ──────────────────────────────────── */
+        .e-main {
+            flex: 1;
+            display: flex; justify-content: center; align-items: center;
+            overflow: auto;
+            background: #efefef;
+            padding: 2.5rem;
+        }
+
+        #drop-hint {
+            text-align: center; padding: 3.5rem 3rem;
+            border: 1px dashed #ccc; cursor: pointer; background: var(--bg);
+            min-width: 260px;
+        }
+        #drop-hint p { font-size: 0.82rem; color: var(--secondary); }
+        #drop-hint p + p { margin-top: 0.3rem; font-size: 0.72rem; }
+
+        /* Black frame = box-shadow only — NOT drawn on canvas */
+        #canvas-wrap {
+            position: relative;
+            display: inline-block;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px #111, 0 6px 32px rgba(0,0,0,0.28);
+        }
+        #output-canvas {
+            display: block;
+            max-width: calc(100vw - 300px - 5rem);
+            max-height: calc(100vh - 46px - 5rem);
+        }
+        /* Overlay: grid + crop UI — never part of output */
+        #overlay-canvas {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        #overlay-canvas.crop-mode { pointer-events: auto; cursor: crosshair; }
+    </style>
+</head>
+<body>
+
+    <!-- Top bar -->
+    <div class="e-bar">
+        <span class="e-bar-title">editor</span>
+        <span class="e-bar-sep">|</span>
+        <button class="e-bar-btn" onclick="document.getElementById('open-input').click()">open image</button>
+        <input type="file" id="open-input" accept="image/*" style="display:none">
+        <span class="e-bar-sep">|</span>
+        <label class="grid-label">
+            <input type="checkbox" id="grid-toggle" onchange="renderOverlay()">
+            grid
+        </label>
+        <select id="grid-type" onchange="renderOverlay()">
+            <option value="thirds">rule of thirds</option>
+            <option value="golden">golden ratio</option>
+            <option value="diagonal">diagonals</option>
+            <option value="4x4">4×4</option>
+        </select>
+        <span class="e-bar-spacer"></span>
+        <button class="e-bar-btn primary" id="dl-btn" onclick="downloadPNG()" disabled>download png</button>
+        <span class="e-bar-sep">|</span>
+        <a href="admin.html" class="e-bar-btn">← admin</a>
+    </div>
+
+    <!-- Layout -->
+    <div class="e-layout">
+
+        <!-- Sidebar -->
+        <div class="e-sidebar">
+
+            <details class="e-sec" open>
+                <summary>adjust</summary>
+                <div class="e-body">
+                    <div class="s-row">
+                        <label>brightness <span id="v-brightness">0</span></label>
+                        <input type="range" id="sl-brightness" min="-100" max="100" value="0" oninput="onAdjust()">
+                    </div>
+                    <div class="s-row">
+                        <label>contrast <span id="v-contrast">0</span></label>
+                        <input type="range" id="sl-contrast" min="-100" max="100" value="0" oninput="onAdjust()">
+                    </div>
+                    <div class="s-row">
+                        <label>saturation <span id="v-saturation">0</span></label>
+                        <input type="range" id="sl-saturation" min="-100" max="100" value="0" oninput="onAdjust()">
+                    </div>
+                    <div class="s-row-btns">
+                        <button class="s-link" onclick="resetAdjust()">reset</button>
+                    </div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>curve</summary>
+                <div class="e-body">
+                    <p class="s-note">click to add point · drag to reshape · double-click to remove</p>
+                    <canvas id="curve-canvas" width="220" height="220"></canvas>
+                    <div class="s-row-btns">
+                        <button class="s-link" onclick="applySCurve()">s-curve</button>
+                        <button class="s-link" onclick="resetCurve()">reset</button>
+                    </div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>border</summary>
+                <div class="e-body">
+                    <div class="s-row">
+                        <label>horizontal (l&r) <span id="v-bx">40px</span></label>
+                        <input type="range" id="sl-bx" min="0" max="400" value="40" oninput="onBorder()">
+                    </div>
+                    <div class="s-row">
+                        <label>vertical (t&b) <span id="v-by">40px</span></label>
+                        <input type="range" id="sl-by" min="0" max="400" value="40" oninput="onBorder()">
+                    </div>
+                    <div class="c-row">
+                        <label>colour</label>
+                        <input type="color" id="sl-bcolor" value="#ffffff" oninput="onBorder()">
+                    </div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>crop</summary>
+                <div class="e-body">
+                    <p class="s-note">drag on the image to select region. crop is applied before border and adjustments.</p>
+                    <div id="crop-idle">
+                        <button class="s-btn" onclick="startCrop()">draw crop</button>
+                    </div>
+                    <div id="crop-active" style="display:none;">
+                        <p class="s-note" id="crop-hint">drag on the image to select an area</p>
+                        <div class="s-row-btns">
+                            <button class="s-btn" onclick="applyCrop()">apply</button>
+                            <button class="s-btn-ghost" onclick="cancelCrop()">cancel</button>
+                        </div>
+                        <div class="s-row-btns" style="margin-top:0.35rem;">
+                            <button class="s-link red" onclick="resetToOriginal()">reset to original</button>
+                        </div>
+                    </div>
+                    <p class="s-note" id="crop-info" style="margin-top:0.5rem; margin-bottom:0;"></p>
+                </div>
+            </details>
+
+        </div>
+
+        <!-- Canvas area -->
+        <div class="e-main" id="e-main">
+            <div id="drop-hint" onclick="document.getElementById('open-input').click()">
+                <p>open an image to start editing</p>
+                <p>or drop it here</p>
+            </div>
+            <div id="canvas-wrap" style="display:none;">
+                <canvas id="output-canvas"></canvas>
+                <canvas id="overlay-canvas"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+    // ── State ─────────────────────────────────────────────────
+    let origCanvas = null; // pristine original
+    let workCanvas = null; // after crop
+    let origName   = 'photo';
+
+    // Curve
+    let curvePoints = [{x:0,y:0},{x:255,y:255}];
+    let dragPt = null;
+    const CS   = 220;  // curve canvas px
+    const PT_R = 8;    // hit radius
+
+    // Crop
+    let cropMode = false, cropA = null, cropB = null, cropDrag = false;
+
+    // ── File open ─────────────────────────────────────────────
+    document.getElementById('open-input').addEventListener('change', e => {
+        if (e.target.files[0]) loadFile(e.target.files[0]);
+    });
+    const eMain = document.getElementById('e-main');
+    eMain.addEventListener('dragover', e => e.preventDefault());
+    eMain.addEventListener('drop', e => {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) loadFile(f);
+    });
+
+    function loadFile(file) {
+        origName = file.name.replace(/\.[^.]+$/, '');
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            origCanvas = mkCanvas(img.naturalWidth, img.naturalHeight);
+            origCanvas.getContext('2d').drawImage(img, 0, 0);
+            workCanvas = cloneCanvas(origCanvas);
+            cancelCrop();
+            document.getElementById('drop-hint').style.display = 'none';
+            document.getElementById('canvas-wrap').style.display = 'inline-block';
+            document.getElementById('dl-btn').disabled = false;
+            render();
+        };
+        img.src = url;
+    }
+
+    function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width=w; c.height=h; return c; }
+    function cloneCanvas(s) { const c = mkCanvas(s.width,s.height); c.getContext('2d').drawImage(s,0,0); return c; }
+
+    // ── Render ────────────────────────────────────────────────
+    function render() {
+        if (!workCanvas) return;
+        const bx     = parseInt(document.getElementById('sl-bx').value);
+        const by     = parseInt(document.getElementById('sl-by').value);
+        const bcolor = document.getElementById('sl-bcolor').value;
+
+        const adj = applyEdits(workCanvas);
+        const out = document.getElementById('output-canvas');
+        out.width  = adj.width  + bx * 2;
+        out.height = adj.height + by * 2;
+        const ctx = out.getContext('2d');
+        ctx.fillStyle = bcolor;
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(adj, bx, by);
+
+        const ov = document.getElementById('overlay-canvas');
+        ov.width  = out.width;
+        ov.height = out.height;
+        renderOverlay();
+    }
+
+    // ── Pixel pipeline ────────────────────────────────────────
+    function applyEdits(src) {
+        const brightness = parseFloat(document.getElementById('sl-brightness').value);
+        const contrast   = parseFloat(document.getElementById('sl-contrast').value);
+        const saturation = parseFloat(document.getElementById('sl-saturation').value);
+        const bright  = brightness / 100 * 255;
+        const cF      = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        const satF    = 1 + saturation / 100;
+        const lut     = buildCurveLUT();
+
+        const out = mkCanvas(src.width, src.height);
+        const ctx = out.getContext('2d');
+        ctx.drawImage(src, 0, 0);
+        const id = ctx.getImageData(0, 0, out.width, out.height);
+        const d  = id.data;
+
+        for (let i = 0; i < d.length; i += 4) {
+            let r=d[i], g=d[i+1], b=d[i+2];
+            r+=bright; g+=bright; b+=bright;
+            r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
+            const gr = 0.2126*r + 0.7152*g + 0.0722*b;
+            r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
+            d[i]  =lut[Math.max(0,Math.min(255,r|0))];
+            d[i+1]=lut[Math.max(0,Math.min(255,g|0))];
+            d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
+        }
+        ctx.putImageData(id, 0, 0);
+        return out;
+    }
+
+    // ── Overlay ───────────────────────────────────────────────
+    function renderOverlay() {
+        const ov = document.getElementById('overlay-canvas');
+        if (!ov.width) return;
+        const ctx = ov.getContext('2d');
+        ctx.clearRect(0, 0, ov.width, ov.height);
+        if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
+        if (cropMode && cropA && cropB) drawCropUI(ctx, ov.width, ov.height);
+    }
+
+    function drawGrid(ctx, W, H) {
+        const type = document.getElementById('grid-type').value;
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5,5]);
+        const ln = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
+        if (type === 'thirds') {
+            [1/3,2/3].forEach(t => { ln(t*W,0,t*W,H); ln(0,t*H,W,t*H); });
+        } else if (type === 'golden') {
+            const p=0.38197; [p,1-p].forEach(t => { ln(t*W,0,t*W,H); ln(0,t*H,W,t*H); });
+        } else if (type === 'diagonal') {
+            ln(0,0,W,H); ln(W,0,0,H);
+            ln(0,0,W*0.618,H); ln(W,0,W*0.382,H);
+            ln(0,H*0.382,W,0); ln(0,H*0.618,W,H);
+        } else {
+            [1,2,3].forEach(i => { ln(i*W/4,0,i*W/4,H); ln(0,i*H/4,W,i*H/4); });
+        }
+        ctx.setLineDash([]);
+    }
+
+    // ── Crop ──────────────────────────────────────────────────
+    function startCrop() {
+        if (!workCanvas) return;
+        cropMode=true; cropA=null; cropB=null;
+        document.getElementById('crop-idle').style.display   = 'none';
+        document.getElementById('crop-active').style.display = 'block';
+        document.getElementById('crop-hint').textContent = 'drag on the image to select area';
+        document.getElementById('overlay-canvas').classList.add('crop-mode');
+        renderOverlay();
+    }
+
+    function cancelCrop() {
+        cropMode=false; cropA=null; cropB=null; cropDrag=false;
+        document.getElementById('crop-idle').style.display   = '';
+        document.getElementById('crop-active').style.display = 'none';
+        document.getElementById('crop-info').textContent = '';
+        document.getElementById('overlay-canvas').classList.remove('crop-mode');
+        renderOverlay();
+    }
+
+    function applyCrop() {
+        if (!cropA||!cropB||!workCanvas) return;
+        const r  = cropRect();
+        const bx = parseInt(document.getElementById('sl-bx').value);
+        const by = parseInt(document.getElementById('sl-by').value);
+        const ix  = Math.max(0, Math.round(r.x - bx));
+        const iy  = Math.max(0, Math.round(r.y - by));
+        const ix2 = Math.min(workCanvas.width,  Math.round(r.x + r.w - bx));
+        const iy2 = Math.min(workCanvas.height, Math.round(r.y + r.h - by));
+        const iw  = ix2 - ix, ih = iy2 - iy;
+        if (iw < 2 || ih < 2) { cancelCrop(); return; }
+        const nc = mkCanvas(iw, ih);
+        nc.getContext('2d').drawImage(workCanvas, ix, iy, iw, ih, 0, 0, iw, ih);
+        workCanvas = nc;
+        cancelCrop();
+        render();
+        document.getElementById('crop-info').textContent = `cropped to ${iw} × ${ih}px`;
+    }
+
+    function resetToOriginal() {
+        workCanvas = cloneCanvas(origCanvas);
+        cancelCrop();
+        render();
+        document.getElementById('crop-info').textContent = 'reset to original.';
+    }
+
+    function cropRect() {
+        return {
+            x: Math.min(cropA.x,cropB.x), y: Math.min(cropA.y,cropB.y),
+            w: Math.abs(cropB.x-cropA.x), h: Math.abs(cropB.y-cropA.y)
+        };
+    }
+
+    function drawCropUI(ctx, W, H) {
+        const r = cropRect();
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(0,0,W,r.y); ctx.fillRect(0,r.y+r.h,W,H-r.y-r.h);
+        ctx.fillRect(0,r.y,r.x,r.h); ctx.fillRect(r.x+r.w,r.y,W-r.x-r.w,r.h);
+        ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.5; ctx.setLineDash([]);
+        ctx.strokeRect(r.x+0.5,r.y+0.5,r.w,r.h);
+        // thirds inside
+        ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1;
+        [1/3,2/3].forEach(t => {
+            ctx.beginPath(); ctx.moveTo(r.x+t*r.w,r.y); ctx.lineTo(r.x+t*r.w,r.y+r.h); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(r.x,r.y+t*r.h); ctx.lineTo(r.x+r.w,r.y+t*r.h); ctx.stroke();
+        });
+        // corner handles
+        const hs=7; ctx.fillStyle='#fff';
+        [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]].forEach(([hx,hy]) => ctx.fillRect(hx-hs/2,hy-hs/2,hs,hs));
+        // size label
+        if (r.w > 70 && r.h > 22) {
+            const bx=parseInt(document.getElementById('sl-bx').value), by=parseInt(document.getElementById('sl-by').value);
+            const lbl = `${Math.round(Math.max(0,r.w))} × ${Math.round(Math.max(0,r.h))}`;
+            ctx.font='11px monospace'; const lw=ctx.measureText(lbl).width;
+            ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(r.x+r.w/2-lw/2-4,r.y+r.h+3,lw+8,18);
+            ctx.fillStyle='#fff'; ctx.fillText(lbl,r.x+r.w/2-lw/2,r.y+r.h+16);
+        }
+    }
+
+    // Overlay pointer events (crop)
+    const ovEl = document.getElementById('overlay-canvas');
+    function ovCoords(e) {
+        const rect = ovEl.getBoundingClientRect();
+        return { x:(e.clientX-rect.left)*(ovEl.width/rect.width), y:(e.clientY-rect.top)*(ovEl.height/rect.height) };
+    }
+    ovEl.addEventListener('mousedown', e => { if(!cropMode||e.button!==0) return; cropDrag=true; cropA=ovCoords(e); cropB={...cropA}; renderOverlay(); });
+    ovEl.addEventListener('mousemove', e => { if(!cropMode||!cropDrag) return; cropB=ovCoords(e); renderOverlay(); });
+    ovEl.addEventListener('mouseup',   e => { if(!cropMode) return; cropDrag=false; cropB=ovCoords(e); renderOverlay(); });
+
+    // ── Sliders ───────────────────────────────────────────────
+    function onAdjust() {
+        ['brightness','contrast','saturation'].forEach(k => {
+            document.getElementById('v-'+k).textContent = document.getElementById('sl-'+k).value;
+        });
+        render();
+    }
+    function resetAdjust() {
+        ['brightness','contrast','saturation'].forEach(k => {
+            document.getElementById('sl-'+k).value=0; document.getElementById('v-'+k).textContent='0';
+        });
+        render();
+    }
+    function onBorder() {
+        document.getElementById('v-bx').textContent = document.getElementById('sl-bx').value+'px';
+        document.getElementById('v-by').textContent = document.getElementById('sl-by').value+'px';
+        render();
+    }
+
+    // ── Download ──────────────────────────────────────────────
+    function downloadPNG() {
+        const a = document.createElement('a');
+        a.download = origName + '_edited.png';
+        a.href = document.getElementById('output-canvas').toDataURL('image/png');
+        a.click();
+    }
+
+    // ── Monotone cubic spline ─────────────────────────────────
+    function monotoneCubic(xs, ys) {
+        const n=xs.length;
+        if (n===1) return ()=>ys[0];
+        const d=[],m=[];
+        for (let i=0;i<n-1;i++) d[i]=(ys[i+1]-ys[i])/(xs[i+1]-xs[i]);
+        m[0]=d[0]; m[n-1]=d[n-2];
+        for (let i=1;i<n-1;i++) m[i]=d[i-1]*d[i]<=0?0:(d[i-1]+d[i])/2;
+        for (let i=0;i<n-1;i++) {
+            if(d[i]===0){m[i]=m[i+1]=0;continue;}
+            const sq=(m[i]/d[i])**2+(m[i+1]/d[i])**2;
+            if(sq>9){const t=3/Math.sqrt(sq);m[i]*=t;m[i+1]*=t;}
+        }
+        return x=>{
+            if(x<=xs[0]) return ys[0]; if(x>=xs[n-1]) return ys[n-1];
+            let lo=0,hi=n-1;
+            while(hi-lo>1){const mid=(lo+hi)>>1; xs[mid]<=x?lo=mid:hi=mid;}
+            const h=xs[hi]-xs[lo],t=(x-xs[lo])/h,t2=t*t,t3=t2*t;
+            return (2*t3-3*t2+1)*ys[lo]+(t3-2*t2+t)*h*m[lo]+(-2*t3+3*t2)*ys[hi]+(t3-t2)*h*m[hi];
+        };
+    }
+
+    function buildCurveLUT() {
+        const pts=[...curvePoints].sort((a,b)=>a.x-b.x);
+        const f=monotoneCubic(pts.map(p=>p.x),pts.map(p=>p.y));
+        const lut=new Uint8Array(256);
+        for(let i=0;i<256;i++) lut[i]=Math.max(0,Math.min(255,Math.round(f(i))));
+        return lut;
+    }
+
+    // ── Curve canvas ──────────────────────────────────────────
+    function drawCurve() {
+        const cv=document.getElementById('curve-canvas'), ctx=cv.getContext('2d');
+        ctx.clearRect(0,0,CS,CS);
+        ctx.fillStyle='#111'; ctx.fillRect(0,0,CS,CS);
+        ctx.strokeStyle='#252525'; ctx.lineWidth=1;
+        [0.25,0.5,0.75].forEach(t=>{
+            ctx.beginPath();ctx.moveTo(t*CS,0);ctx.lineTo(t*CS,CS);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(0,t*CS);ctx.lineTo(CS,t*CS);ctx.stroke();
+        });
+        ctx.strokeStyle='#2e2e2e'; ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(0,CS);ctx.lineTo(CS,0);ctx.stroke();
+        const lut=buildCurveLUT();
+        ctx.strokeStyle='#ddd'; ctx.lineWidth=1.5; ctx.beginPath();
+        for(let x=0;x<256;x++){const px=(x/255)*CS,py=CS-(lut[x]/255)*CS; x===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
+        ctx.stroke();
+        [...curvePoints].sort((a,b)=>a.x-b.x).forEach(pt=>{
+            const px=(pt.x/255)*CS,py=CS-(pt.y/255)*CS;
+            ctx.beginPath();ctx.arc(px,py,4.5,0,Math.PI*2);
+            ctx.fillStyle='#fff';ctx.fill();
+            ctx.strokeStyle='#555';ctx.lineWidth=1;ctx.stroke();
+        });
+    }
+
+    function cvCoords(e) {
+        const cv=document.getElementById('curve-canvas'), rect=cv.getBoundingClientRect();
+        const px=(e.clientX-rect.left)*(CS/rect.width), py=(e.clientY-rect.top)*(CS/rect.height);
+        return {px,py,x:Math.max(0,Math.min(255,Math.round((px/CS)*255))),y:Math.max(0,Math.min(255,Math.round((1-py/CS)*255)))};
+    }
+    function hitPt(e) {
+        const {px,py}=cvCoords(e);
+        return curvePoints.find(pt=>Math.abs(px-(pt.x/255)*CS)<PT_R&&Math.abs(py-(CS-(pt.y/255)*CS))<PT_R);
+    }
+
+    (function initCurve(){
+        const cv=document.getElementById('curve-canvas');
+        cv.addEventListener('mousedown',e=>{
+            if(e.button!==0)return;
+            const hit=hitPt(e);
+            if(hit){dragPt=hit;}else{const c=cvCoords(e);const p={x:c.x,y:c.y};curvePoints.push(p);dragPt=p;}
+            drawCurve();e.preventDefault();
+        });
+        cv.addEventListener('mousemove',e=>{
+            if(!dragPt)return; const c=cvCoords(e); dragPt.x=c.x;dragPt.y=c.y; drawCurve();render();
+        });
+        cv.addEventListener('mouseup',()=>dragPt=null);
+        cv.addEventListener('mouseleave',()=>dragPt=null);
+        cv.addEventListener('dblclick',e=>{
+            const hit=hitPt(e);
+            if(!hit||curvePoints.length<=2)return;
+            curvePoints=curvePoints.filter(p=>p!==hit); drawCurve();render();
+        });
+        drawCurve();
+    })();
+
+    function applySCurve(){curvePoints=[{x:0,y:0},{x:64,y:40},{x:128,y:128},{x:192,y:215},{x:255,y:255}];drawCurve();render();}
+    function resetCurve() {curvePoints=[{x:0,y:0},{x:255,y:255}];drawCurve();render();}
+    </script>
+</body>
+</html>
