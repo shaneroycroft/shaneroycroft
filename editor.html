@@ -87,6 +87,15 @@
         .c-row label { font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
         .c-row input[type=color] { width: 2.2rem; height: 1.75rem; border: 1px solid var(--border); cursor: pointer; padding: 0; background: none; }
 
+        /* Aspect ratio buttons */
+        .ar-btn {
+            background: none; border: 1px solid var(--border); cursor: pointer;
+            font-family: inherit; font-size: 0.68rem; color: var(--secondary);
+            padding: 0.2rem 0.45rem; transition: 0.15s; letter-spacing: 0.3px;
+        }
+        .ar-btn:hover { border-color: var(--text); color: var(--text); }
+        .ar-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
         /* Tiny buttons */
         .s-link { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.7rem; color: var(--secondary); padding: 0; text-decoration: underline; transition: color 0.2s; }
         .s-link:hover { color: var(--text); }
@@ -95,6 +104,17 @@
         .s-btn { background: var(--text); color: var(--bg); border: none; padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
         .s-btn-ghost { background: none; color: var(--text); border: 1px solid var(--border); padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
         .s-note { font-size: 0.68rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.65rem; }
+
+        /* Transform grid */
+        .transform-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+        }
+        .transform-grid button {
+            font-size: 0.7rem; padding: 0.4rem 0.5rem; text-align: center;
+            background: none; border: 1px solid var(--border); cursor: pointer;
+            font-family: inherit; color: var(--text); transition: border-color 0.2s;
+        }
+        .transform-grid button:hover { border-color: var(--text); }
 
         /* Curve canvas */
         #curve-canvas { display: block; cursor: crosshair; border: 1px solid var(--border); margin: 0.35rem 0 0.5rem; }
@@ -156,6 +176,12 @@
             <option value="diagonal">diagonals</option>
             <option value="4x4">4×4</option>
         </select>
+        <span class="e-bar-sep">|</span>
+        <button class="e-bar-btn" id="before-after-btn"
+            onmousedown="showOriginal(true)" onmouseup="showOriginal(false)"
+            ontouchstart="showOriginal(true)" ontouchend="showOriginal(false)">
+            before/after
+        </button>
         <span class="e-bar-spacer"></span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadPNG()" disabled>download png</button>
         <span class="e-bar-sep">|</span>
@@ -182,6 +208,14 @@
                     <div class="s-row">
                         <label>saturation <span id="v-saturation">0</span></label>
                         <input type="range" id="sl-saturation" min="-100" max="100" value="0" oninput="onAdjust()">
+                    </div>
+                    <div class="s-row">
+                        <label>temperature <span id="v-temperature">0</span></label>
+                        <input type="range" id="sl-temperature" min="-100" max="100" value="0" oninput="onAdjust()">
+                    </div>
+                    <div class="s-row">
+                        <label>sharpen <span id="v-sharpen">0</span></label>
+                        <input type="range" id="sl-sharpen" min="0" max="100" value="0" oninput="onAdjust()">
                     </div>
                     <div class="s-row-btns">
                         <button class="s-link" onclick="resetAdjust()">reset</button>
@@ -220,14 +254,64 @@
             </details>
 
             <details class="e-sec">
+                <summary>transform</summary>
+                <div class="e-body">
+                    <div class="transform-grid">
+                        <button class="s-btn-ghost" onclick="rotateWork(-90)">↺ 90° ccw</button>
+                        <button class="s-btn-ghost" onclick="rotateWork(90)">↻ 90° cw</button>
+                        <button class="s-btn-ghost" onclick="flipWork('h')">↔ flip h</button>
+                        <button class="s-btn-ghost" onclick="flipWork('v')">↕ flip v</button>
+                    </div>
+                    <div class="s-row" style="margin-top:1rem;">
+                        <label>straighten <span id="v-straighten">0°</span></label>
+                        <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" oninput="onStraighten()">
+                    </div>
+                    <div class="s-row-btns">
+                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0; onStraighten()">reset</button>
+                    </div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>vignette</summary>
+                <div class="e-body">
+                    <div class="s-row">
+                        <label>strength <span id="v-vignette">0</span></label>
+                        <input type="range" id="sl-vignette" min="0" max="100" value="0" oninput="onVignette()">
+                    </div>
+                </div>
+            </details>
+
+            <details class="e-sec">
                 <summary>crop</summary>
                 <div class="e-body">
-                    <p class="s-note">drag on the image to select region. crop is applied before border and adjustments.</p>
+                    <p class="s-note">drag on the image to select region. applied before border and adjustments.</p>
+
+                    <!-- Aspect ratio -->
+                    <div class="s-row" style="margin-bottom:0.75rem;">
+                        <label>aspect ratio</label>
+                        <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.3rem;">
+                            <button class="ar-btn active" data-ar="free" onclick="setAR(this,'free')">free</button>
+                            <button class="ar-btn" data-ar="1:1"  onclick="setAR(this,'1:1')">1:1</button>
+                            <button class="ar-btn" data-ar="4:3"  onclick="setAR(this,'4:3')">4:3</button>
+                            <button class="ar-btn" data-ar="3:2"  onclick="setAR(this,'3:2')">3:2</button>
+                            <button class="ar-btn" data-ar="16:9" onclick="setAR(this,'16:9')">16:9</button>
+                            <button class="ar-btn" data-ar="2:3"  onclick="setAR(this,'2:3')">2:3</button>
+                            <button class="ar-btn" data-ar="9:16" onclick="setAR(this,'9:16')">9:16</button>
+                            <button class="ar-btn" data-ar="custom" onclick="setAR(this,'custom')">custom</button>
+                        </div>
+                    </div>
+                    <div id="ar-custom-row" style="display:none; gap:0.4rem; align-items:center; margin-bottom:0.75rem;">
+                        <input id="ar-w" type="number" min="1" max="99" value="3" style="width:42px; font-family:inherit; font-size:0.72rem; border:1px solid var(--border); padding:0.2rem 0.3rem; background:var(--bg); color:var(--text);" oninput="onCustomAR()">
+                        <span style="font-size:0.7rem; color:var(--secondary);">:</span>
+                        <input id="ar-h" type="number" min="1" max="99" value="2" style="width:42px; font-family:inherit; font-size:0.72rem; border:1px solid var(--border); padding:0.2rem 0.3rem; background:var(--bg); color:var(--text);" oninput="onCustomAR()">
+                    </div>
+
                     <div id="crop-idle">
                         <button class="s-btn" onclick="startCrop()">draw crop</button>
                     </div>
                     <div id="crop-active" style="display:none;">
-                        <p class="s-note" id="crop-hint">drag on the image to select an area</p>
+                        <p class="s-note" id="crop-hint">drag on the image to select area</p>
                         <div class="s-row-btns">
                             <button class="s-btn" onclick="applyCrop()">apply</button>
                             <button class="s-btn-ghost" onclick="cancelCrop()">cancel</button>
@@ -270,6 +354,11 @@
 
     // Crop
     let cropMode = false, cropA = null, cropB = null, cropDrag = false;
+    let cropAR = 'free'; // 'free' | 'custom' | 'W:H' string
+
+    // Transform / vignette / before-after
+    let straightenAngle  = 0;
+    let showingOriginal  = false;
 
     // ── File open ─────────────────────────────────────────────
     document.getElementById('open-input').addEventListener('change', e => {
@@ -306,12 +395,16 @@
 
     // ── Render ────────────────────────────────────────────────
     function render() {
-        if (!workCanvas) return;
+        if (!workCanvas || showingOriginal) return;
         const bx     = parseInt(document.getElementById('sl-bx').value);
         const by     = parseInt(document.getElementById('sl-by').value);
         const bcolor = document.getElementById('sl-bcolor').value;
+        const vigStr = parseInt(document.getElementById('sl-vignette').value);
 
-        const adj = applyEdits(workCanvas);
+        let adj = applyEdits(workCanvas);
+        adj = applyStraighten(adj, straightenAngle);
+        applyVignette(adj, vigStr);
+
         const out = document.getElementById('output-canvas');
         out.width  = adj.width  + bx * 2;
         out.height = adj.height + by * 2;
@@ -328,12 +421,16 @@
 
     // ── Pixel pipeline ────────────────────────────────────────
     function applyEdits(src) {
-        const brightness = parseFloat(document.getElementById('sl-brightness').value);
-        const contrast   = parseFloat(document.getElementById('sl-contrast').value);
-        const saturation = parseFloat(document.getElementById('sl-saturation').value);
+        const brightness  = parseFloat(document.getElementById('sl-brightness').value);
+        const contrast    = parseFloat(document.getElementById('sl-contrast').value);
+        const saturation  = parseFloat(document.getElementById('sl-saturation').value);
+        const temperature = parseFloat(document.getElementById('sl-temperature').value);
+        const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
         const bright  = brightness / 100 * 255;
         const cF      = (259 * (contrast + 255)) / (255 * (259 - contrast));
         const satF    = 1 + saturation / 100;
+        const tempR   = temperature * 0.4;
+        const tempB   = temperature * 0.4;
         const lut     = buildCurveLUT();
 
         const out = mkCanvas(src.width, src.height);
@@ -348,12 +445,98 @@
             r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
             const gr = 0.2126*r + 0.7152*g + 0.0722*b;
             r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
+            r += tempR; b -= tempB;
             d[i]  =lut[Math.max(0,Math.min(255,r|0))];
             d[i+1]=lut[Math.max(0,Math.min(255,g|0))];
             d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
         }
         ctx.putImageData(id, 0, 0);
+        applySharpening(ctx, out.width, out.height, sharpen);
         return out;
+    }
+
+    function applySharpening(ctx, w, h, amount) {
+        if (amount <= 0) return;
+        const a = amount / 100 * 1.5;
+        const id = ctx.getImageData(0, 0, w, h);
+        const src = new Uint8ClampedArray(id.data);
+        const d = id.data;
+        for (let y = 1; y < h-1; y++) {
+            for (let x = 1; x < w-1; x++) {
+                const i = (y*w + x) * 4;
+                for (let c = 0; c < 3; c++) {
+                    const v = (1+4*a)*src[i+c]
+                        - a*src[i-4+c] - a*src[i+4+c]
+                        - a*src[i-w*4+c] - a*src[i+w*4+c];
+                    d[i+c] = Math.max(0, Math.min(255, v));
+                }
+            }
+        }
+        ctx.putImageData(id, 0, 0);
+    }
+
+    function applyStraighten(src, angleDeg) {
+        if (angleDeg === 0) return src;
+        const rad = angleDeg * Math.PI / 180;
+        const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+        const newW = Math.round(src.width * cos + src.height * sin);
+        const newH = Math.round(src.width * sin + src.height * cos);
+        const out = mkCanvas(newW, newH);
+        const ctx = out.getContext('2d');
+        ctx.translate(newW/2, newH/2);
+        ctx.rotate(rad);
+        ctx.drawImage(src, -src.width/2, -src.height/2);
+        return out;
+    }
+
+    function applyVignette(canvas, strength) {
+        if (strength <= 0) return;
+        const ctx = canvas.getContext('2d');
+        const cx = canvas.width/2, cy = canvas.height/2;
+        const r = Math.sqrt(cx*cx + cy*cy);
+        const grad = ctx.createRadialGradient(cx, cy, r*0.3, cx, cy, r);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, `rgba(0,0,0,${strength/100 * 0.85})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function rotateWork(deg) {
+        if (!workCanvas) return;
+        const newW = (deg === 90 || deg === -90 || deg === 270) ? workCanvas.height : workCanvas.width;
+        const newH = (deg === 90 || deg === -90 || deg === 270) ? workCanvas.width  : workCanvas.height;
+        const out = mkCanvas(newW, newH);
+        const ctx = out.getContext('2d');
+        ctx.translate(newW/2, newH/2);
+        ctx.rotate(deg * Math.PI / 180);
+        ctx.drawImage(workCanvas, -workCanvas.width/2, -workCanvas.height/2);
+        workCanvas = out;
+        render();
+    }
+
+    function flipWork(axis) {
+        if (!workCanvas) return;
+        const out = mkCanvas(workCanvas.width, workCanvas.height);
+        const ctx = out.getContext('2d');
+        if (axis === 'h') { ctx.translate(workCanvas.width, 0); ctx.scale(-1, 1); }
+        else              { ctx.translate(0, workCanvas.height); ctx.scale(1, -1); }
+        ctx.drawImage(workCanvas, 0, 0);
+        workCanvas = out;
+        render();
+    }
+
+    function showOriginal(on) {
+        showingOriginal = on;
+        if (on && workCanvas) {
+            const out = document.getElementById('output-canvas');
+            out.width = workCanvas.width; out.height = workCanvas.height;
+            out.getContext('2d').drawImage(workCanvas, 0, 0);
+            const ov = document.getElementById('overlay-canvas');
+            ov.width = out.width; ov.height = out.height;
+            ov.getContext('2d').clearRect(0, 0, 999999, 999999);
+        } else {
+            render();
+        }
     }
 
     // ── Overlay ───────────────────────────────────────────────
@@ -368,7 +551,7 @@
 
     function drawGrid(ctx, W, H) {
         const type = document.getElementById('grid-type').value;
-        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.78)';
         ctx.lineWidth = 1;
         ctx.setLineDash([5,5]);
         const ln = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
@@ -433,10 +616,44 @@
     }
 
     function cropRect() {
-        return {
-            x: Math.min(cropA.x,cropB.x), y: Math.min(cropA.y,cropB.y),
-            w: Math.abs(cropB.x-cropA.x), h: Math.abs(cropB.y-cropA.y)
-        };
+        let x = Math.min(cropA.x,cropB.x), y = Math.min(cropA.y,cropB.y);
+        let w = Math.abs(cropB.x-cropA.x), h = Math.abs(cropB.y-cropA.y);
+        const ratio = getARRatio();
+        if (ratio !== null && w > 0 && h > 0) {
+            // Expand the shorter side to match ratio, anchored at start point
+            const targetH = w / ratio;
+            const targetW = h * ratio;
+            if (targetH <= h) h = targetH; else w = targetW;
+            // Re-anchor: keep the drag origin corner
+            if (cropB.x < cropA.x) x = cropA.x - w;
+            if (cropB.y < cropA.y) y = cropA.y - h;
+        }
+        return { x, y, w, h };
+    }
+
+    function getARRatio() {
+        if (cropAR === 'free') return null;
+        let str = cropAR;
+        if (cropAR === 'custom') {
+            const cw = parseFloat(document.getElementById('ar-w').value);
+            const ch = parseFloat(document.getElementById('ar-h').value);
+            if (!cw || !ch) return null;
+            return cw / ch;
+        }
+        const [pw, ph] = str.split(':').map(Number);
+        return pw / ph;
+    }
+
+    function setAR(btn, value) {
+        cropAR = value;
+        document.querySelectorAll('.ar-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('ar-custom-row').style.display = value === 'custom' ? 'flex' : 'none';
+        if (cropMode && cropA && cropB) renderOverlay();
+    }
+
+    function onCustomAR() {
+        if (cropMode && cropA && cropB) renderOverlay();
     }
 
     function drawCropUI(ctx, W, H) {
@@ -455,12 +672,13 @@
         // corner handles
         const hs=7; ctx.fillStyle='#fff';
         [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]].forEach(([hx,hy]) => ctx.fillRect(hx-hs/2,hy-hs/2,hs,hs));
-        // size label
+        // size label — show image pixels (excluding border)
         if (r.w > 70 && r.h > 22) {
             const bx=parseInt(document.getElementById('sl-bx').value), by=parseInt(document.getElementById('sl-by').value);
-            const lbl = `${Math.round(Math.max(0,r.w))} × ${Math.round(Math.max(0,r.h))}`;
+            const px=Math.round(Math.max(0,r.w-(r.x<bx?0:0))), py=Math.round(Math.max(0,r.h));
+            const lbl = `${px} × ${py}`;
             ctx.font='11px monospace'; const lw=ctx.measureText(lbl).width;
-            ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(r.x+r.w/2-lw/2-4,r.y+r.h+3,lw+8,18);
+            ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(r.x+r.w/2-lw/2-4,r.y+r.h+3,lw+8,18);
             ctx.fillStyle='#fff'; ctx.fillText(lbl,r.x+r.w/2-lw/2,r.y+r.h+16);
         }
     }
@@ -477,15 +695,25 @@
 
     // ── Sliders ───────────────────────────────────────────────
     function onAdjust() {
-        ['brightness','contrast','saturation'].forEach(k => {
-            document.getElementById('v-'+k).textContent = document.getElementById('sl-'+k).value;
+        ['brightness','contrast','saturation','temperature','sharpen'].forEach(k => {
+            const el = document.getElementById('v-'+k);
+            if (el) el.textContent = document.getElementById('sl-'+k).value;
         });
         render();
     }
     function resetAdjust() {
-        ['brightness','contrast','saturation'].forEach(k => {
+        ['brightness','contrast','saturation','temperature','sharpen'].forEach(k => {
             document.getElementById('sl-'+k).value=0; document.getElementById('v-'+k).textContent='0';
         });
+        render();
+    }
+    function onStraighten() {
+        straightenAngle = parseFloat(document.getElementById('sl-straighten').value);
+        document.getElementById('v-straighten').textContent = straightenAngle + '°';
+        render();
+    }
+    function onVignette() {
+        document.getElementById('v-vignette').textContent = document.getElementById('sl-vignette').value;
         render();
     }
     function onBorder() {
@@ -536,23 +764,23 @@
     function drawCurve() {
         const cv=document.getElementById('curve-canvas'), ctx=cv.getContext('2d');
         ctx.clearRect(0,0,CS,CS);
-        ctx.fillStyle='#111'; ctx.fillRect(0,0,CS,CS);
-        ctx.strokeStyle='#252525'; ctx.lineWidth=1;
+        ctx.fillStyle='#fff'; ctx.fillRect(0,0,CS,CS);
+        ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.lineWidth=1;
         [0.25,0.5,0.75].forEach(t=>{
             ctx.beginPath();ctx.moveTo(t*CS,0);ctx.lineTo(t*CS,CS);ctx.stroke();
             ctx.beginPath();ctx.moveTo(0,t*CS);ctx.lineTo(CS,t*CS);ctx.stroke();
         });
-        ctx.strokeStyle='#2e2e2e'; ctx.lineWidth=1;
+        ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(0,CS);ctx.lineTo(CS,0);ctx.stroke();
         const lut=buildCurveLUT();
-        ctx.strokeStyle='#ddd'; ctx.lineWidth=1.5; ctx.beginPath();
+        ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=1.5; ctx.beginPath();
         for(let x=0;x<256;x++){const px=(x/255)*CS,py=CS-(lut[x]/255)*CS; x===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
         ctx.stroke();
         [...curvePoints].sort((a,b)=>a.x-b.x).forEach(pt=>{
             const px=(pt.x/255)*CS,py=CS-(pt.y/255)*CS;
             ctx.beginPath();ctx.arc(px,py,4.5,0,Math.PI*2);
-            ctx.fillStyle='#fff';ctx.fill();
-            ctx.strokeStyle='#555';ctx.lineWidth=1;ctx.stroke();
+            ctx.fillStyle='#1a1a1a';ctx.fill();
+            ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
         });
     }
 

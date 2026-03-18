@@ -72,16 +72,21 @@ nav {
 }
 
 /* --- Photography Sub-Nav --- */
-.sub-nav { 
-    margin-top: 2rem; 
-    display: flex; 
-    gap: 1.5rem; 
-    font-size: 0.7rem; 
+.sub-nav {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.7rem;
     text-transform: lowercase;
     color: var(--secondary);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+    scrollbar-width: none;
 }
-
-.sub-nav span { cursor: pointer; transition: 0.3s; }
+.sub-nav::-webkit-scrollbar { display: none; }
+.sub-nav span { cursor: pointer; transition: 0.3s; flex-shrink: 0; }
 .sub-nav span:hover, .sub-nav span.active { color: var(--text); font-weight: 600; }
 
 /* --- Layout --- */
@@ -151,15 +156,28 @@ h1.serif, h2.serif {
 
 /* --- Photography Grid --- */
 .gallery { columns: 2; column-gap: 1.5rem; }
-.gallery-item { margin-bottom: 1.5rem; break-inside: avoid; }
-.gallery-item img { 
-    width: 100%; 
-    height: auto; 
-    filter: grayscale(100%); 
-    transition: 0.8s ease; 
-    display: block; 
+.gallery-item { margin-bottom: 1.5rem; break-inside: avoid; position: relative; overflow: hidden; }
+.gallery-item img {
+    width: 100%;
+    height: auto;
+    filter: grayscale(100%);
+    opacity: 0;
+    transition: filter 0.8s ease, opacity 0.5s ease;
+    display: block;
+    cursor: pointer;
 }
+.gallery-item img.loaded { opacity: 1; }
 .gallery-item:hover img { filter: grayscale(0%); }
+
+/* Caption overlay */
+.gallery-caption {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 2rem 0.75rem 0.65rem;
+    background: linear-gradient(transparent, rgba(0,0,0,0.52));
+    color: #fff; font-size: 0.68rem; letter-spacing: 0.4px;
+    opacity: 0; transition: opacity 0.25s; pointer-events: none;
+}
+.gallery-item:hover .gallery-caption { opacity: 1; }
 
 /* --- Projects --- */
 .project-list { display: flex; flex-direction: column; gap: 4rem; }
@@ -211,6 +229,23 @@ h1.serif, h2.serif {
     text-transform: lowercase;
     color: #ccc;
     cursor: default;
+}
+
+.project-links { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.project-badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    text-transform: lowercase;
+    letter-spacing: 1.5px;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--border);
+    color: var(--secondary);
+    cursor: default;
+    vertical-align: middle;
+}
+.project-badge--live {
+    border-color: #27ae60;
+    color: #27ae60;
 }
 
 /* --- Contact --- */

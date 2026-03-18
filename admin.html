@@ -53,9 +53,27 @@
 
         /* ── shared section label ────────────────────────── */
         .admin-section { margin-bottom: 3rem; }
-        .category-tabs { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
-        .category-tabs span { font-size: 0.8rem; text-transform: lowercase; letter-spacing: 1px; cursor: pointer; color: var(--secondary); padding-bottom: 4px; transition: 0.2s; }
+
+        /* Category row — label · tabs · + new */
+        .cat-row {
+            display: flex; align-items: center; gap: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.75rem;
+        }
+        .cat-label {
+            font-size: 0.68rem; text-transform: lowercase; letter-spacing: 1.5px;
+            color: var(--secondary); flex-shrink: 0;
+        }
+        .category-tabs { display: flex; gap: 1.5rem; flex-wrap: wrap; flex: 1; }
+        .category-tabs span { font-size: 0.8rem; text-transform: lowercase; letter-spacing: 1px; cursor: pointer; color: var(--secondary); padding-bottom: 2px; transition: 0.2s; }
         .category-tabs span.active { color: var(--text); border-bottom: 1px solid var(--text); }
+        .cat-new-btn {
+            background: none; border: none; cursor: pointer; font-family: inherit;
+            font-size: 0.72rem; color: var(--secondary); letter-spacing: 0.5px;
+            padding: 0; transition: color 0.2s; flex-shrink: 0; white-space: nowrap;
+        }
+        .cat-new-btn:hover { color: var(--text); }
         .drop-zone {
             border: 1px dashed var(--border);
             padding: 3rem 2rem;
@@ -131,85 +149,11 @@
         }
         .btn-ghost:hover { border-color: var(--text); }
 
-        /* Tool sub-nav */
-        .tool-subnav {
-            display: flex; gap: 2rem; margin-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        .tool-subnav-item {
-            font-size: 0.78rem; text-transform: lowercase; letter-spacing: 1px;
-            color: var(--secondary); cursor: pointer; padding-bottom: 0.6rem;
-            border-bottom: 1px solid transparent; margin-bottom: -1px; transition: 0.2s;
-        }
-        .tool-subnav-item.active { color: var(--text); border-bottom-color: var(--text); }
-        .tool-subnav-item:hover:not(.active) { color: var(--text); }
 
-        /* Border tool */
-        .border-tool-grid {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 2rem;
-            align-items: start;
-        }
-        @media (max-width: 640px) { .border-tool-grid { grid-template-columns: 1fr; } }
-        .border-controls { display: flex; flex-direction: column; gap: 1.5rem; }
-        .slider-row { display: flex; flex-direction: column; gap: 0.4rem; }
-        .slider-row label { font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); display: flex; justify-content: space-between; }
-        .slider-row input[type=range] { width: 100%; accent-color: var(--text); }
-        .color-row { display: flex; align-items: center; gap: 1rem; }
-        .color-row label { font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
-        .color-row input[type=color] { width: 2.5rem; height: 2rem; border: 1px solid var(--border); cursor: pointer; padding: 0; background: none; }
-        #border-canvas-wrap { background: repeating-conic-gradient(#e0e0e0 0% 25%, #fff 0% 50%) 0 0 / 16px 16px; display: flex; justify-content: center; align-items: center; min-height: 200px; }
-        #border-canvas { max-width: 100%; max-height: 400px; display: block; }
-        #border-placeholder { font-size: 0.8rem; color: var(--secondary); padding: 2rem; }
-        .border-drop {
-            border: 1px dashed var(--border); padding: 2rem; text-align: center;
-            cursor: pointer; transition: border-color 0.3s; margin-bottom: 1rem;
-        }
-        .border-drop:hover, .border-drop.dragover { border-color: var(--text); }
-        .border-drop p { font-size: 0.85rem; color: var(--secondary); }
-        .border-drop input { display: none; }
-        .border-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
-
-        /* Edit tool */
-        .edit-tool-grid {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 2rem;
-            align-items: start;
-        }
-        @media (max-width: 640px) { .edit-tool-grid { grid-template-columns: 1fr; } }
-        .edit-controls { display: flex; flex-direction: column; gap: 1.5rem; }
-        #curve-wrap {
-            display: flex; flex-direction: column; gap: 0.5rem;
-        }
-        #curve-wrap label { font-size: 0.75rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
-        #curve-canvas {
-            display: block; cursor: crosshair;
-            border: 1px solid var(--border);
-        }
-        .curve-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-        #edit-canvas-wrap { background: repeating-conic-gradient(#e0e0e0 0% 25%, #fff 0% 50%) 0 0 / 16px 16px; display: flex; justify-content: center; align-items: center; min-height: 200px; }
-        #edit-canvas { max-width: 100%; max-height: 420px; display: block; }
-        #edit-placeholder { font-size: 0.8rem; color: var(--secondary); padding: 2rem; }
-        .edit-drop {
-            border: 1px dashed var(--border); padding: 2rem; text-align: center;
-            cursor: pointer; transition: border-color 0.3s; margin-bottom: 0;
-        }
-        .edit-drop:hover, .edit-drop.dragover { border-color: var(--text); }
-        .edit-drop p { font-size: 0.85rem; color: var(--secondary); }
-        .edit-drop input { display: none; }
-        .edit-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
         /* ── New category inline form ────────────────────── */
-        .cat-add-btn {
-            background: none; border: none; cursor: pointer; font-family: inherit;
-            font-size: 0.8rem; color: var(--secondary); letter-spacing: 1px;
-            padding: 0 0 4px; transition: color 0.2s;
-        }
-        .cat-add-btn:hover { color: var(--text); }
         .cat-new-form {
-            display: none; align-items: center; gap: 0.5rem; margin-bottom: 2rem;
+            display: none; align-items: center; gap: 0.5rem; margin-bottom: 1.75rem;
         }
         .cat-new-form.visible { display: flex; }
         .cat-new-input {
@@ -253,13 +197,16 @@
         <div class="admin-tabs" id="admin-tabs" style="display:none;">
             <span class="admin-tab active" onclick="switchTab('upload')">upload</span>
             <span class="admin-tab" onclick="switchTab('manage')">manage</span>
-            <span class="admin-tab" onclick="switchTab('tools')">tools</span>
         </div>
 
         <!-- Upload tab -->
         <div class="tab-panel active" id="tab-upload">
             <div class="admin-section">
-                <div class="category-tabs" id="upload-tabs"></div>
+                <div class="cat-row">
+                    <span class="cat-label">category</span>
+                    <div class="category-tabs" id="upload-tabs"></div>
+                    <button class="cat-new-btn" onclick="showCatForm('upload')">+ new</button>
+                </div>
                 <div class="cat-new-form" id="upload-new-form">
                     <input class="cat-new-input" id="upload-new-input" placeholder="category name" maxlength="40">
                     <button class="btn-sm" onclick="createCategory('upload')">create</button>
@@ -281,7 +228,11 @@
         <!-- Manage tab -->
         <div class="tab-panel" id="tab-manage">
             <div class="admin-section">
-                <div class="category-tabs" id="manage-tabs"></div>
+                <div class="cat-row">
+                    <span class="cat-label">category</span>
+                    <div class="category-tabs" id="manage-tabs"></div>
+                    <button class="cat-new-btn" onclick="showCatForm('manage')">+ new</button>
+                </div>
                 <div class="cat-new-form" id="manage-new-form">
                     <input class="cat-new-input" id="manage-new-input" placeholder="category name" maxlength="40">
                     <button class="btn-sm" onclick="createCategory('manage')">create</button>
@@ -292,92 +243,6 @@
             </div>
         </div>
 
-        <!-- Tools tab -->
-        <div class="tab-panel" id="tab-tools">
-            <div class="admin-section">
-                <p class="text-muted" style="font-size:0.8rem; margin-bottom: 1.5rem;">all tools are processed locally — nothing is sent anywhere. <a href="editor.html" target="_blank" style="color:var(--text); font-size:0.78rem;">open full editor →</a></p>
-
-                <!-- Tool sub-nav -->
-                <div class="tool-subnav">
-                    <span class="tool-subnav-item active" onclick="switchTool('border')">border</span>
-                    <span class="tool-subnav-item" onclick="switchTool('edit')">edit</span>
-                </div>
-
-                <!-- Border sub-panel -->
-                <div id="tool-border">
-                    <div class="border-tool-grid">
-                        <div class="border-controls">
-                            <div class="border-drop" id="border-drop" onclick="document.getElementById('border-file').click()">
-                                <p>drop an image or click to open</p>
-                                <input type="file" id="border-file" accept="image/*">
-                            </div>
-                            <div class="slider-row">
-                                <label>horizontal (left &amp; right) <span id="bx-val">40px</span></label>
-                                <input type="range" id="bx" min="0" max="300" value="40" oninput="updateBorder()">
-                            </div>
-                            <div class="slider-row">
-                                <label>vertical (top &amp; bottom) <span id="by-val">40px</span></label>
-                                <input type="range" id="by" min="0" max="300" value="40" oninput="updateBorder()">
-                            </div>
-                            <div class="color-row">
-                                <label>border colour</label>
-                                <input type="color" id="bcolor" value="#ffffff" oninput="updateBorder()">
-                            </div>
-                            <div class="border-actions">
-                                <button class="btn-sm" id="border-dl" onclick="downloadBordered()" disabled>download</button>
-                                <button class="btn-ghost" onclick="clearBorderTool()">clear</button>
-                            </div>
-                            <p class="text-muted" style="font-size:0.75rem;" id="border-info"></p>
-                        </div>
-                        <div id="border-canvas-wrap">
-                            <canvas id="border-canvas" style="display:none;"></canvas>
-                            <span id="border-placeholder">preview will appear here</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Edit sub-panel -->
-                <div id="tool-edit" style="display:none;">
-                    <div class="edit-tool-grid">
-                        <div class="edit-controls">
-                            <div class="edit-drop" id="edit-drop" onclick="document.getElementById('edit-file').click()">
-                                <p>drop an image or click to open</p>
-                                <input type="file" id="edit-file" accept="image/*">
-                            </div>
-                            <div class="slider-row">
-                                <label>brightness <span id="ebrightness-val">0</span></label>
-                                <input type="range" id="ebrightness" min="-100" max="100" value="0" oninput="onAdjustChange()">
-                            </div>
-                            <div class="slider-row">
-                                <label>contrast <span id="econtrast-val">0</span></label>
-                                <input type="range" id="econtrast" min="-100" max="100" value="0" oninput="onAdjustChange()">
-                            </div>
-                            <div class="slider-row">
-                                <label>saturation <span id="esaturation-val">0</span></label>
-                                <input type="range" id="esaturation" min="-100" max="100" value="0" oninput="onAdjustChange()">
-                            </div>
-                            <div id="curve-wrap">
-                                <label>tone curve — click to add point · drag to move · dbl-click to remove</label>
-                                <canvas id="curve-canvas" width="200" height="200"></canvas>
-                                <div class="curve-btns">
-                                    <button class="btn-ghost" style="padding:0.4rem 0.9rem; font-size:0.7rem;" onclick="applySCurve()">s-curve</button>
-                                    <button class="btn-ghost" style="padding:0.4rem 0.9rem; font-size:0.7rem;" onclick="resetCurve()">reset curve</button>
-                                </div>
-                            </div>
-                            <div class="edit-actions">
-                                <button class="btn-sm" id="edit-dl" onclick="downloadEdited()" disabled>download</button>
-                                <button class="btn-ghost" onclick="clearEditTool()">clear</button>
-                            </div>
-                            <p class="text-muted" style="font-size:0.75rem;" id="edit-info"></p>
-                        </div>
-                        <div id="edit-canvas-wrap">
-                            <canvas id="edit-canvas" style="display:none;"></canvas>
-                            <span id="edit-placeholder">preview will appear here</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <footer>
@@ -583,13 +448,6 @@
                 span.onclick = () => onSelect(cat);
                 container.appendChild(span);
             });
-            // "+ new" button
-            const add = document.createElement('button');
-            add.className = 'cat-add-btn';
-            add.textContent = '+ new';
-            const context = tabId === 'upload-tabs' ? 'upload' : 'manage';
-            add.onclick = () => showCatForm(context);
-            container.appendChild(add);
         }
 
         function showCatForm(context) {
@@ -880,405 +738,7 @@
             }
         }
 
-        // ─── Border Tool ───────────────────────────────────
-        let borderImg = null;
-        let borderOrigName = 'photo';
 
-        const borderDrop = document.getElementById('border-drop');
-        const borderFileInput = document.getElementById('border-file');
-
-        borderDrop.addEventListener('dragover', e => { e.preventDefault(); borderDrop.classList.add('dragover'); });
-        borderDrop.addEventListener('dragleave', () => borderDrop.classList.remove('dragover'));
-        borderDrop.addEventListener('drop', e => { e.preventDefault(); borderDrop.classList.remove('dragover'); loadBorderFile(e.dataTransfer.files[0]); });
-        borderFileInput.addEventListener('change', () => loadBorderFile(borderFileInput.files[0]));
-
-        function loadBorderFile(file) {
-            if (!file || !file.type.startsWith('image/')) return;
-            borderOrigName = file.name.replace(/\.[^.]+$/, '');
-            const url = URL.createObjectURL(file);
-            const img = new Image();
-            img.onload = () => {
-                borderImg = img;
-                URL.revokeObjectURL(url);
-                updateBorder();
-                document.getElementById('border-dl').disabled = false;
-            };
-            img.src = url;
-        }
-
-        function updateBorder() {
-            if (!borderImg) return;
-            const bx = parseInt(document.getElementById('bx').value);
-            const by = parseInt(document.getElementById('by').value);
-            const color = document.getElementById('bcolor').value;
-            document.getElementById('bx-val').textContent = bx + 'px';
-            document.getElementById('by-val').textContent = by + 'px';
-
-            const canvas = document.getElementById('border-canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = borderImg.naturalWidth + bx * 2;
-            canvas.height = borderImg.naturalHeight + by * 2;
-            ctx.fillStyle = color;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(borderImg, bx, by);
-
-            canvas.style.display = 'block';
-            document.getElementById('border-placeholder').style.display = 'none';
-            document.getElementById('border-info').textContent =
-                `output: ${canvas.width} × ${canvas.height}px`;
-        }
-
-        function downloadBordered() {
-            const canvas = document.getElementById('border-canvas');
-            const a = document.createElement('a');
-            a.download = borderOrigName + '_bordered.png';
-            a.href = canvas.toDataURL('image/png');
-            a.click();
-        }
-
-        function clearBorderTool() {
-            borderImg = null;
-            borderOrigName = 'photo';
-            const canvas = document.getElementById('border-canvas');
-            canvas.style.display = 'none';
-            document.getElementById('border-placeholder').style.display = '';
-            document.getElementById('border-info').textContent = '';
-            document.getElementById('border-dl').disabled = true;
-            borderFileInput.value = '';
-        }
-
-        // ─── Tool sub-nav ──────────────────────────────────
-        function switchTool(name) {
-            document.querySelectorAll('.tool-subnav-item').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tool-subnav-item[onclick="switchTool('${name}')"]`).classList.add('active');
-            document.getElementById('tool-border').style.display = name === 'border' ? 'block' : 'none';
-            document.getElementById('tool-edit').style.display   = name === 'edit'   ? 'block' : 'none';
-        }
-
-        // ─── Edit Tool ─────────────────────────────────────
-        let editImg = null;
-        let editOrigName = 'photo';
-        let editOrigCanvas = null; // full-res original pixels
-
-        // Curve control points — {x, y} in 0-255 range
-        let curvePoints = [{x:0,y:0},{x:255,y:255}];
-        let dragPt = null;
-        let dragOffX = 0, dragOffY = 0;
-        const CURVE_SIZE = 200; // canvas px
-        const PT_HIT = 8; // hit radius
-
-        const editDropEl = document.getElementById('edit-drop');
-        const editFileInput = document.getElementById('edit-file');
-        editDropEl.addEventListener('dragover', e => { e.preventDefault(); editDropEl.classList.add('dragover'); });
-        editDropEl.addEventListener('dragleave', () => editDropEl.classList.remove('dragover'));
-        editDropEl.addEventListener('drop', e => { e.preventDefault(); editDropEl.classList.remove('dragover'); loadEditFile(e.dataTransfer.files[0]); });
-        editFileInput.addEventListener('change', () => loadEditFile(editFileInput.files[0]));
-
-        function loadEditFile(file) {
-            if (!file || !file.type.startsWith('image/')) return;
-            editOrigName = file.name.replace(/\.[^.]+$/, '');
-            const url = URL.createObjectURL(file);
-            const img = new Image();
-            img.onload = () => {
-                URL.revokeObjectURL(url);
-                editImg = img;
-                // Store original pixels in offscreen canvas
-                editOrigCanvas = document.createElement('canvas');
-                editOrigCanvas.width  = img.naturalWidth;
-                editOrigCanvas.height = img.naturalHeight;
-                editOrigCanvas.getContext('2d').drawImage(img, 0, 0);
-                document.getElementById('edit-info').textContent =
-                    `${img.naturalWidth} × ${img.naturalHeight}px`;
-                document.getElementById('edit-dl').disabled = false;
-                applyAllEdits();
-            };
-            img.src = url;
-        }
-
-        function onAdjustChange() {
-            document.getElementById('ebrightness-val').textContent = document.getElementById('ebrightness').value;
-            document.getElementById('econtrast-val').textContent   = document.getElementById('econtrast').value;
-            document.getElementById('esaturation-val').textContent = document.getElementById('esaturation').value;
-            applyAllEdits();
-        }
-
-        // ── Monotone cubic interpolation (Fritsch-Carlson) ──
-        function monotoneCubic(xs, ys) {
-            const n = xs.length;
-            if (n === 1) return () => ys[0];
-            const d = [], m = [];
-            for (let i = 0; i < n - 1; i++) d[i] = (ys[i+1] - ys[i]) / (xs[i+1] - xs[i]);
-            m[0] = d[0]; m[n-1] = d[n-2];
-            for (let i = 1; i < n - 1; i++) {
-                if (d[i-1] * d[i] <= 0) { m[i] = 0; }
-                else m[i] = (d[i-1] + d[i]) / 2;
-            }
-            for (let i = 0; i < n - 1; i++) {
-                if (d[i] === 0) { m[i] = m[i+1] = 0; continue; }
-                const sq = (m[i]/d[i])**2 + (m[i+1]/d[i])**2;
-                if (sq > 9) { const t = 3 / Math.sqrt(sq); m[i] *= t; m[i+1] *= t; }
-            }
-            return x => {
-                if (x <= xs[0]) return ys[0];
-                if (x >= xs[n-1]) return ys[n-1];
-                let lo = 0, hi = n - 1;
-                while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (xs[mid] <= x) lo = mid; else hi = mid; }
-                const h = xs[hi] - xs[lo], t = (x - xs[lo]) / h, t2 = t*t, t3 = t2*t;
-                return (2*t3-3*t2+1)*ys[lo] + (t3-2*t2+t)*h*m[lo] + (-2*t3+3*t2)*ys[hi] + (t3-t2)*h*m[hi];
-            };
-        }
-
-        function buildCurveLUT() {
-            const pts = [...curvePoints].sort((a,b) => a.x - b.x);
-            const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-            const interp = monotoneCubic(xs, ys);
-            const lut = new Uint8Array(256);
-            for (let i = 0; i < 256; i++) lut[i] = Math.max(0, Math.min(255, Math.round(interp(i))));
-            return lut;
-        }
-
-        function applyAllEdits() {
-            if (!editOrigCanvas) return;
-            const brightness = parseFloat(document.getElementById('ebrightness').value);
-            const contrast   = parseFloat(document.getElementById('econtrast').value);
-            const saturation = parseFloat(document.getElementById('esaturation').value);
-
-            const lut = buildCurveLUT();
-            const bright = brightness / 100 * 255;
-            const cFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-            const satF = 1 + saturation / 100;
-
-            // Work on a copy of the original pixels
-            const w = editOrigCanvas.width, h = editOrigCanvas.height;
-            const offscreen = document.createElement('canvas');
-            offscreen.width = w; offscreen.height = h;
-            const ctx = offscreen.getContext('2d');
-            ctx.drawImage(editOrigCanvas, 0, 0);
-            const imgData = ctx.getImageData(0, 0, w, h);
-            const d = imgData.data;
-
-            for (let i = 0; i < d.length; i += 4) {
-                let r = d[i], g = d[i+1], b = d[i+2];
-                // Brightness
-                r += bright; g += bright; b += bright;
-                // Contrast
-                r = cFactor * (r - 128) + 128;
-                g = cFactor * (g - 128) + 128;
-                b = cFactor * (b - 128) + 128;
-                // Saturation
-                const gray = 0.2126*r + 0.7152*g + 0.0722*b;
-                r = gray + satF * (r - gray);
-                g = gray + satF * (g - gray);
-                b = gray + satF * (b - gray);
-                // Clamp then tone curve
-                d[i]   = lut[Math.max(0, Math.min(255, Math.round(r)))];
-                d[i+1] = lut[Math.max(0, Math.min(255, Math.round(g)))];
-                d[i+2] = lut[Math.max(0, Math.min(255, Math.round(b)))];
-            }
-            ctx.putImageData(imgData, 0, 0);
-
-            // Draw to visible preview canvas
-            const canvas = document.getElementById('edit-canvas');
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(offscreen, 0, 0);
-            canvas.style.display = 'block';
-            document.getElementById('edit-placeholder').style.display = 'none';
-        }
-
-        function downloadEdited() {
-            const canvas = document.getElementById('edit-canvas');
-            const a = document.createElement('a');
-            a.download = editOrigName + '_edited.png';
-            a.href = canvas.toDataURL('image/png');
-            a.click();
-        }
-
-        function clearEditTool() {
-            editImg = null; editOrigCanvas = null; editOrigName = 'photo';
-            document.getElementById('edit-canvas').style.display = 'none';
-            document.getElementById('edit-placeholder').style.display = '';
-            document.getElementById('edit-info').textContent = '';
-            document.getElementById('edit-dl').disabled = true;
-            editFileInput.value = '';
-            ['ebrightness','econtrast','esaturation'].forEach(id => {
-                document.getElementById(id).value = 0;
-                document.getElementById(id + '-val').textContent = '0';
-            });
-            resetCurve();
-        }
-
-        // ── Curve presets ──
-        function applySCurve() {
-            curvePoints = [{x:0,y:0},{x:64,y:40},{x:128,y:128},{x:192,y:215},{x:255,y:255}];
-            drawCurveCanvas();
-            applyAllEdits();
-        }
-
-        function resetCurve() {
-            curvePoints = [{x:0,y:0},{x:255,y:255}];
-            drawCurveCanvas();
-            applyAllEdits();
-        }
-
-        // ── Curve canvas rendering ──
-        function drawCurveCanvas() {
-            const canvas = document.getElementById('curve-canvas');
-            const ctx = canvas.getContext('2d');
-            const S = CURVE_SIZE;
-            ctx.clearRect(0, 0, S, S);
-
-            // Background
-            ctx.fillStyle = '#111';
-            ctx.fillRect(0, 0, S, S);
-
-            // Grid
-            ctx.strokeStyle = '#2a2a2a';
-            ctx.lineWidth = 1;
-            [0.25, 0.5, 0.75].forEach(t => {
-                ctx.beginPath(); ctx.moveTo(t*S, 0); ctx.lineTo(t*S, S); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, t*S); ctx.lineTo(S, t*S); ctx.stroke();
-            });
-
-            // Identity diagonal (faint)
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(0, S); ctx.lineTo(S, 0); ctx.stroke();
-
-            // Curve
-            const lut = buildCurveLUT();
-            ctx.strokeStyle = '#e8e8e8';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            for (let x = 0; x < 256; x++) {
-                const px = (x / 255) * S;
-                const py = S - (lut[x] / 255) * S;
-                if (x === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-            }
-            ctx.stroke();
-
-            // Control points
-            const sorted = [...curvePoints].sort((a,b) => a.x - b.x);
-            sorted.forEach(pt => {
-                const px = (pt.x / 255) * S;
-                const py = S - (pt.y / 255) * S;
-                ctx.beginPath();
-                ctx.arc(px, py, 4.5, 0, Math.PI*2);
-                ctx.fillStyle = '#fff';
-                ctx.fill();
-                ctx.strokeStyle = '#555';
-                ctx.lineWidth = 1;
-                ctx.stroke();
-            });
-        }
-
-        // ── Curve mouse interactions ──
-        function curveCanvasCoords(e) {
-            const canvas = document.getElementById('curve-canvas');
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width  / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const px = (e.clientX - rect.left) * scaleX;
-            const py = (e.clientY - rect.top)  * scaleY;
-            return {
-                x: Math.max(0, Math.min(255, Math.round((px / CURVE_SIZE) * 255))),
-                y: Math.max(0, Math.min(255, Math.round((1 - py / CURVE_SIZE) * 255)))
-            };
-        }
-
-        function findNearPoint(mx, my) {
-            // mx, my in canvas pixel coords
-            for (const pt of curvePoints) {
-                const px = (pt.x / 255) * CURVE_SIZE;
-                const py = CURVE_SIZE - (pt.y / 255) * CURVE_SIZE;
-                if (Math.abs(mx - px) < PT_HIT && Math.abs(my - py) < PT_HIT) return pt;
-            }
-            return null;
-        }
-
-        (function initCurveCanvas() {
-            const canvas = document.getElementById('curve-canvas');
-
-            canvas.addEventListener('mousedown', e => {
-                if (e.button !== 0) return;
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
-                const px = (e.clientX - rect.left) * scaleX;
-                const py = (e.clientY - rect.top)  * scaleY;
-                const hit = findNearPoint(px, py);
-                if (hit) {
-                    dragPt = hit;
-                } else {
-                    const coords = curveCanvasCoords(e);
-                    const newPt = { x: coords.x, y: coords.y };
-                    curvePoints.push(newPt);
-                    dragPt = newPt;
-                }
-                drawCurveCanvas();
-                e.preventDefault();
-            });
-
-            canvas.addEventListener('mousemove', e => {
-                if (!dragPt) return;
-                const coords = curveCanvasCoords(e);
-                dragPt.x = coords.x;
-                dragPt.y = coords.y;
-                drawCurveCanvas();
-                applyAllEdits();
-            });
-
-            canvas.addEventListener('mouseup', () => { dragPt = null; });
-            canvas.addEventListener('mouseleave', () => { dragPt = null; });
-
-            // Touch support
-            canvas.addEventListener('touchstart', e => {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
-                const px = (touch.clientX - rect.left) * scaleX;
-                const py = (touch.clientY - rect.top)  * scaleY;
-                const hit = findNearPoint(px, py);
-                if (hit) { dragPt = hit; }
-                else {
-                    const x = Math.max(0, Math.min(255, Math.round((px/CURVE_SIZE)*255)));
-                    const y = Math.max(0, Math.min(255, Math.round((1-py/CURVE_SIZE)*255)));
-                    const newPt = {x, y};
-                    curvePoints.push(newPt);
-                    dragPt = newPt;
-                }
-                drawCurveCanvas();
-            }, { passive: false });
-
-            canvas.addEventListener('touchmove', e => {
-                e.preventDefault();
-                if (!dragPt) return;
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
-                dragPt.x = Math.max(0, Math.min(255, Math.round(((touch.clientX - rect.left)*scaleX/CURVE_SIZE)*255)));
-                dragPt.y = Math.max(0, Math.min(255, Math.round((1-(touch.clientY - rect.top)*scaleY/CURVE_SIZE)*255)));
-                drawCurveCanvas();
-                applyAllEdits();
-            }, { passive: false });
-
-            canvas.addEventListener('touchend', () => { dragPt = null; });
-
-            canvas.addEventListener('dblclick', e => {
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
-                const px = (e.clientX - rect.left) * scaleX;
-                const py = (e.clientY - rect.top)  * scaleY;
-                const hit = findNearPoint(px, py);
-                if (!hit) return;
-                // Prevent removing if only 2 points left
-                if (curvePoints.length <= 2) return;
-                curvePoints = curvePoints.filter(p => p !== hit);
-                drawCurveCanvas();
-                applyAllEdits();
-            });
-
-            drawCurveCanvas();
-        })();
 
         // ─── Init ──────────────────────────────────────────
         window.addEventListener('load', () => {

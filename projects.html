@@ -9,6 +9,9 @@
     <meta property="og:description" content="Software and blockchain projects by Shane Roycroft.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://www.shaneroycroft.com/projects.html">
+    <meta property="og:image" content="https://www.shaneroycroft.com/og.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://www.shaneroycroft.com/og.jpg">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,8 +34,22 @@
                 <div class="project-year">2026</div>
                 <div class="project-info">
                     <h3>this site</h3>
-                    <p>A static portfolio hosted on GitHub Pages with a hidden photo admin — no backend, no CMS. Photos upload directly to the repo via the GitHub API with client-side compression, a border tool, captions, and dynamic category management.</p>
-                    <a href="https://github.com/shaneroycroft/shaneroycroft" target="_blank" rel="noopener" class="project-link">view on github →</a>
+                    <p>A static portfolio hosted on GitHub Pages — no backend, no CMS. Photos upload directly to the repo via the GitHub API with client-side compression, captions, and dynamic category management. Includes a full browser-based photo editor.</p>
+                    <div class="project-links">
+                        <a href="https://github.com/shaneroycroft/shaneroycroft" target="_blank" rel="noopener" class="project-link">view on github →</a>
+                        <span class="project-badge project-badge--live">live</span>
+                    </div>
+                </div>
+            </div>
+            <div class="project-card">
+                <div class="project-year">2026</div>
+                <div class="project-info">
+                    <h3>photo editor</h3>
+                    <p>A client-side photo editor that runs entirely in the browser — nothing is uploaded or sent anywhere. Tone curve with draggable control points, brightness, contrast, saturation, temperature, sharpening, vignette, straighten, rotate, flip, crop with aspect ratio presets, and composition grid overlays. Downloads as lossless PNG.</p>
+                    <div class="project-links">
+                        <a href="https://www.shaneroycroft.com/editor.html" target="_blank" rel="noopener" class="project-link">open editor →</a>
+                        <span class="project-badge project-badge--live">live</span>
+                    </div>
                 </div>
             </div>
             <div class="project-card">
@@ -41,7 +58,10 @@
                     <h3>Cardano Ticketing Protocol</h3>
                     <p>On-chain event ticketing built on Cardano. Tickets are CIP-68 NFTs with post-mint updatability — resale prices are enforced on-chain, no scalpers. Includes an interactive venue seat visualizer with POV previews, mobile QR gate check-in, artist pages with upcoming events, and organizer analytics for revenue, royalties, and sales. Wallet-signed JWT auth via CIP-30 challenge-response (no seed phrase). Shareable ticket passport — works on any device, no crypto wallet needed.</p>
                     <p class="text-secondary" style="font-size: 0.78rem; margin-top: 0.75rem; letter-spacing: 0.03em;">Aiken · Lucid Evolution · Blockfrost · Supabase · CIP-30 · CIP-68 · IPFS · React 18 · Tailwind v4</p>
-                    <span class="project-link project-link--soon">in progress</span>
+                    <div class="project-links">
+                        <span class="project-link project-link--soon">in progress</span>
+                        <span class="project-badge">building</span>
+                    </div>
                 </div>
             </div>
         </div>

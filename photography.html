@@ -9,6 +9,9 @@
     <meta property="og:description" content="Photography by Shane Roycroft.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://www.shaneroycroft.com/photography.html">
+    <meta property="og:image" content="https://www.shaneroycroft.com/og.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://www.shaneroycroft.com/og.jpg">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -100,8 +103,17 @@
             img.src = item.src;
             img.loading = 'lazy';
             img.alt = item.caption || '';
+            img.onload = () => img.classList.add('loaded');
             img.onclick = () => openLightbox(index);
+            // If cached, onload may have already fired
+            if (img.complete) img.classList.add('loaded');
             div.appendChild(img);
+            if (item.caption) {
+                const cap = document.createElement('div');
+                cap.className = 'gallery-caption';
+                cap.textContent = item.caption;
+                div.appendChild(cap);
+            }
             container.appendChild(div);
         }
 
@@ -136,6 +148,15 @@
             if (e.key === 'Escape') closeLightbox();
             if (e.key === 'ArrowLeft') shiftLightbox(-1);
             if (e.key === 'ArrowRight') shiftLightbox(1);
+        });
+
+        // Swipe support
+        let swipeX = 0;
+        const lb = document.getElementById('lightbox');
+        lb.addEventListener('touchstart', e => { swipeX = e.changedTouches[0].clientX; }, { passive: true });
+        lb.addEventListener('touchend', e => {
+            const dx = e.changedTouches[0].clientX - swipeX;
+            if (Math.abs(dx) > 48) shiftLightbox(dx < 0 ? 1 : -1);
         });
     </script>
 
