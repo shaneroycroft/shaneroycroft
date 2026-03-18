@@ -54,24 +54,22 @@
         /* ── shared section label ────────────────────────── */
         .admin-section { margin-bottom: 3rem; }
 
-        /* Category row — label · tabs · + new */
+        /* Category row — tabs + + new, no label */
         .cat-row {
-            display: flex; align-items: center; gap: 1.5rem;
+            display: flex; align-items: center; gap: 1.25rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--border);
             margin-bottom: 1.75rem;
+            flex-wrap: wrap;
         }
-        .cat-label {
-            font-size: 0.68rem; text-transform: lowercase; letter-spacing: 1.5px;
-            color: var(--secondary); flex-shrink: 0;
-        }
-        .category-tabs { display: flex; gap: 1.5rem; flex-wrap: wrap; flex: 1; }
+        .category-tabs { display: flex; gap: 1.25rem; flex-wrap: wrap; flex: 1; }
         .category-tabs span { font-size: 0.8rem; text-transform: lowercase; letter-spacing: 1px; cursor: pointer; color: var(--secondary); padding-bottom: 2px; transition: 0.2s; }
         .category-tabs span.active { color: var(--text); border-bottom: 1px solid var(--text); }
         .cat-new-btn {
             background: none; border: none; cursor: pointer; font-family: inherit;
-            font-size: 0.72rem; color: var(--secondary); letter-spacing: 0.5px;
-            padding: 0; transition: color 0.2s; flex-shrink: 0; white-space: nowrap;
+            font-size: 0.8rem; text-transform: lowercase; letter-spacing: 1px;
+            color: var(--secondary); padding: 0 0 2px; transition: color 0.2s;
+            flex-shrink: 0; white-space: nowrap;
         }
         .cat-new-btn:hover { color: var(--text); }
         .drop-zone {
@@ -120,8 +118,8 @@
         }
         .existing-item:hover .item-actions { display: flex; }
         .existing-item .item-actions button {
-            background: rgba(255,255,255,0.92); border: none; cursor: pointer;
-            font-size: 0.65rem; padding: 2px 5px; color: var(--text); line-height: 1.4;
+            background: rgba(255,255,255,0.95); border: none; cursor: pointer;
+            font-size: 0.7rem; padding: 3px 7px; color: var(--text); line-height: 1.5;
         }
         .existing-item .item-actions .btn-delete { color: #c0392b; }
         .existing-item .pin-dot {
@@ -203,7 +201,6 @@
         <div class="tab-panel active" id="tab-upload">
             <div class="admin-section">
                 <div class="cat-row">
-                    <span class="cat-label">category</span>
                     <div class="category-tabs" id="upload-tabs"></div>
                     <button class="cat-new-btn" onclick="showCatForm('upload')">+ new</button>
                 </div>
@@ -229,7 +226,6 @@
         <div class="tab-panel" id="tab-manage">
             <div class="admin-section">
                 <div class="cat-row">
-                    <span class="cat-label">category</span>
                     <div class="category-tabs" id="manage-tabs"></div>
                     <button class="cat-new-btn" onclick="showCatForm('manage')">+ new</button>
                 </div>
@@ -238,8 +234,8 @@
                     <button class="btn-sm" onclick="createCategory('manage')">create</button>
                     <button class="btn-ghost" onclick="hideCatForm('manage')">cancel</button>
                 </div>
+                <p class="text-muted" style="font-size:0.75rem; margin-bottom: 1rem;" id="manage-hint"></p>
                 <div class="existing-grid" id="existing-grid"></div>
-                <p class="text-muted" style="font-size:0.75rem; margin-top: 1rem;" id="manage-hint"></p>
             </div>
         </div>
 

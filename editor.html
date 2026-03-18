@@ -353,8 +353,12 @@
     const PT_R = 8;    // hit radius
 
     // Crop
-    let cropMode = false, cropA = null, cropB = null, cropDrag = false;
-    let cropAR = 'free'; // 'free' | 'custom' | 'W:H' string
+    let cropMode   = false;
+    let cropPhase  = 'idle';  // 'idle' | 'drawing' | 'drawn'
+    let cropBox    = null;    // {x, y, w, h} in overlay canvas px
+    let cropAR     = 'free';
+    let dragHandle = null;    // 'tl'|'tc'|'tr'|'ml'|'mr'|'bl'|'bc'|'br'|'move'|'draw'
+    let dragOrigin = null;    // {mx, my, box, startX?, startY?}
 
     // Transform / vignette / before-after
     let straightenAngle  = 0;
@@ -546,12 +550,12 @@
         const ctx = ov.getContext('2d');
         ctx.clearRect(0, 0, ov.width, ov.height);
         if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
-        if (cropMode && cropA && cropB) drawCropUI(ctx, ov.width, ov.height);
+        if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
     }
 
     function drawGrid(ctx, W, H) {
         const type = document.getElementById('grid-type').value;
-        ctx.strokeStyle = 'rgba(255,255,255,0.78)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.92)';
         ctx.lineWidth = 1;
         ctx.setLineDash([5,5]);
         const ln = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
@@ -572,32 +576,33 @@
     // ── Crop ──────────────────────────────────────────────────
     function startCrop() {
         if (!workCanvas) return;
-        cropMode=true; cropA=null; cropB=null;
+        cropMode=true; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
         document.getElementById('crop-idle').style.display   = 'none';
         document.getElementById('crop-active').style.display = 'block';
-        document.getElementById('crop-hint').textContent = 'drag on the image to select area';
+        document.getElementById('crop-hint').textContent = 'drag on the image to draw crop area';
         document.getElementById('overlay-canvas').classList.add('crop-mode');
         renderOverlay();
     }
 
     function cancelCrop() {
-        cropMode=false; cropA=null; cropB=null; cropDrag=false;
+        cropMode=false; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
         document.getElementById('crop-idle').style.display   = '';
         document.getElementById('crop-active').style.display = 'none';
         document.getElementById('crop-info').textContent = '';
-        document.getElementById('overlay-canvas').classList.remove('crop-mode');
+        const ov = document.getElementById('overlay-canvas');
+        ov.classList.remove('crop-mode');
+        ov.style.cursor = '';
         renderOverlay();
     }
 
     function applyCrop() {
-        if (!cropA||!cropB||!workCanvas) return;
-        const r  = cropRect();
+        if (!cropBox || !workCanvas) return;
         const bx = parseInt(document.getElementById('sl-bx').value);
         const by = parseInt(document.getElementById('sl-by').value);
-        const ix  = Math.max(0, Math.round(r.x - bx));
-        const iy  = Math.max(0, Math.round(r.y - by));
-        const ix2 = Math.min(workCanvas.width,  Math.round(r.x + r.w - bx));
-        const iy2 = Math.min(workCanvas.height, Math.round(r.y + r.h - by));
+        const ix  = Math.max(0, Math.round(cropBox.x - bx));
+        const iy  = Math.max(0, Math.round(cropBox.y - by));
+        const ix2 = Math.min(workCanvas.width,  Math.round(cropBox.x + cropBox.w - bx));
+        const iy2 = Math.min(workCanvas.height, Math.round(cropBox.y + cropBox.h - by));
         const iw  = ix2 - ix, ih = iy2 - iy;
         if (iw < 2 || ih < 2) { cancelCrop(); return; }
         const nc = mkCanvas(iw, ih);
@@ -615,32 +620,15 @@
         document.getElementById('crop-info').textContent = 'reset to original.';
     }
 
-    function cropRect() {
-        let x = Math.min(cropA.x,cropB.x), y = Math.min(cropA.y,cropB.y);
-        let w = Math.abs(cropB.x-cropA.x), h = Math.abs(cropB.y-cropA.y);
-        const ratio = getARRatio();
-        if (ratio !== null && w > 0 && h > 0) {
-            // Expand the shorter side to match ratio, anchored at start point
-            const targetH = w / ratio;
-            const targetW = h * ratio;
-            if (targetH <= h) h = targetH; else w = targetW;
-            // Re-anchor: keep the drag origin corner
-            if (cropB.x < cropA.x) x = cropA.x - w;
-            if (cropB.y < cropA.y) y = cropA.y - h;
-        }
-        return { x, y, w, h };
-    }
-
     function getARRatio() {
         if (cropAR === 'free') return null;
-        let str = cropAR;
         if (cropAR === 'custom') {
             const cw = parseFloat(document.getElementById('ar-w').value);
             const ch = parseFloat(document.getElementById('ar-h').value);
             if (!cw || !ch) return null;
             return cw / ch;
         }
-        const [pw, ph] = str.split(':').map(Number);
+        const [pw, ph] = cropAR.split(':').map(Number);
         return pw / ph;
     }
 
@@ -649,49 +637,163 @@
         document.querySelectorAll('.ar-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('ar-custom-row').style.display = value === 'custom' ? 'flex' : 'none';
-        if (cropMode && cropA && cropB) renderOverlay();
+        if (cropMode && cropBox) { cropBox = constrainBox(cropBox); renderOverlay(); }
     }
 
     function onCustomAR() {
-        if (cropMode && cropA && cropB) renderOverlay();
+        if (cropMode && cropBox) { cropBox = constrainBox(cropBox); renderOverlay(); }
     }
 
+    // Constrain an existing box to current AR ratio (keep center)
+    function constrainBox(box) {
+        const ratio = getARRatio();
+        if (!ratio) return box;
+        const cx = box.x + box.w/2, cy = box.y + box.h/2;
+        let nw = box.w, nh = box.h;
+        if (nw/ratio > nh) nh = nw/ratio; else nw = nh*ratio;
+        return {x: cx-nw/2, y: cy-nh/2, w: nw, h: nh};
+    }
+
+    // Draw a box from two mouse points, applying AR if set
+    function computeDrawBox(sx, sy, ex, ey) {
+        let w = Math.abs(ex-sx), h = Math.abs(ey-sy);
+        const ratio = getARRatio();
+        if (ratio !== null && (w > 0 || h > 0)) {
+            if (w/ratio >= h) h = w/ratio; else w = h*ratio;
+        }
+        w = Math.max(0,w); h = Math.max(0,h);
+        return {x: ex>=sx ? sx : sx-w, y: ey>=sy ? sy : sy-h, w, h};
+    }
+
+    // Resize box by dragging a handle to (mx, my)
+    function applyHandleDrag(handle, mx, my, origB) {
+        if (handle === 'move') return {x: origB.x+(mx-dragOrigin.mx), y: origB.y+(my-dragOrigin.my), w: origB.w, h: origB.h};
+        const {x, y, w, h} = origB;
+        const x2=x+w, y2=y+h;
+        const ratio = getARRatio();
+        const cornerAnchor = {tl:{ax:x2,ay:y2}, tr:{ax:x,ay:y2}, bl:{ax:x2,ay:y}, br:{ax:x,ay:y}};
+        if (cornerAnchor[handle]) {
+            const {ax, ay} = cornerAnchor[handle];
+            let nw = Math.max(20, Math.abs(mx-ax));
+            let nh = Math.max(20, Math.abs(my-ay));
+            if (ratio !== null) { if (nw/ratio >= nh) nh=nw/ratio; else nw=nh*ratio; }
+            return {x: mx>=ax?ax:ax-nw, y: my>=ay?ay:ay-nh, w:nw, h:nh};
+        }
+        // Edge handles
+        let nx=x, ny=y, nw=w, nh=h;
+        if      (handle==='tc') { ny=my; nh=Math.max(20,y2-my); }
+        else if (handle==='bc') { nh=Math.max(20,my-y); }
+        else if (handle==='ml') { nx=mx; nw=Math.max(20,x2-mx); }
+        else if (handle==='mr') { nw=Math.max(20,mx-x); }
+        if (ratio !== null) {
+            const cx=x+w/2, cy=y+h/2;
+            if (handle==='tc'||handle==='bc') { nw=nh*ratio; nx=cx-nw/2; }
+            else                              { nh=nw/ratio; ny=cy-nh/2; }
+        }
+        return {x:nx, y:ny, w:nw, h:nh};
+    }
+
+    // 8 handle positions from a box
+    function getHandles(box) {
+        const {x,y,w,h}=box;
+        return {tl:{x,y}, tc:{x:x+w/2,y}, tr:{x:x+w,y}, ml:{x,y:y+h/2}, mr:{x:x+w,y:y+h/2}, bl:{x,y:y+h}, bc:{x:x+w/2,y:y+h}, br:{x:x+w,y:y+h}};
+    }
+
+    const HANDLE_HIT = 10;
+    function hitTest(mx, my, box) {
+        for (const [name, {x,y}] of Object.entries(getHandles(box))) {
+            if (Math.abs(mx-x)<=HANDLE_HIT && Math.abs(my-y)<=HANDLE_HIT) return name;
+        }
+        if (mx>=box.x&&mx<=box.x+box.w&&my>=box.y&&my<=box.y+box.h) return 'move';
+        return null;
+    }
+
+    const CURSOR_MAP = {tl:'nw-resize',tc:'n-resize',tr:'ne-resize',ml:'w-resize',mr:'e-resize',bl:'sw-resize',bc:'s-resize',br:'se-resize',move:'move'};
+
     function drawCropUI(ctx, W, H) {
-        const r = cropRect();
-        ctx.fillStyle = 'rgba(0,0,0,0.45)';
-        ctx.fillRect(0,0,W,r.y); ctx.fillRect(0,r.y+r.h,W,H-r.y-r.h);
-        ctx.fillRect(0,r.y,r.x,r.h); ctx.fillRect(r.x+r.w,r.y,W-r.x-r.w,r.h);
+        if (!cropBox) return;
+        const {x,y,w,h} = cropBox;
+        // Dimmed outside
+        ctx.fillStyle='rgba(0,0,0,0.45)';
+        ctx.fillRect(0,0,W,y); ctx.fillRect(0,y+h,W,H-y-h);
+        ctx.fillRect(0,y,x,h); ctx.fillRect(x+w,y,W-x-w,h);
+        // Border
         ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.5; ctx.setLineDash([]);
-        ctx.strokeRect(r.x+0.5,r.y+0.5,r.w,r.h);
-        // thirds inside
+        ctx.strokeRect(x+0.5,y+0.5,w,h);
+        // Thirds inside
         ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1;
-        [1/3,2/3].forEach(t => {
-            ctx.beginPath(); ctx.moveTo(r.x+t*r.w,r.y); ctx.lineTo(r.x+t*r.w,r.y+r.h); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(r.x,r.y+t*r.h); ctx.lineTo(r.x+r.w,r.y+t*r.h); ctx.stroke();
+        [1/3,2/3].forEach(t=>{
+            ctx.beginPath();ctx.moveTo(x+t*w,y);ctx.lineTo(x+t*w,y+h);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(x,y+t*h);ctx.lineTo(x+w,y+t*h);ctx.stroke();
         });
-        // corner handles
-        const hs=7; ctx.fillStyle='#fff';
-        [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]].forEach(([hx,hy]) => ctx.fillRect(hx-hs/2,hy-hs/2,hs,hs));
-        // size label — show image pixels (excluding border)
-        if (r.w > 70 && r.h > 22) {
-            const bx=parseInt(document.getElementById('sl-bx').value), by=parseInt(document.getElementById('sl-by').value);
-            const px=Math.round(Math.max(0,r.w-(r.x<bx?0:0))), py=Math.round(Math.max(0,r.h));
-            const lbl = `${px} × ${py}`;
+        // 8 handles
+        const hs=6;
+        ctx.strokeStyle='rgba(100,100,100,0.7)'; ctx.lineWidth=1;
+        Object.values(getHandles(cropBox)).forEach(({x:hx,y:hy})=>{
+            ctx.fillStyle='#fff'; ctx.fillRect(hx-hs,hy-hs,hs*2,hs*2);
+            ctx.strokeRect(hx-hs,hy-hs,hs*2,hs*2);
+        });
+        // Size label
+        if (w>80&&h>24) {
+            const lbl=`${Math.round(w)} × ${Math.round(h)}`;
             ctx.font='11px monospace'; const lw=ctx.measureText(lbl).width;
-            ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(r.x+r.w/2-lw/2-4,r.y+r.h+3,lw+8,18);
-            ctx.fillStyle='#fff'; ctx.fillText(lbl,r.x+r.w/2-lw/2,r.y+r.h+16);
+            ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(x+w/2-lw/2-4,y+h+4,lw+8,18);
+            ctx.fillStyle='#fff'; ctx.fillText(lbl,x+w/2-lw/2,y+h+17);
         }
     }
 
     // Overlay pointer events (crop)
     const ovEl = document.getElementById('overlay-canvas');
     function ovCoords(e) {
+        const src = e.touches ? e.touches[0] : e;
         const rect = ovEl.getBoundingClientRect();
-        return { x:(e.clientX-rect.left)*(ovEl.width/rect.width), y:(e.clientY-rect.top)*(ovEl.height/rect.height) };
+        return {x:(src.clientX-rect.left)*(ovEl.width/rect.width), y:(src.clientY-rect.top)*(ovEl.height/rect.height)};
     }
-    ovEl.addEventListener('mousedown', e => { if(!cropMode||e.button!==0) return; cropDrag=true; cropA=ovCoords(e); cropB={...cropA}; renderOverlay(); });
-    ovEl.addEventListener('mousemove', e => { if(!cropMode||!cropDrag) return; cropB=ovCoords(e); renderOverlay(); });
-    ovEl.addEventListener('mouseup',   e => { if(!cropMode) return; cropDrag=false; cropB=ovCoords(e); renderOverlay(); });
+
+    ovEl.addEventListener('mousedown', e => {
+        if (!cropMode||e.button!==0) return;
+        const {x,y} = ovCoords(e);
+        if (cropPhase==='drawn'&&cropBox) {
+            const hit = hitTest(x,y,cropBox);
+            if (hit) { dragHandle=hit; dragOrigin={mx:x,my:y,box:{...cropBox}}; e.preventDefault(); return; }
+        }
+        // Start new draw
+        cropPhase='drawing'; dragHandle='draw';
+        dragOrigin={startX:x,startY:y};
+        cropBox={x,y,w:0,h:0};
+        e.preventDefault();
+    });
+
+    ovEl.addEventListener('mousemove', e => {
+        if (!cropMode) return;
+        const {x,y} = ovCoords(e);
+        if (dragHandle==='draw') {
+            cropBox=computeDrawBox(dragOrigin.startX,dragOrigin.startY,x,y);
+            renderOverlay(); return;
+        }
+        if (dragHandle) {
+            cropBox=applyHandleDrag(dragHandle,x,y,dragOrigin.box);
+            renderOverlay(); return;
+        }
+        // Cursor hint when hovering over drawn box
+        if (cropPhase==='drawn'&&cropBox) {
+            const hit=hitTest(x,y,cropBox);
+            ovEl.style.cursor=hit?CURSOR_MAP[hit]:'crosshair';
+        }
+    });
+
+    ovEl.addEventListener('mouseup', e => {
+        if (!cropMode) return;
+        const {x,y} = ovCoords(e);
+        if (dragHandle==='draw') {
+            if (cropBox&&cropBox.w>5&&cropBox.h>5) {
+                cropPhase='drawn';
+                document.getElementById('crop-hint').textContent='drag to move · handles to resize · apply when ready';
+            } else { cropBox=null; cropPhase='idle'; }
+        }
+        dragHandle=null; dragOrigin=null;
+        renderOverlay();
+    });
 
     // ── Sliders ───────────────────────────────────────────────
     function onAdjust() {
