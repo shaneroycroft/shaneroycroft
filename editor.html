@@ -59,8 +59,20 @@
         /* Sliders */
         .s-row { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
         .s-row:last-of-type { margin-bottom: 0; }
-        .s-row label { font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); display: flex; justify-content: space-between; }
-        .s-row input[type=range] { width: 100%; accent-color: var(--text); }
+        .s-row label { font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); display: flex; justify-content: space-between; align-items: baseline; }
+        .s-row input[type=range] { width: 100%; accent-color: var(--text); cursor: pointer; }
+
+        /* Editable value field next to each slider */
+        .val-input {
+            width: 38px; font-family: inherit; font-size: 0.7rem; color: var(--secondary);
+            background: none; border: none; border-bottom: 1px solid transparent;
+            text-align: right; padding: 0 0 1px; outline: none; cursor: text;
+            appearance: textfield; -moz-appearance: textfield; flex-shrink: 0;
+        }
+        .val-input:hover { color: var(--text); }
+        .val-input:focus { color: var(--text); border-bottom-color: var(--border); }
+        .val-input::-webkit-inner-spin-button,
+        .val-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .c-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
         .c-row label { font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
         .c-row input[type=color] { width: 2.2rem; height: 1.75rem; border: 1px solid var(--border); cursor: pointer; padding: 0; background: none; }
@@ -133,7 +145,7 @@
         <span class="e-bar-spacer"></span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadPNG()" disabled>download png</button>
         <span class="e-bar-sep">|</span>
-        <a href="admin.html" class="e-bar-btn">← admin</a>
+        <a href="admin.html" class="e-bar-btn" onclick="return confirmLeave(event)">← admin</a>
     </div>
 
     <div class="e-layout">
@@ -148,13 +160,13 @@
             <details class="e-sec" open>
                 <summary>adjust</summary>
                 <div class="e-body">
-                    <div class="s-row"><label>brightness <span id="v-brightness">0</span></label><input type="range" id="sl-brightness" min="-100" max="100" value="0" oninput="onAdjust()"></div>
-                    <div class="s-row"><label>contrast <span id="v-contrast">0</span></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" oninput="onAdjust()"></div>
-                    <div class="s-row"><label>highlights <span id="v-highlights">0</span></label><input type="range" id="sl-highlights" min="-100" max="100" value="0" oninput="onAdjust()"></div>
-                    <div class="s-row"><label>shadows <span id="v-shadows">0</span></label><input type="range" id="sl-shadows" min="-100" max="100" value="0" oninput="onAdjust()"></div>
-                    <div class="s-row"><label>saturation <span id="v-saturation">0</span></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" oninput="onAdjust()"></div>
-                    <div class="s-row"><label>temperature <span id="v-temperature">0</span></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" oninput="onAdjust()"></div>
-                    <div class="s-row"><label>sharpen <span id="v-sharpen">0</span></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row"><label>brightness <input type="number" class="val-input" id="v-brightness" value="0" min="-100" max="100" step="1" data-key="brightness" oninput="syncVal(this)"></label><input type="range" id="sl-brightness" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>contrast <input type="number" class="val-input" id="v-contrast" value="0" min="-100" max="100" step="1" data-key="contrast" oninput="syncVal(this)"></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>highlights <input type="number" class="val-input" id="v-highlights" value="0" min="-100" max="100" step="1" data-key="highlights" oninput="syncVal(this)"></label><input type="range" id="sl-highlights" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>shadows <input type="number" class="val-input" id="v-shadows" value="0" min="-100" max="100" step="1" data-key="shadows" oninput="syncVal(this)"></label><input type="range" id="sl-shadows" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>saturation <input type="number" class="val-input" id="v-saturation" value="0" min="-100" max="100" step="1" data-key="saturation" oninput="syncVal(this)"></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>temperature <input type="number" class="val-input" id="v-temperature" value="0" min="-100" max="100" step="1" data-key="temperature" oninput="syncVal(this)"></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row-btns"><button class="s-link" onclick="resetAdjust()">reset</button></div>
                 </div>
             </details>
@@ -182,8 +194,8 @@
                         <input type="checkbox" id="border-lock" checked>
                         <label for="border-lock">link h &amp; v</label>
                     </div>
-                    <div class="s-row"><label>horizontal (l&r) <span id="v-bx">0px</span></label><input type="range" id="sl-bx" min="0" max="400" value="0" oninput="onBorder('x')"></div>
-                    <div class="s-row"><label>vertical (t&b) <span id="v-by">0px</span></label><input type="range" id="sl-by" min="0" max="400" value="0" oninput="onBorder('y')"></div>
+                    <div class="s-row"><label>horizontal (l&r) <input type="number" class="val-input" id="v-bx" value="0" min="0" max="400" step="1" data-key="bx" oninput="syncVal(this)"></label><input type="range" id="sl-bx" min="0" max="400" value="0" data-default="0" oninput="onBorder('x')" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>vertical (t&b) <input type="number" class="val-input" id="v-by" value="0" min="0" max="400" step="1" data-key="by" oninput="syncVal(this)"></label><input type="range" id="sl-by" min="0" max="400" value="0" data-default="0" oninput="onBorder('y')" ondblclick="resetSlider(this)"></div>
                     <div class="c-row"><label>colour</label><input type="color" id="sl-bcolor" value="#ffffff" oninput="scheduleRender()"></div>
                 </div>
             </details>
@@ -198,8 +210,8 @@
                         <button class="s-btn-ghost" onclick="flipWork('v')">↕ flip v</button>
                     </div>
                     <div class="s-row" style="margin-top:1rem;">
-                        <label>straighten <span id="v-straighten">0°</span></label>
-                        <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" oninput="onStraighten()">
+                        <label>straighten <input type="number" class="val-input" id="v-straighten" value="0" min="-15" max="15" step="0.5" data-key="straighten" oninput="syncVal(this)"></label>
+                        <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" data-default="0" oninput="onStraighten()" ondblclick="resetSlider(this)">
                     </div>
                     <div class="s-row-btns">
                         <button class="s-btn" onclick="commitStraighten()">commit + auto-crop</button>
@@ -211,7 +223,7 @@
             <details class="e-sec">
                 <summary>vignette</summary>
                 <div class="e-body">
-                    <div class="s-row"><label>strength <span id="v-vignette">0</span></label><input type="range" id="sl-vignette" min="0" max="100" value="0" oninput="onVignette()"></div>
+                    <div class="s-row"><label>strength <input type="number" class="val-input" id="v-vignette" value="0" min="0" max="100" step="1" data-key="vignette" oninput="syncVal(this)"></label><input type="range" id="sl-vignette" min="0" max="100" value="0" data-default="0" oninput="onVignette()" ondblclick="resetSlider(this)"></div>
                 </div>
             </details>
 
@@ -227,8 +239,8 @@
                         <option value="marker">sharpie (permanent marker)</option>
                         <option value="caveat">cursive (caveat)</option>
                     </select>
-                    <div class="s-row"><label>size <span id="v-labelsize">32</span></label><input type="range" id="sl-labelsize" min="10" max="120" value="32" oninput="onLabelSlider('labelsize','v-labelsize','')"></div>
-                    <div class="s-row"><label>position <span id="v-labelx">50%</span></label><input type="range" id="sl-labelx" min="5" max="95" value="50" oninput="onLabelSlider('labelx','v-labelx','%')"></div>
+                    <div class="s-row"><label>size <input type="number" class="val-input" id="v-labelsize" value="32" min="10" max="120" step="1" data-key="labelsize" oninput="syncVal(this)"></label><input type="range" id="sl-labelsize" min="10" max="120" value="32" data-default="32" oninput="onLabelSlider('labelsize','v-labelsize')" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>position <input type="number" class="val-input" id="v-labelx" value="50" min="5" max="95" step="1" data-key="labelx" oninput="syncVal(this)"></label><input type="range" id="sl-labelx" min="5" max="95" value="50" data-default="50" oninput="onLabelSlider('labelx','v-labelx')" ondblclick="resetSlider(this)"></div>
                     <div class="c-row"><label>colour</label><input type="color" id="label-color" value="#1a1a1a" oninput="scheduleRender()"></div>
                     <p class="s-note" style="margin-top:0.65rem;">appears in bottom border — increase vertical border for more space.</p>
                 </div>
@@ -342,6 +354,38 @@ function beginAdjust() {
     scheduleFullRes();
     scheduleRender();
 }
+
+// ── Editable value fields ──────────────────────────────────────
+// Called when user types in a val-input; syncs the paired range slider
+function syncVal(numEl) {
+    const key = numEl.dataset.key;
+    const slEl = document.getElementById('sl-' + key);
+    if (!slEl) return;
+    let v = parseFloat(numEl.value);
+    if (isNaN(v)) return;
+    v = Math.max(parseFloat(slEl.min), Math.min(parseFloat(slEl.max), v));
+    numEl.value = v;
+    slEl.value = v;
+    slEl.dispatchEvent(new Event('input')); // triggers the slider's oninput handler
+}
+// Called on dblclick of a range slider — resets to its data-default value
+function resetSlider(el) {
+    el.value = el.dataset.default ?? 0;
+    el.dispatchEvent(new Event('input'));
+}
+
+// ── Navigation guard ──────────────────────────────────────────
+function confirmLeave(e) {
+    if (!workCanvas) return true;
+    const ok = confirm('Leave the editor?\n\nAny unsaved edits will be lost. Download your image first to keep your changes.');
+    if (!ok && e) e.preventDefault();
+    return ok;
+}
+window.addEventListener('beforeunload', e => {
+    if (!workCanvas) return;
+    e.preventDefault();
+    e.returnValue = ''; // triggers browser's "leave site?" dialog for tab close / refresh
+});
 
 // ── History ───────────────────────────────────────────────────
 function pushHistory() {
@@ -562,19 +606,28 @@ function commitStraighten() {
     }
     straightenAngle = 0;
     document.getElementById('sl-straighten').value = 0;
-    document.getElementById('v-straighten').textContent = '0°';
+    document.getElementById('v-straighten').value = 0;
     render();
 }
 
 function applyVignette(canvas, strength) {
     if (strength <= 0) return;
     const ctx = canvas.getContext('2d');
-    const cx = canvas.width/2, cy = canvas.height/2;
-    const r = Math.sqrt(cx*cx + cy*cy);
-    const grad = ctx.createRadialGradient(cx, cy, r*0.3, cx, cy, r);
+    const W = canvas.width, H = canvas.height;
+    const alpha = strength / 100 * 0.85;
+    // Draw a circular gradient on a square working canvas, then stretch it to the
+    // image aspect ratio — this produces a true elliptical vignette that follows all
+    // four edges equally rather than a circle that only touches the shorter edges.
+    const S = 512;
+    const tmp = mkCanvas(S, S);
+    const tctx = tmp.getContext('2d');
+    const c = S / 2, r = c * Math.SQRT2; // outer radius = corner distance
+    const grad = tctx.createRadialGradient(c, c, r * 0.38, c, c, r);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, `rgba(0,0,0,${strength/100*0.85})`);
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    grad.addColorStop(1, `rgba(0,0,0,${alpha})`);
+    tctx.fillStyle = grad;
+    tctx.fillRect(0, 0, S, S);
+    ctx.drawImage(tmp, 0, 0, W, H); // stretch square → image aspect = elliptical vignette
 }
 
 function applyTextOverlay(ctx, outW, outH, bx, by) {
@@ -877,36 +930,36 @@ ovEl.addEventListener('mouseup', e => {
 // ── Sliders ───────────────────────────────────────────────────
 function onAdjust() {
     ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
-        const el=document.getElementById('v-'+k); if(el) el.textContent=document.getElementById('sl-'+k).value;
+        const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
     });
     beginAdjust();
 }
 function resetAdjust() {
     ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
         document.getElementById('sl-'+k).value=0;
-        const el=document.getElementById('v-'+k); if(el) el.textContent='0';
+        const el=document.getElementById('v-'+k); if(el) el.value='0';
     });
-    scheduleRender(); // reset is instant — no drag, render full-res immediately
+    scheduleRender();
 }
 function onStraighten() {
     straightenAngle=parseFloat(document.getElementById('sl-straighten').value);
-    document.getElementById('v-straighten').textContent=straightenAngle+'°';
+    document.getElementById('v-straighten').value=straightenAngle;
     beginAdjust();
 }
 function onVignette() {
-    document.getElementById('v-vignette').textContent=document.getElementById('sl-vignette').value;
+    document.getElementById('v-vignette').value=document.getElementById('sl-vignette').value;
     beginAdjust();
 }
 function onBorder(axis) {
     const locked=document.getElementById('border-lock').checked;
     const bxEl=document.getElementById('sl-bx'), byEl=document.getElementById('sl-by');
     if (locked) { if(axis==='x') byEl.value=bxEl.value; else bxEl.value=byEl.value; }
-    document.getElementById('v-bx').textContent=bxEl.value+'px';
-    document.getElementById('v-by').textContent=byEl.value+'px';
-    beginAdjust(); // border changes canvas size — still benefits from preview mode
+    document.getElementById('v-bx').value=bxEl.value;
+    document.getElementById('v-by').value=byEl.value;
+    beginAdjust();
 }
-function onLabelSlider(id, vid, suffix) {
-    document.getElementById(vid).textContent=document.getElementById('sl-'+id).value+suffix;
+function onLabelSlider(id, vid) {
+    document.getElementById(vid).value=document.getElementById('sl-'+id).value;
     beginAdjust();
 }
 
