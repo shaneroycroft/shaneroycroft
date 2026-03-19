@@ -7,17 +7,16 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
     <style>
         html, body { height: 100%; overflow: hidden; }
 
-        /* ── Top bar ──────────────────────────────────────── */
         .e-bar {
             height: 46px;
-            display: flex; align-items: center; gap: 1.25rem;
+            display: flex; align-items: center; gap: 1.1rem;
             padding: 0 1.25rem;
             border-bottom: 1px solid var(--border);
-            background: var(--bg);
-            flex-shrink: 0;
+            background: var(--bg); flex-shrink: 0;
         }
         .e-bar-title { font-size: 0.72rem; letter-spacing: 2px; color: var(--secondary); flex-shrink: 0; }
         .e-bar-sep   { color: var(--border); }
@@ -27,39 +26,22 @@
             padding: 0; transition: color 0.2s; text-decoration: none; white-space: nowrap; flex-shrink: 0;
         }
         .e-bar-btn:hover { color: var(--text); }
-        .e-bar-btn.primary {
-            background: var(--text); color: var(--bg);
-            padding: 0.3rem 0.85rem;
-        }
+        .e-bar-btn.primary { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
         .e-bar-btn.primary:hover { opacity: 0.7; }
         .e-bar-btn:disabled, button:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
         .e-bar-spacer { flex: 1; }
-
-        .grid-label {
-            display: flex; align-items: center; gap: 0.4rem;
-            font-size: 0.72rem; color: var(--secondary); cursor: pointer; flex-shrink: 0;
-        }
+        .grid-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--secondary); cursor: pointer; flex-shrink: 0; }
         .grid-label input { accent-color: var(--text); cursor: pointer; }
-        #grid-type {
-            font-family: inherit; font-size: 0.7rem; background: var(--bg);
-            color: var(--text); border: 1px solid var(--border); padding: 0.15rem 0.3rem; cursor: pointer;
-        }
+        #grid-type { font-family: inherit; font-size: 0.7rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.15rem 0.3rem; cursor: pointer; }
 
-        /* ── Layout ───────────────────────────────────────── */
-        .e-layout {
-            display: flex;
-            height: calc(100vh - 46px);
-            overflow: hidden;
-        }
+        .e-layout { display: flex; height: calc(100vh - 46px); overflow: hidden; }
 
-        /* ── Sidebar ──────────────────────────────────────── */
-        .e-sidebar {
-            width: 262px;
-            flex-shrink: 0;
-            border-right: 1px solid var(--border);
-            overflow-y: auto;
-            background: var(--bg);
-        }
+        .e-sidebar { width: 262px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; background: var(--bg); }
+
+        /* Histogram */
+        .e-hist { padding: 0.7rem 1.2rem; border-bottom: 1px solid var(--border); }
+        .e-hist-label { font-size: 0.62rem; letter-spacing: 1px; text-transform: lowercase; color: var(--secondary); margin-bottom: 0.35rem; }
+        #hist-canvas { display: block; border: 1px solid var(--border); }
 
         /* Accordion */
         .e-sec { border-bottom: 1px solid var(--border); }
@@ -67,8 +49,7 @@
             font-size: 0.72rem; text-transform: lowercase; letter-spacing: 1px;
             cursor: pointer; padding: 0.75rem 1.2rem;
             user-select: none; list-style: none;
-            display: flex; justify-content: space-between; align-items: center;
-            color: var(--text);
+            display: flex; justify-content: space-between; align-items: center; color: var(--text);
         }
         .e-sec summary::-webkit-details-marker { display: none; }
         .e-sec summary::after { content: '+'; color: var(--secondary); }
@@ -78,25 +59,23 @@
         /* Sliders */
         .s-row { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
         .s-row:last-of-type { margin-bottom: 0; }
-        .s-row label {
-            font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px;
-            color: var(--secondary); display: flex; justify-content: space-between;
-        }
+        .s-row label { font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); display: flex; justify-content: space-between; }
         .s-row input[type=range] { width: 100%; accent-color: var(--text); }
         .c-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
         .c-row label { font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
         .c-row input[type=color] { width: 2.2rem; height: 1.75rem; border: 1px solid var(--border); cursor: pointer; padding: 0; background: none; }
 
-        /* Aspect ratio buttons */
-        .ar-btn {
-            background: none; border: 1px solid var(--border); cursor: pointer;
-            font-family: inherit; font-size: 0.68rem; color: var(--secondary);
-            padding: 0.2rem 0.45rem; transition: 0.15s; letter-spacing: 0.3px;
-        }
+        /* Lock row */
+        .lock-row { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.65rem; }
+        .lock-row label { font-size: 0.68rem; color: var(--secondary); letter-spacing: 0.4px; cursor: pointer; }
+        .lock-row input { accent-color: var(--text); cursor: pointer; }
+
+        /* AR buttons */
+        .ar-btn { background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; font-size: 0.68rem; color: var(--secondary); padding: 0.2rem 0.4rem; transition: 0.15s; }
         .ar-btn:hover { border-color: var(--text); color: var(--text); }
         .ar-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
-        /* Tiny buttons */
+        /* Misc buttons */
         .s-link { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.7rem; color: var(--secondary); padding: 0; text-decoration: underline; transition: color 0.2s; }
         .s-link:hover { color: var(--text); }
         .s-link.red { color: #c0392b; }
@@ -105,61 +84,32 @@
         .s-btn-ghost { background: none; color: var(--text); border: 1px solid var(--border); padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
         .s-note { font-size: 0.68rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.65rem; }
 
-        /* Transform grid */
-        .transform-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
-        }
-        .transform-grid button {
-            font-size: 0.7rem; padding: 0.4rem 0.5rem; text-align: center;
-            background: none; border: 1px solid var(--border); cursor: pointer;
-            font-family: inherit; color: var(--text); transition: border-color 0.2s;
-        }
+        /* Transform */
+        .transform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .transform-grid button { font-size: 0.7rem; padding: 0.4rem 0.5rem; text-align: center; background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; color: var(--text); transition: border-color 0.2s; }
         .transform-grid button:hover { border-color: var(--text); }
 
-        /* Curve canvas */
+        /* Curve */
         #curve-canvas { display: block; cursor: crosshair; border: 1px solid var(--border); margin: 0.35rem 0 0.5rem; }
 
-        /* ── Canvas area ──────────────────────────────────── */
-        .e-main {
-            flex: 1;
-            display: flex; justify-content: center; align-items: center;
-            overflow: auto;
-            background: #efefef;
-            padding: 2.5rem;
-        }
+        /* Label */
+        .font-select { font-family: inherit; font-size: 0.72rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.25rem 0.4rem; width: 100%; cursor: pointer; margin-bottom: 0.75rem; }
+        .s-input { width: 100%; font-family: inherit; font-size: 0.75rem; border: 1px solid var(--border); padding: 0.35rem 0.5rem; background: var(--bg); color: var(--text); outline: none; margin-bottom: 0.75rem; box-sizing: border-box; }
+        .s-input:focus { border-color: var(--text); }
 
-        #drop-hint {
-            text-align: center; padding: 3.5rem 3rem;
-            border: 1px dashed #ccc; cursor: pointer; background: var(--bg);
-            min-width: 260px;
-        }
+        /* Canvas area */
+        .e-main { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; background: #efefef; padding: 2.5rem; }
+        #drop-hint { text-align: center; padding: 3.5rem 3rem; border: 1px dashed #ccc; cursor: pointer; background: var(--bg); min-width: 260px; }
         #drop-hint p { font-size: 0.82rem; color: var(--secondary); }
         #drop-hint p + p { margin-top: 0.3rem; font-size: 0.72rem; }
-
-        /* Black frame = box-shadow only — NOT drawn on canvas */
-        #canvas-wrap {
-            position: relative;
-            display: inline-block;
-            flex-shrink: 0;
-            box-shadow: 0 0 0 1px #111, 0 6px 32px rgba(0,0,0,0.28);
-        }
-        #output-canvas {
-            display: block;
-            max-width: calc(100vw - 300px - 5rem);
-            max-height: calc(100vh - 46px - 5rem);
-        }
-        /* Overlay: grid + crop UI — never part of output */
-        #overlay-canvas {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-        }
+        #canvas-wrap { position: relative; display: inline-block; flex-shrink: 0; box-shadow: 0 0 0 1px #111, 0 6px 32px rgba(0,0,0,0.28); }
+        #output-canvas { display: block; max-width: calc(100vw - 300px - 5rem); max-height: calc(100vh - 46px - 5rem); }
+        #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         #overlay-canvas.crop-mode { pointer-events: auto; cursor: crosshair; }
     </style>
 </head>
 <body>
 
-    <!-- Top bar -->
     <div class="e-bar">
         <span class="e-bar-title">editor</span>
         <span class="e-bar-sep">|</span>
@@ -167,8 +117,7 @@
         <input type="file" id="open-input" accept="image/*" style="display:none">
         <span class="e-bar-sep">|</span>
         <label class="grid-label">
-            <input type="checkbox" id="grid-toggle" onchange="renderOverlay()">
-            grid
+            <input type="checkbox" id="grid-toggle" onchange="renderOverlay()"> grid
         </label>
         <select id="grid-type" onchange="renderOverlay()">
             <option value="thirds">rule of thirds</option>
@@ -177,59 +126,50 @@
             <option value="4x4">4×4</option>
         </select>
         <span class="e-bar-sep">|</span>
-        <button class="e-bar-btn" id="before-after-btn"
-            onmousedown="showOriginal(true)" onmouseup="showOriginal(false)"
-            ontouchstart="showOriginal(true)" ontouchend="showOriginal(false)">
-            before/after
-        </button>
+        <button class="e-bar-btn" onmousedown="showOriginal(true)" onmouseup="showOriginal(false)" ontouchstart="showOriginal(true)" ontouchend="showOriginal(false)">before/after</button>
+        <span class="e-bar-sep">|</span>
+        <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
+        <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
         <span class="e-bar-spacer"></span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadPNG()" disabled>download png</button>
         <span class="e-bar-sep">|</span>
         <a href="admin.html" class="e-bar-btn">← admin</a>
     </div>
 
-    <!-- Layout -->
     <div class="e-layout">
-
-        <!-- Sidebar -->
         <div class="e-sidebar">
+
+            <!-- Histogram -->
+            <div class="e-hist">
+                <div class="e-hist-label">histogram</div>
+                <canvas id="hist-canvas" width="222" height="66"></canvas>
+            </div>
 
             <details class="e-sec" open>
                 <summary>adjust</summary>
                 <div class="e-body">
-                    <div class="s-row">
-                        <label>brightness <span id="v-brightness">0</span></label>
-                        <input type="range" id="sl-brightness" min="-100" max="100" value="0" oninput="onAdjust()">
-                    </div>
-                    <div class="s-row">
-                        <label>contrast <span id="v-contrast">0</span></label>
-                        <input type="range" id="sl-contrast" min="-100" max="100" value="0" oninput="onAdjust()">
-                    </div>
-                    <div class="s-row">
-                        <label>saturation <span id="v-saturation">0</span></label>
-                        <input type="range" id="sl-saturation" min="-100" max="100" value="0" oninput="onAdjust()">
-                    </div>
-                    <div class="s-row">
-                        <label>temperature <span id="v-temperature">0</span></label>
-                        <input type="range" id="sl-temperature" min="-100" max="100" value="0" oninput="onAdjust()">
-                    </div>
-                    <div class="s-row">
-                        <label>sharpen <span id="v-sharpen">0</span></label>
-                        <input type="range" id="sl-sharpen" min="0" max="100" value="0" oninput="onAdjust()">
-                    </div>
-                    <div class="s-row-btns">
-                        <button class="s-link" onclick="resetAdjust()">reset</button>
-                    </div>
+                    <div class="s-row"><label>brightness <span id="v-brightness">0</span></label><input type="range" id="sl-brightness" min="-100" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row"><label>contrast <span id="v-contrast">0</span></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row"><label>highlights <span id="v-highlights">0</span></label><input type="range" id="sl-highlights" min="-100" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row"><label>shadows <span id="v-shadows">0</span></label><input type="range" id="sl-shadows" min="-100" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row"><label>saturation <span id="v-saturation">0</span></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row"><label>temperature <span id="v-temperature">0</span></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row"><label>sharpen <span id="v-sharpen">0</span></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" oninput="onAdjust()"></div>
+                    <div class="s-row-btns"><button class="s-link" onclick="resetAdjust()">reset</button></div>
                 </div>
             </details>
 
             <details class="e-sec">
                 <summary>curve</summary>
                 <div class="e-body">
-                    <p class="s-note">click to add point · drag to reshape · double-click to remove</p>
+                    <p class="s-note">click to add · drag · double-click to remove</p>
                     <canvas id="curve-canvas" width="220" height="220"></canvas>
                     <div class="s-row-btns">
-                        <button class="s-link" onclick="applySCurve()">s-curve</button>
+                        <button class="s-link" onclick="applyCurvePreset('s')">s-curve</button>
+                        <button class="s-link" onclick="applyCurvePreset('gentle')">gentle</button>
+                        <button class="s-link" onclick="applyCurvePreset('highcon')">high contrast</button>
+                        <button class="s-link" onclick="applyCurvePreset('fade')">film fade</button>
+                        <button class="s-link" onclick="applyCurvePreset('matte')">matte</button>
                         <button class="s-link" onclick="resetCurve()">reset</button>
                     </div>
                 </div>
@@ -238,18 +178,13 @@
             <details class="e-sec">
                 <summary>border</summary>
                 <div class="e-body">
-                    <div class="s-row">
-                        <label>horizontal (l&r) <span id="v-bx">40px</span></label>
-                        <input type="range" id="sl-bx" min="0" max="400" value="40" oninput="onBorder()">
+                    <div class="lock-row">
+                        <input type="checkbox" id="border-lock" checked>
+                        <label for="border-lock">link h &amp; v</label>
                     </div>
-                    <div class="s-row">
-                        <label>vertical (t&b) <span id="v-by">40px</span></label>
-                        <input type="range" id="sl-by" min="0" max="400" value="40" oninput="onBorder()">
-                    </div>
-                    <div class="c-row">
-                        <label>colour</label>
-                        <input type="color" id="sl-bcolor" value="#ffffff" oninput="onBorder()">
-                    </div>
+                    <div class="s-row"><label>horizontal (l&r) <span id="v-bx">0px</span></label><input type="range" id="sl-bx" min="0" max="400" value="0" oninput="onBorder('x')"></div>
+                    <div class="s-row"><label>vertical (t&b) <span id="v-by">0px</span></label><input type="range" id="sl-by" min="0" max="400" value="0" oninput="onBorder('y')"></div>
+                    <div class="c-row"><label>colour</label><input type="color" id="sl-bcolor" value="#ffffff" oninput="scheduleRender()"></div>
                 </div>
             </details>
 
@@ -267,7 +202,8 @@
                         <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" oninput="onStraighten()">
                     </div>
                     <div class="s-row-btns">
-                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0; onStraighten()">reset</button>
+                        <button class="s-btn" onclick="commitStraighten()">commit + auto-crop</button>
+                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;onStraighten()">reset</button>
                     </div>
                 </div>
             </details>
@@ -275,43 +211,59 @@
             <details class="e-sec">
                 <summary>vignette</summary>
                 <div class="e-body">
-                    <div class="s-row">
-                        <label>strength <span id="v-vignette">0</span></label>
-                        <input type="range" id="sl-vignette" min="0" max="100" value="0" oninput="onVignette()">
+                    <div class="s-row"><label>strength <span id="v-vignette">0</span></label><input type="range" id="sl-vignette" min="0" max="100" value="0" oninput="onVignette()"></div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>label</summary>
+                <div class="e-body">
+                    <div class="lock-row" style="margin-bottom:0.75rem;">
+                        <input type="checkbox" id="label-on" onchange="scheduleRender()">
+                        <label for="label-on">show label on image</label>
                     </div>
+                    <input type="text" class="s-input" id="label-text" placeholder="write something..." oninput="scheduleRender()">
+                    <select class="font-select" id="label-font" onchange="scheduleRender()">
+                        <option value="marker">sharpie (permanent marker)</option>
+                        <option value="caveat">cursive (caveat)</option>
+                    </select>
+                    <div class="s-row"><label>size <span id="v-labelsize">32</span></label><input type="range" id="sl-labelsize" min="10" max="120" value="32" oninput="onLabelSlider('labelsize','v-labelsize','')"></div>
+                    <div class="s-row"><label>position <span id="v-labelx">50%</span></label><input type="range" id="sl-labelx" min="5" max="95" value="50" oninput="onLabelSlider('labelx','v-labelx','%')"></div>
+                    <div class="c-row"><label>colour</label><input type="color" id="label-color" value="#1a1a1a" oninput="scheduleRender()"></div>
+                    <p class="s-note" style="margin-top:0.65rem;">appears in bottom border — increase vertical border for more space.</p>
                 </div>
             </details>
 
             <details class="e-sec">
                 <summary>crop</summary>
                 <div class="e-body">
-                    <p class="s-note">drag on the image to select region. applied before border and adjustments.</p>
-
-                    <!-- Aspect ratio -->
+                    <p class="s-note">drag on the image to select region. applied before adjustments.</p>
                     <div class="s-row" style="margin-bottom:0.75rem;">
                         <label>aspect ratio</label>
-                        <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.3rem;">
-                            <button class="ar-btn active" data-ar="free" onclick="setAR(this,'free')">free</button>
-                            <button class="ar-btn" data-ar="1:1"  onclick="setAR(this,'1:1')">1:1</button>
-                            <button class="ar-btn" data-ar="4:3"  onclick="setAR(this,'4:3')">4:3</button>
-                            <button class="ar-btn" data-ar="3:2"  onclick="setAR(this,'3:2')">3:2</button>
-                            <button class="ar-btn" data-ar="16:9" onclick="setAR(this,'16:9')">16:9</button>
-                            <button class="ar-btn" data-ar="2:3"  onclick="setAR(this,'2:3')">2:3</button>
-                            <button class="ar-btn" data-ar="9:16" onclick="setAR(this,'9:16')">9:16</button>
-                            <button class="ar-btn" data-ar="custom" onclick="setAR(this,'custom')">custom</button>
+                        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.3rem;">
+                            <button class="ar-btn active" onclick="setAR(this,'free')">free</button>
+                            <button class="ar-btn" onclick="setAR(this,'1:1')">1:1</button>
+                            <button class="ar-btn" onclick="setAR(this,'4:3')">4:3</button>
+                            <button class="ar-btn" onclick="setAR(this,'3:4')">3:4</button>
+                            <button class="ar-btn" onclick="setAR(this,'3:2')">3:2</button>
+                            <button class="ar-btn" onclick="setAR(this,'2:3')">2:3</button>
+                            <button class="ar-btn" onclick="setAR(this,'16:9')">16:9</button>
+                            <button class="ar-btn" onclick="setAR(this,'9:16')">9:16</button>
+                            <button class="ar-btn" onclick="setAR(this,'5:4')">5:4</button>
+                            <button class="ar-btn" onclick="setAR(this,'4:5')">4:5</button>
+                            <button class="ar-btn" onclick="setAR(this,'7:5')">7:5</button>
+                            <button class="ar-btn" onclick="setAR(this,'5:7')">5:7</button>
+                            <button class="ar-btn" onclick="setAR(this,'custom')">custom</button>
                         </div>
                     </div>
-                    <div id="ar-custom-row" style="display:none; gap:0.4rem; align-items:center; margin-bottom:0.75rem;">
-                        <input id="ar-w" type="number" min="1" max="99" value="3" style="width:42px; font-family:inherit; font-size:0.72rem; border:1px solid var(--border); padding:0.2rem 0.3rem; background:var(--bg); color:var(--text);" oninput="onCustomAR()">
-                        <span style="font-size:0.7rem; color:var(--secondary);">:</span>
-                        <input id="ar-h" type="number" min="1" max="99" value="2" style="width:42px; font-family:inherit; font-size:0.72rem; border:1px solid var(--border); padding:0.2rem 0.3rem; background:var(--bg); color:var(--text);" oninput="onCustomAR()">
+                    <div id="ar-custom-row" style="display:none;gap:0.4rem;align-items:center;margin-bottom:0.75rem;">
+                        <input id="ar-w" type="number" min="1" max="99" value="3" style="width:42px;font-family:inherit;font-size:0.72rem;border:1px solid var(--border);padding:0.2rem 0.3rem;background:var(--bg);color:var(--text);" oninput="onCustomAR()">
+                        <span style="font-size:0.7rem;color:var(--secondary);">:</span>
+                        <input id="ar-h" type="number" min="1" max="99" value="2" style="width:42px;font-family:inherit;font-size:0.72rem;border:1px solid var(--border);padding:0.2rem 0.3rem;background:var(--bg);color:var(--text);" oninput="onCustomAR()">
                     </div>
-
-                    <div id="crop-idle">
-                        <button class="s-btn" onclick="startCrop()">draw crop</button>
-                    </div>
+                    <div id="crop-idle"><button class="s-btn" onclick="startCrop()">draw crop</button></div>
                     <div id="crop-active" style="display:none;">
-                        <p class="s-note" id="crop-hint">drag on the image to select area</p>
+                        <p class="s-note" id="crop-hint">drag on the image to draw crop area</p>
                         <div class="s-row-btns">
                             <button class="s-btn" onclick="applyCrop()">apply</button>
                             <button class="s-btn-ghost" onclick="cancelCrop()">cancel</button>
@@ -320,13 +272,12 @@
                             <button class="s-link red" onclick="resetToOriginal()">reset to original</button>
                         </div>
                     </div>
-                    <p class="s-note" id="crop-info" style="margin-top:0.5rem; margin-bottom:0;"></p>
+                    <p class="s-note" id="crop-info" style="margin-top:0.5rem;margin-bottom:0;"></p>
                 </div>
             </details>
 
         </div>
 
-        <!-- Canvas area -->
         <div class="e-main" id="e-main">
             <div id="drop-hint" onclick="document.getElementById('open-input').click()">
                 <p>open an image to start editing</p>
@@ -337,588 +288,652 @@
                 <canvas id="overlay-canvas"></canvas>
             </div>
         </div>
-
     </div>
 
-    <script>
-    // ── State ─────────────────────────────────────────────────
-    let origCanvas = null; // pristine original
-    let workCanvas = null; // after crop
-    let origName   = 'photo';
+<script>
+// ── State ─────────────────────────────────────────────────────
+let origCanvas = null;
+let workCanvas = null;
+let origName   = 'photo';
 
-    // Curve
-    let curvePoints = [{x:0,y:0},{x:255,y:255}];
-    let dragPt = null;
-    const CS   = 220;  // curve canvas px
-    const PT_R = 8;    // hit radius
+// History
+let history    = [];
+let historyIdx = -1;
+const HIST_MAX = 20;
 
-    // Crop
-    let cropMode   = false;
-    let cropPhase  = 'idle';  // 'idle' | 'drawing' | 'drawn'
-    let cropBox    = null;    // {x, y, w, h} in overlay canvas px
-    let cropAR     = 'free';
-    let dragHandle = null;    // 'tl'|'tc'|'tr'|'ml'|'mr'|'bl'|'bc'|'br'|'move'|'draw'
-    let dragOrigin = null;    // {mx, my, box, startX?, startY?}
+// Image bounds in output-canvas pixel coords (set in render)
+let imageBounds = {x1:0,y1:0,x2:0,y2:0};
 
-    // Transform / vignette / before-after
-    let straightenAngle  = 0;
-    let showingOriginal  = false;
+// Curve
+let curvePoints = [{x:0,y:0},{x:255,y:255}];
+let dragPt = null;
+const CS = 220, PT_R = 8;
 
-    // ── File open ─────────────────────────────────────────────
-    document.getElementById('open-input').addEventListener('change', e => {
-        if (e.target.files[0]) loadFile(e.target.files[0]);
-    });
-    const eMain = document.getElementById('e-main');
-    eMain.addEventListener('dragover', e => e.preventDefault());
-    eMain.addEventListener('drop', e => {
-        e.preventDefault();
-        const f = e.dataTransfer.files[0];
-        if (f && f.type.startsWith('image/')) loadFile(f);
-    });
+// Crop
+let cropMode   = false;
+let cropPhase  = 'idle';
+let cropBox    = null;
+let cropAR     = 'free';
+let dragHandle = null;
+let dragOrigin = null;
 
-    function loadFile(file) {
-        origName = file.name.replace(/\.[^.]+$/, '');
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            URL.revokeObjectURL(url);
-            origCanvas = mkCanvas(img.naturalWidth, img.naturalHeight);
-            origCanvas.getContext('2d').drawImage(img, 0, 0);
-            workCanvas = cloneCanvas(origCanvas);
-            cancelCrop();
-            document.getElementById('drop-hint').style.display = 'none';
-            document.getElementById('canvas-wrap').style.display = 'inline-block';
-            document.getElementById('dl-btn').disabled = false;
-            render();
-        };
-        img.src = url;
+// Transform
+let straightenAngle = 0;
+let showingOriginal = false;
+
+// rAF debounce
+let renderRAF = null;
+function scheduleRender() {
+    if (renderRAF) cancelAnimationFrame(renderRAF);
+    renderRAF = requestAnimationFrame(() => { renderRAF = null; render(); });
+}
+
+// ── History ───────────────────────────────────────────────────
+function pushHistory() {
+    if (!workCanvas) return;
+    history = history.slice(0, historyIdx + 1);
+    history.push(cloneCanvas(workCanvas));
+    if (history.length > HIST_MAX) history.shift(); else historyIdx++;
+    updateUndoUI();
+}
+function undo() {
+    if (historyIdx <= 0) return;
+    historyIdx--;
+    workCanvas = cloneCanvas(history[historyIdx]);
+    cancelCrop(); render(); updateUndoUI();
+}
+function redo() {
+    if (historyIdx >= history.length - 1) return;
+    historyIdx++;
+    workCanvas = cloneCanvas(history[historyIdx]);
+    cancelCrop(); render(); updateUndoUI();
+}
+function updateUndoUI() {
+    document.getElementById('undo-btn').disabled = historyIdx <= 0;
+    document.getElementById('redo-btn').disabled = historyIdx >= history.length - 1;
+}
+document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+});
+
+// ── File open ─────────────────────────────────────────────────
+document.getElementById('open-input').addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+const eMain = document.getElementById('e-main');
+eMain.addEventListener('dragover', e => e.preventDefault());
+eMain.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); });
+
+function loadFile(file) {
+    origName = file.name.replace(/\.[^.]+$/, '');
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+        URL.revokeObjectURL(url);
+        origCanvas = mkCanvas(img.naturalWidth, img.naturalHeight);
+        origCanvas.getContext('2d').drawImage(img, 0, 0);
+        workCanvas = cloneCanvas(origCanvas);
+        history = [cloneCanvas(workCanvas)]; historyIdx = 0; updateUndoUI();
+        cancelCrop();
+        document.getElementById('drop-hint').style.display = 'none';
+        document.getElementById('canvas-wrap').style.display = 'inline-block';
+        document.getElementById('dl-btn').disabled = false;
+        render();
+    };
+    img.src = url;
+}
+
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width=w; c.height=h; return c; }
+function cloneCanvas(s) { const c = mkCanvas(s.width,s.height); c.getContext('2d').drawImage(s,0,0); return c; }
+
+// ── Render ────────────────────────────────────────────────────
+function render() {
+    if (!workCanvas || showingOriginal) return;
+    const bx     = parseInt(document.getElementById('sl-bx').value);
+    const by     = parseInt(document.getElementById('sl-by').value);
+    const bcolor = document.getElementById('sl-bcolor').value;
+    const vigStr = parseInt(document.getElementById('sl-vignette').value);
+
+    let adj = applyEdits(workCanvas);
+    adj = applyStraighten(adj, straightenAngle);
+    applyVignette(adj, vigStr);
+
+    const out = document.getElementById('output-canvas');
+    out.width  = adj.width  + bx * 2;
+    out.height = adj.height + by * 2;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = bcolor;
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(adj, bx, by);
+
+    applyTextOverlay(ctx, out.width, out.height, bx, by);
+
+    imageBounds = {x1: bx, y1: by, x2: bx + adj.width, y2: by + adj.height};
+
+    const ov = document.getElementById('overlay-canvas');
+    ov.width  = out.width;
+    ov.height = out.height;
+    renderOverlay();
+    drawHistogram();
+}
+
+// ── Pixel pipeline ────────────────────────────────────────────
+function applyEdits(src) {
+    const brightness  = parseFloat(document.getElementById('sl-brightness').value);
+    const contrast    = parseFloat(document.getElementById('sl-contrast').value);
+    const highlights  = parseFloat(document.getElementById('sl-highlights').value);
+    const shadows     = parseFloat(document.getElementById('sl-shadows').value);
+    const saturation  = parseFloat(document.getElementById('sl-saturation').value);
+    const temperature = parseFloat(document.getElementById('sl-temperature').value);
+    const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
+    const bright = brightness / 100 * 255;
+    const cF     = (259 * (contrast + 255)) / (255 * (259 - contrast));
+    const satF   = 1 + saturation / 100;
+    const tempR  = temperature * 0.4;
+    const tempB  = temperature * 0.4;
+    const hStr   = highlights / 100 * 80;
+    const sStr   = shadows    / 100 * 80;
+    const lut    = buildCurveLUT();
+
+    const out = mkCanvas(src.width, src.height);
+    const ctx = out.getContext('2d');
+    ctx.drawImage(src, 0, 0);
+    const id = ctx.getImageData(0, 0, out.width, out.height);
+    const d  = id.data;
+
+    for (let i = 0; i < d.length; i += 4) {
+        let r=d[i], g=d[i+1], b=d[i+2];
+        r+=bright; g+=bright; b+=bright;
+        r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
+        const lum = 0.2126*r + 0.7152*g + 0.0722*b;
+        const hMask = Math.pow(Math.max(0, lum/255), 1.8);
+        const sMask = Math.pow(Math.max(0, 1-lum/255), 1.8);
+        const adj = hStr*hMask + sStr*sMask;
+        r+=adj; g+=adj; b+=adj;
+        const gr = 0.2126*r + 0.7152*g + 0.0722*b;
+        r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
+        r+=tempR; b-=tempB;
+        d[i]  =lut[Math.max(0,Math.min(255,r|0))];
+        d[i+1]=lut[Math.max(0,Math.min(255,g|0))];
+        d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
     }
+    ctx.putImageData(id, 0, 0);
+    if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
+    return out;
+}
 
-    function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width=w; c.height=h; return c; }
-    function cloneCanvas(s) { const c = mkCanvas(s.width,s.height); c.getContext('2d').drawImage(s,0,0); return c; }
-
-    // ── Render ────────────────────────────────────────────────
-    function render() {
-        if (!workCanvas || showingOriginal) return;
-        const bx     = parseInt(document.getElementById('sl-bx').value);
-        const by     = parseInt(document.getElementById('sl-by').value);
-        const bcolor = document.getElementById('sl-bcolor').value;
-        const vigStr = parseInt(document.getElementById('sl-vignette').value);
-
-        let adj = applyEdits(workCanvas);
-        adj = applyStraighten(adj, straightenAngle);
-        applyVignette(adj, vigStr);
-
-        const out = document.getElementById('output-canvas');
-        out.width  = adj.width  + bx * 2;
-        out.height = adj.height + by * 2;
-        const ctx = out.getContext('2d');
-        ctx.fillStyle = bcolor;
-        ctx.fillRect(0, 0, out.width, out.height);
-        ctx.drawImage(adj, bx, by);
-
-        const ov = document.getElementById('overlay-canvas');
-        ov.width  = out.width;
-        ov.height = out.height;
-        renderOverlay();
-    }
-
-    // ── Pixel pipeline ────────────────────────────────────────
-    function applyEdits(src) {
-        const brightness  = parseFloat(document.getElementById('sl-brightness').value);
-        const contrast    = parseFloat(document.getElementById('sl-contrast').value);
-        const saturation  = parseFloat(document.getElementById('sl-saturation').value);
-        const temperature = parseFloat(document.getElementById('sl-temperature').value);
-        const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
-        const bright  = brightness / 100 * 255;
-        const cF      = (259 * (contrast + 255)) / (255 * (259 - contrast));
-        const satF    = 1 + saturation / 100;
-        const tempR   = temperature * 0.4;
-        const tempB   = temperature * 0.4;
-        const lut     = buildCurveLUT();
-
-        const out = mkCanvas(src.width, src.height);
-        const ctx = out.getContext('2d');
-        ctx.drawImage(src, 0, 0);
-        const id = ctx.getImageData(0, 0, out.width, out.height);
-        const d  = id.data;
-
-        for (let i = 0; i < d.length; i += 4) {
-            let r=d[i], g=d[i+1], b=d[i+2];
-            r+=bright; g+=bright; b+=bright;
-            r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
-            const gr = 0.2126*r + 0.7152*g + 0.0722*b;
-            r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
-            r += tempR; b -= tempB;
-            d[i]  =lut[Math.max(0,Math.min(255,r|0))];
-            d[i+1]=lut[Math.max(0,Math.min(255,g|0))];
-            d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
-        }
-        ctx.putImageData(id, 0, 0);
-        applySharpening(ctx, out.width, out.height, sharpen);
-        return out;
-    }
-
-    function applySharpening(ctx, w, h, amount) {
-        if (amount <= 0) return;
-        const a = amount / 100 * 1.5;
-        const id = ctx.getImageData(0, 0, w, h);
-        const src = new Uint8ClampedArray(id.data);
-        const d = id.data;
-        for (let y = 1; y < h-1; y++) {
-            for (let x = 1; x < w-1; x++) {
-                const i = (y*w + x) * 4;
-                for (let c = 0; c < 3; c++) {
-                    const v = (1+4*a)*src[i+c]
-                        - a*src[i-4+c] - a*src[i+4+c]
-                        - a*src[i-w*4+c] - a*src[i+w*4+c];
-                    d[i+c] = Math.max(0, Math.min(255, v));
-                }
+function applySharpening(ctx, w, h, amount) {
+    const a = amount / 100 * 1.5;
+    const id = ctx.getImageData(0, 0, w, h);
+    const src = new Uint8ClampedArray(id.data);
+    const d = id.data;
+    for (let y = 1; y < h-1; y++) {
+        for (let x = 1; x < w-1; x++) {
+            const i = (y*w + x) * 4;
+            for (let c = 0; c < 3; c++) {
+                d[i+c] = Math.max(0, Math.min(255,
+                    (1+4*a)*src[i+c] - a*src[i-4+c] - a*src[i+4+c] - a*src[i-w*4+c] - a*src[i+w*4+c]));
             }
         }
-        ctx.putImageData(id, 0, 0);
     }
+    ctx.putImageData(id, 0, 0);
+}
 
-    function applyStraighten(src, angleDeg) {
-        if (angleDeg === 0) return src;
-        const rad = angleDeg * Math.PI / 180;
-        const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
-        const newW = Math.round(src.width * cos + src.height * sin);
-        const newH = Math.round(src.width * sin + src.height * cos);
-        const out = mkCanvas(newW, newH);
-        const ctx = out.getContext('2d');
-        ctx.translate(newW/2, newH/2);
-        ctx.rotate(rad);
-        ctx.drawImage(src, -src.width/2, -src.height/2);
-        return out;
-    }
+function applyStraighten(src, angleDeg) {
+    if (angleDeg === 0) return src;
+    const rad = angleDeg * Math.PI / 180;
+    const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+    const nW = Math.round(src.width*cos + src.height*sin);
+    const nH = Math.round(src.width*sin + src.height*cos);
+    const out = mkCanvas(nW, nH);
+    const ctx = out.getContext('2d');
+    ctx.translate(nW/2, nH/2); ctx.rotate(rad);
+    ctx.drawImage(src, -src.width/2, -src.height/2);
+    return out;
+}
 
-    function applyVignette(canvas, strength) {
-        if (strength <= 0) return;
-        const ctx = canvas.getContext('2d');
-        const cx = canvas.width/2, cy = canvas.height/2;
-        const r = Math.sqrt(cx*cx + cy*cy);
-        const grad = ctx.createRadialGradient(cx, cy, r*0.3, cx, cy, r);
-        grad.addColorStop(0, 'rgba(0,0,0,0)');
-        grad.addColorStop(1, `rgba(0,0,0,${strength/100 * 0.85})`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function rotateWork(deg) {
-        if (!workCanvas) return;
-        const newW = (deg === 90 || deg === -90 || deg === 270) ? workCanvas.height : workCanvas.width;
-        const newH = (deg === 90 || deg === -90 || deg === 270) ? workCanvas.width  : workCanvas.height;
-        const out = mkCanvas(newW, newH);
-        const ctx = out.getContext('2d');
-        ctx.translate(newW/2, newH/2);
-        ctx.rotate(deg * Math.PI / 180);
-        ctx.drawImage(workCanvas, -workCanvas.width/2, -workCanvas.height/2);
-        workCanvas = out;
-        render();
-    }
-
-    function flipWork(axis) {
-        if (!workCanvas) return;
-        const out = mkCanvas(workCanvas.width, workCanvas.height);
-        const ctx = out.getContext('2d');
-        if (axis === 'h') { ctx.translate(workCanvas.width, 0); ctx.scale(-1, 1); }
-        else              { ctx.translate(0, workCanvas.height); ctx.scale(1, -1); }
-        ctx.drawImage(workCanvas, 0, 0);
-        workCanvas = out;
-        render();
-    }
-
-    function showOriginal(on) {
-        showingOriginal = on;
-        if (on && workCanvas) {
-            const out = document.getElementById('output-canvas');
-            out.width = workCanvas.width; out.height = workCanvas.height;
-            out.getContext('2d').drawImage(workCanvas, 0, 0);
-            const ov = document.getElementById('overlay-canvas');
-            ov.width = out.width; ov.height = out.height;
-            ov.getContext('2d').clearRect(0, 0, 999999, 999999);
-        } else {
-            render();
-        }
-    }
-
-    // ── Overlay ───────────────────────────────────────────────
-    function renderOverlay() {
-        const ov = document.getElementById('overlay-canvas');
-        if (!ov.width) return;
-        const ctx = ov.getContext('2d');
-        ctx.clearRect(0, 0, ov.width, ov.height);
-        if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
-        if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
-    }
-
-    function drawGrid(ctx, W, H) {
-        const type = document.getElementById('grid-type').value;
-        ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5,5]);
-        const ln = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
-        if (type === 'thirds') {
-            [1/3,2/3].forEach(t => { ln(t*W,0,t*W,H); ln(0,t*H,W,t*H); });
-        } else if (type === 'golden') {
-            const p=0.38197; [p,1-p].forEach(t => { ln(t*W,0,t*W,H); ln(0,t*H,W,t*H); });
-        } else if (type === 'diagonal') {
-            ln(0,0,W,H); ln(W,0,0,H);
-            ln(0,0,W*0.618,H); ln(W,0,W*0.382,H);
-            ln(0,H*0.382,W,0); ln(0,H*0.618,W,H);
-        } else {
-            [1,2,3].forEach(i => { ln(i*W/4,0,i*W/4,H); ln(0,i*H/4,W,i*H/4); });
-        }
-        ctx.setLineDash([]);
-    }
-
-    // ── Crop ──────────────────────────────────────────────────
-    function startCrop() {
-        if (!workCanvas) return;
-        cropMode=true; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
-        document.getElementById('crop-idle').style.display   = 'none';
-        document.getElementById('crop-active').style.display = 'block';
-        document.getElementById('crop-hint').textContent = 'drag on the image to draw crop area';
-        document.getElementById('overlay-canvas').classList.add('crop-mode');
-        renderOverlay();
-    }
-
-    function cancelCrop() {
-        cropMode=false; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
-        document.getElementById('crop-idle').style.display   = '';
-        document.getElementById('crop-active').style.display = 'none';
-        document.getElementById('crop-info').textContent = '';
-        const ov = document.getElementById('overlay-canvas');
-        ov.classList.remove('crop-mode');
-        ov.style.cursor = '';
-        renderOverlay();
-    }
-
-    function applyCrop() {
-        if (!cropBox || !workCanvas) return;
-        const bx = parseInt(document.getElementById('sl-bx').value);
-        const by = parseInt(document.getElementById('sl-by').value);
-        const ix  = Math.max(0, Math.round(cropBox.x - bx));
-        const iy  = Math.max(0, Math.round(cropBox.y - by));
-        const ix2 = Math.min(workCanvas.width,  Math.round(cropBox.x + cropBox.w - bx));
-        const iy2 = Math.min(workCanvas.height, Math.round(cropBox.y + cropBox.h - by));
-        const iw  = ix2 - ix, ih = iy2 - iy;
-        if (iw < 2 || ih < 2) { cancelCrop(); return; }
-        const nc = mkCanvas(iw, ih);
-        nc.getContext('2d').drawImage(workCanvas, ix, iy, iw, ih, 0, 0, iw, ih);
+function commitStraighten() {
+    if (!workCanvas || straightenAngle === 0) return;
+    pushHistory();
+    const W = workCanvas.width, H = workCanvas.height;
+    const a = Math.abs(straightenAngle * Math.PI / 180);
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const wr = Math.floor(W*ca - H*sa);
+    const hr = Math.floor(H*ca - W*sa);
+    workCanvas = applyStraighten(workCanvas, straightenAngle);
+    if (wr > 20 && hr > 20) {
+        const ix = Math.floor((workCanvas.width  - wr) / 2);
+        const iy = Math.floor((workCanvas.height - hr) / 2);
+        const nc = mkCanvas(wr, hr);
+        nc.getContext('2d').drawImage(workCanvas, ix, iy, wr, hr, 0, 0, wr, hr);
         workCanvas = nc;
-        cancelCrop();
-        render();
-        document.getElementById('crop-info').textContent = `cropped to ${iw} × ${ih}px`;
     }
+    straightenAngle = 0;
+    document.getElementById('sl-straighten').value = 0;
+    document.getElementById('v-straighten').textContent = '0°';
+    render();
+}
 
-    function resetToOriginal() {
-        workCanvas = cloneCanvas(origCanvas);
-        cancelCrop();
-        render();
-        document.getElementById('crop-info').textContent = 'reset to original.';
+function applyVignette(canvas, strength) {
+    if (strength <= 0) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width/2, cy = canvas.height/2;
+    const r = Math.sqrt(cx*cx + cy*cy);
+    const grad = ctx.createRadialGradient(cx, cy, r*0.3, cx, cy, r);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, `rgba(0,0,0,${strength/100*0.85})`);
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function applyTextOverlay(ctx, outW, outH, bx, by) {
+    if (!document.getElementById('label-on').checked) return;
+    const text = document.getElementById('label-text').value.trim();
+    if (!text) return;
+    const font  = document.getElementById('label-font').value;
+    const size  = parseInt(document.getElementById('sl-labelsize').value);
+    const color = document.getElementById('label-color').value;
+    const px    = outW * (parseInt(document.getElementById('sl-labelx').value) / 100);
+    const py    = outH - by * 0.45;
+    const fontName = font === 'marker' ? "'Permanent Marker', cursive" : "'Caveat', cursive";
+    ctx.save();
+    ctx.font = `${size}px ${fontName}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, px, py);
+    ctx.restore();
+}
+
+function rotateWork(deg) {
+    if (!workCanvas) return;
+    pushHistory();
+    const nW = (deg===90||deg===-90) ? workCanvas.height : workCanvas.width;
+    const nH = (deg===90||deg===-90) ? workCanvas.width  : workCanvas.height;
+    const out = mkCanvas(nW, nH);
+    const ctx = out.getContext('2d');
+    ctx.translate(nW/2, nH/2); ctx.rotate(deg*Math.PI/180);
+    ctx.drawImage(workCanvas, -workCanvas.width/2, -workCanvas.height/2);
+    workCanvas = out; render();
+}
+
+function flipWork(axis) {
+    if (!workCanvas) return;
+    pushHistory();
+    const out = mkCanvas(workCanvas.width, workCanvas.height);
+    const ctx = out.getContext('2d');
+    if (axis==='h') { ctx.translate(workCanvas.width,0); ctx.scale(-1,1); }
+    else            { ctx.translate(0,workCanvas.height); ctx.scale(1,-1); }
+    ctx.drawImage(workCanvas, 0, 0);
+    workCanvas = out; render();
+}
+
+function showOriginal(on) {
+    showingOriginal = on;
+    if (on && workCanvas) {
+        const out = document.getElementById('output-canvas');
+        out.width = workCanvas.width; out.height = workCanvas.height;
+        out.getContext('2d').drawImage(workCanvas, 0, 0);
+        const ov = document.getElementById('overlay-canvas');
+        ov.width = out.width; ov.height = out.height;
+        ov.getContext('2d').clearRect(0,0,99999,99999);
+    } else { render(); }
+}
+
+// ── Histogram ─────────────────────────────────────────────────
+function drawHistogram() {
+    const cv = document.getElementById('hist-canvas');
+    const out = document.getElementById('output-canvas');
+    if (!cv || !out.width) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    const sw = 256, sh = Math.max(1, Math.round(256 * out.height / out.width));
+    const sc = mkCanvas(sw, sh);
+    sc.getContext('2d').drawImage(out, 0, 0, sw, sh);
+    const id = sc.getContext('2d').getImageData(0, 0, sw, sh).data;
+    const BINS = W, sz = 256/BINS;
+    const r=new Float32Array(BINS), g=new Float32Array(BINS), b=new Float32Array(BINS), lm=new Float32Array(BINS);
+    for (let i=0; i<id.length; i+=4) {
+        const ri=id[i],gi=id[i+1],bi=id[i+2];
+        r[Math.min(BINS-1,ri/sz|0)]++; g[Math.min(BINS-1,gi/sz|0)]++;
+        b[Math.min(BINS-1,bi/sz|0)]++; lm[Math.min(BINS-1,(0.2126*ri+0.7152*gi+0.0722*bi)/sz|0)]++;
     }
+    const toLog = a => a.map(v => v>0 ? Math.log(v+1) : 0);
+    const rl=toLog(r),gl=toLog(g),bl2=toLog(b),ll=toLog(lm);
+    const maxV = Math.max(...ll,...rl,...gl,...bl2,1);
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#f4f4f4'; ctx.fillRect(0,0,W,H);
+    const draw=(data,col)=>{ ctx.fillStyle=col; data.forEach((v,i)=>{ const bh=Math.round((v/maxV)*H); ctx.fillRect(i,H-bh,1,bh); }); };
+    draw(rl,'rgba(220,60,60,0.6)'); draw(gl,'rgba(40,160,40,0.6)');
+    draw(bl2,'rgba(60,80,220,0.6)'); draw(ll,'rgba(30,30,30,0.45)');
+    ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.lineWidth=1; ctx.strokeRect(0.5,0.5,W-1,H-1);
+}
 
-    function getARRatio() {
-        if (cropAR === 'free') return null;
-        if (cropAR === 'custom') {
-            const cw = parseFloat(document.getElementById('ar-w').value);
-            const ch = parseFloat(document.getElementById('ar-h').value);
-            if (!cw || !ch) return null;
-            return cw / ch;
-        }
-        const [pw, ph] = cropAR.split(':').map(Number);
-        return pw / ph;
+// ── Overlay ───────────────────────────────────────────────────
+function renderOverlay() {
+    const ov = document.getElementById('overlay-canvas');
+    if (!ov.width) return;
+    const ctx = ov.getContext('2d');
+    ctx.clearRect(0, 0, ov.width, ov.height);
+    if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
+    if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
+}
+
+function drawGrid(ctx, W, H) {
+    const type = document.getElementById('grid-type').value;
+    ctx.setLineDash([6,5]);
+    const ln = (x1,y1,x2,y2) => {
+        ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        ctx.strokeStyle='rgba(255,255,255,0.92)'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    };
+    if (type==='thirds') { [1/3,2/3].forEach(t=>{ ln(t*W,0,t*W,H); ln(0,t*H,W,t*H); }); }
+    else if (type==='golden') { const p=0.38197; [p,1-p].forEach(t=>{ ln(t*W,0,t*W,H); ln(0,t*H,W,t*H); }); }
+    else if (type==='diagonal') { ln(0,0,W,H); ln(W,0,0,H); ln(0,0,W*0.618,H); ln(W,0,W*0.382,H); ln(0,H*0.382,W,0); ln(0,H*0.618,W,H); }
+    else { [1,2,3].forEach(i=>{ ln(i*W/4,0,i*W/4,H); ln(0,i*H/4,W,i*H/4); }); }
+    ctx.setLineDash([]);
+}
+
+// ── Crop ──────────────────────────────────────────────────────
+function startCrop() {
+    if (!workCanvas) return;
+    cropMode=true; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
+    document.getElementById('crop-idle').style.display = 'none';
+    document.getElementById('crop-active').style.display = 'block';
+    document.getElementById('crop-hint').textContent = 'drag on the image to draw crop area';
+    document.getElementById('overlay-canvas').classList.add('crop-mode');
+    renderOverlay();
+}
+
+function cancelCrop() {
+    cropMode=false; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
+    document.getElementById('crop-idle').style.display = '';
+    document.getElementById('crop-active').style.display = 'none';
+    document.getElementById('crop-info').textContent = '';
+    const ov = document.getElementById('overlay-canvas');
+    ov.classList.remove('crop-mode'); ov.style.cursor = '';
+    renderOverlay();
+}
+
+function applyCrop() {
+    if (!cropBox || !workCanvas) return;
+    const bx = parseInt(document.getElementById('sl-bx').value);
+    const by = parseInt(document.getElementById('sl-by').value);
+    const ix  = Math.max(0, Math.round(cropBox.x - bx));
+    const iy  = Math.max(0, Math.round(cropBox.y - by));
+    const ix2 = Math.min(workCanvas.width,  Math.round(cropBox.x + cropBox.w - bx));
+    const iy2 = Math.min(workCanvas.height, Math.round(cropBox.y + cropBox.h - by));
+    const iw = ix2-ix, ih = iy2-iy;
+    if (iw<2||ih<2) { cancelCrop(); return; }
+    pushHistory();
+    const nc = mkCanvas(iw, ih);
+    nc.getContext('2d').drawImage(workCanvas, ix, iy, iw, ih, 0, 0, iw, ih);
+    workCanvas = nc; cancelCrop(); render();
+    document.getElementById('crop-info').textContent = `cropped to ${iw} × ${ih}px`;
+}
+
+function resetToOriginal() {
+    pushHistory();
+    workCanvas = cloneCanvas(origCanvas);
+    cancelCrop(); render();
+    document.getElementById('crop-info').textContent = 'reset to original.';
+}
+
+function getARRatio() {
+    if (cropAR==='free') return null;
+    if (cropAR==='custom') {
+        const cw=parseFloat(document.getElementById('ar-w').value), ch=parseFloat(document.getElementById('ar-h').value);
+        return (!cw||!ch) ? null : cw/ch;
     }
+    const [pw,ph]=cropAR.split(':').map(Number); return pw/ph;
+}
 
-    function setAR(btn, value) {
-        cropAR = value;
-        document.querySelectorAll('.ar-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('ar-custom-row').style.display = value === 'custom' ? 'flex' : 'none';
-        if (cropMode && cropBox) { cropBox = constrainBox(cropBox); renderOverlay(); }
+function setAR(btn, value) {
+    cropAR=value;
+    document.querySelectorAll('.ar-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('ar-custom-row').style.display = value==='custom' ? 'flex' : 'none';
+    if (cropMode&&cropBox) { cropBox=constrainBox(cropBox); renderOverlay(); }
+}
+
+function onCustomAR() { if (cropMode&&cropBox) { cropBox=constrainBox(cropBox); renderOverlay(); } }
+
+function clampBox(box) {
+    const {x1,y1,x2,y2}=imageBounds;
+    const w=Math.min(box.w, x2-x1), h=Math.min(box.h, y2-y1);
+    return {x:Math.max(x1,Math.min(x2-w,box.x)), y:Math.max(y1,Math.min(y2-h,box.y)), w, h};
+}
+
+function constrainBox(box) {
+    const ratio=getARRatio(); if (!ratio) return box;
+    const cx=box.x+box.w/2, cy=box.y+box.h/2;
+    let nw=box.w, nh=box.h;
+    if (nw/ratio>nh) nh=nw/ratio; else nw=nh*ratio;
+    return clampBox({x:cx-nw/2, y:cy-nh/2, w:nw, h:nh});
+}
+
+function computeDrawBox(sx, sy, ex, ey) {
+    const {x1,y1,x2,y2}=imageBounds;
+    sx=Math.max(x1,Math.min(x2,sx)); sy=Math.max(y1,Math.min(y2,sy));
+    ex=Math.max(x1,Math.min(x2,ex)); ey=Math.max(y1,Math.min(y2,ey));
+    let w=Math.abs(ex-sx), h=Math.abs(ey-sy);
+    const ratio=getARRatio();
+    if (ratio&&(w>0||h>0)) { if (w/ratio>=h) h=w/ratio; else w=h*ratio; }
+    return {x:ex>=sx?sx:sx-w, y:ey>=sy?sy:sy-h, w:Math.max(0,w), h:Math.max(0,h)};
+}
+
+function applyHandleDrag(handle, mx, my, origB) {
+    const {x1,y1,x2,y2}=imageBounds;
+    mx=Math.max(x1,Math.min(x2,mx)); my=Math.max(y1,Math.min(y2,my));
+    if (handle==='move') return clampBox({x:origB.x+(mx-dragOrigin.mx), y:origB.y+(my-dragOrigin.my), w:origB.w, h:origB.h});
+    const {x,y,w,h}=origB, ox2=x+w, oy2=y+h;
+    const ratio=getARRatio();
+    const ca={tl:{ax:ox2,ay:oy2},tr:{ax:x,ay:oy2},bl:{ax:ox2,ay:y},br:{ax:x,ay:y}};
+    if (ca[handle]) {
+        const {ax,ay}=ca[handle];
+        let nw=Math.max(20,Math.abs(mx-ax)), nh=Math.max(20,Math.abs(my-ay));
+        if (ratio) { if (nw/ratio>=nh) nh=nw/ratio; else nw=nh*ratio; }
+        return clampBox({x:mx>=ax?ax:ax-nw, y:my>=ay?ay:ay-nh, w:nw, h:nh});
     }
-
-    function onCustomAR() {
-        if (cropMode && cropBox) { cropBox = constrainBox(cropBox); renderOverlay(); }
+    let nx=x,ny=y,nw=w,nh=h;
+    if      (handle==='tc') { ny=my; nh=Math.max(20,oy2-my); }
+    else if (handle==='bc') { nh=Math.max(20,my-y); }
+    else if (handle==='ml') { nx=mx; nw=Math.max(20,ox2-mx); }
+    else if (handle==='mr') { nw=Math.max(20,mx-x); }
+    if (ratio) {
+        const cx=x+w/2, cy=y+h/2;
+        if (handle==='tc'||handle==='bc') { nw=nh*ratio; nx=cx-nw/2; }
+        else { nh=nw/ratio; ny=cy-nh/2; }
     }
+    return clampBox({x:nx,y:ny,w:nw,h:nh});
+}
 
-    // Constrain an existing box to current AR ratio (keep center)
-    function constrainBox(box) {
-        const ratio = getARRatio();
-        if (!ratio) return box;
-        const cx = box.x + box.w/2, cy = box.y + box.h/2;
-        let nw = box.w, nh = box.h;
-        if (nw/ratio > nh) nh = nw/ratio; else nw = nh*ratio;
-        return {x: cx-nw/2, y: cy-nh/2, w: nw, h: nh};
-    }
+function getHandles(box) {
+    const {x,y,w,h}=box;
+    return {tl:{x,y},tc:{x:x+w/2,y},tr:{x:x+w,y},ml:{x,y:y+h/2},mr:{x:x+w,y:y+h/2},bl:{x,y:y+h},bc:{x:x+w/2,y:y+h},br:{x:x+w,y:y+h}};
+}
 
-    // Draw a box from two mouse points, applying AR if set
-    function computeDrawBox(sx, sy, ex, ey) {
-        let w = Math.abs(ex-sx), h = Math.abs(ey-sy);
-        const ratio = getARRatio();
-        if (ratio !== null && (w > 0 || h > 0)) {
-            if (w/ratio >= h) h = w/ratio; else w = h*ratio;
-        }
-        w = Math.max(0,w); h = Math.max(0,h);
-        return {x: ex>=sx ? sx : sx-w, y: ey>=sy ? sy : sy-h, w, h};
-    }
+const HANDLE_HIT=10;
+function hitTest(mx,my,box) {
+    for (const [name,{x,y}] of Object.entries(getHandles(box))) { if (Math.abs(mx-x)<=HANDLE_HIT&&Math.abs(my-y)<=HANDLE_HIT) return name; }
+    if (mx>=box.x&&mx<=box.x+box.w&&my>=box.y&&my<=box.y+box.h) return 'move';
+    return null;
+}
 
-    // Resize box by dragging a handle to (mx, my)
-    function applyHandleDrag(handle, mx, my, origB) {
-        if (handle === 'move') return {x: origB.x+(mx-dragOrigin.mx), y: origB.y+(my-dragOrigin.my), w: origB.w, h: origB.h};
-        const {x, y, w, h} = origB;
-        const x2=x+w, y2=y+h;
-        const ratio = getARRatio();
-        const cornerAnchor = {tl:{ax:x2,ay:y2}, tr:{ax:x,ay:y2}, bl:{ax:x2,ay:y}, br:{ax:x,ay:y}};
-        if (cornerAnchor[handle]) {
-            const {ax, ay} = cornerAnchor[handle];
-            let nw = Math.max(20, Math.abs(mx-ax));
-            let nh = Math.max(20, Math.abs(my-ay));
-            if (ratio !== null) { if (nw/ratio >= nh) nh=nw/ratio; else nw=nh*ratio; }
-            return {x: mx>=ax?ax:ax-nw, y: my>=ay?ay:ay-nh, w:nw, h:nh};
-        }
-        // Edge handles
-        let nx=x, ny=y, nw=w, nh=h;
-        if      (handle==='tc') { ny=my; nh=Math.max(20,y2-my); }
-        else if (handle==='bc') { nh=Math.max(20,my-y); }
-        else if (handle==='ml') { nx=mx; nw=Math.max(20,x2-mx); }
-        else if (handle==='mr') { nw=Math.max(20,mx-x); }
-        if (ratio !== null) {
-            const cx=x+w/2, cy=y+h/2;
-            if (handle==='tc'||handle==='bc') { nw=nh*ratio; nx=cx-nw/2; }
-            else                              { nh=nw/ratio; ny=cy-nh/2; }
-        }
-        return {x:nx, y:ny, w:nw, h:nh};
-    }
+const CURSOR_MAP={tl:'nw-resize',tc:'n-resize',tr:'ne-resize',ml:'w-resize',mr:'e-resize',bl:'sw-resize',bc:'s-resize',br:'se-resize',move:'move'};
 
-    // 8 handle positions from a box
-    function getHandles(box) {
-        const {x,y,w,h}=box;
-        return {tl:{x,y}, tc:{x:x+w/2,y}, tr:{x:x+w,y}, ml:{x,y:y+h/2}, mr:{x:x+w,y:y+h/2}, bl:{x,y:y+h}, bc:{x:x+w/2,y:y+h}, br:{x:x+w,y:y+h}};
-    }
-
-    const HANDLE_HIT = 10;
-    function hitTest(mx, my, box) {
-        for (const [name, {x,y}] of Object.entries(getHandles(box))) {
-            if (Math.abs(mx-x)<=HANDLE_HIT && Math.abs(my-y)<=HANDLE_HIT) return name;
-        }
-        if (mx>=box.x&&mx<=box.x+box.w&&my>=box.y&&my<=box.y+box.h) return 'move';
-        return null;
-    }
-
-    const CURSOR_MAP = {tl:'nw-resize',tc:'n-resize',tr:'ne-resize',ml:'w-resize',mr:'e-resize',bl:'sw-resize',bc:'s-resize',br:'se-resize',move:'move'};
-
-    function drawCropUI(ctx, W, H) {
-        if (!cropBox) return;
-        const {x,y,w,h} = cropBox;
-        // Dimmed outside
-        ctx.fillStyle='rgba(0,0,0,0.45)';
-        ctx.fillRect(0,0,W,y); ctx.fillRect(0,y+h,W,H-y-h);
-        ctx.fillRect(0,y,x,h); ctx.fillRect(x+w,y,W-x-w,h);
-        // Border
-        ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.5; ctx.setLineDash([]);
-        ctx.strokeRect(x+0.5,y+0.5,w,h);
-        // Thirds inside
-        ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1;
-        [1/3,2/3].forEach(t=>{
-            ctx.beginPath();ctx.moveTo(x+t*w,y);ctx.lineTo(x+t*w,y+h);ctx.stroke();
-            ctx.beginPath();ctx.moveTo(x,y+t*h);ctx.lineTo(x+w,y+t*h);ctx.stroke();
-        });
-        // 8 handles
-        const hs=6;
-        ctx.strokeStyle='rgba(100,100,100,0.7)'; ctx.lineWidth=1;
-        Object.values(getHandles(cropBox)).forEach(({x:hx,y:hy})=>{
-            ctx.fillStyle='#fff'; ctx.fillRect(hx-hs,hy-hs,hs*2,hs*2);
-            ctx.strokeRect(hx-hs,hy-hs,hs*2,hs*2);
-        });
-        // Size label
-        if (w>80&&h>24) {
-            const lbl=`${Math.round(w)} × ${Math.round(h)}`;
-            ctx.font='11px monospace'; const lw=ctx.measureText(lbl).width;
-            ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(x+w/2-lw/2-4,y+h+4,lw+8,18);
-            ctx.fillStyle='#fff'; ctx.fillText(lbl,x+w/2-lw/2,y+h+17);
-        }
-    }
-
-    // Overlay pointer events (crop)
-    const ovEl = document.getElementById('overlay-canvas');
-    function ovCoords(e) {
-        const src = e.touches ? e.touches[0] : e;
-        const rect = ovEl.getBoundingClientRect();
-        return {x:(src.clientX-rect.left)*(ovEl.width/rect.width), y:(src.clientY-rect.top)*(ovEl.height/rect.height)};
-    }
-
-    ovEl.addEventListener('mousedown', e => {
-        if (!cropMode||e.button!==0) return;
-        const {x,y} = ovCoords(e);
-        if (cropPhase==='drawn'&&cropBox) {
-            const hit = hitTest(x,y,cropBox);
-            if (hit) { dragHandle=hit; dragOrigin={mx:x,my:y,box:{...cropBox}}; e.preventDefault(); return; }
-        }
-        // Start new draw
-        cropPhase='drawing'; dragHandle='draw';
-        dragOrigin={startX:x,startY:y};
-        cropBox={x,y,w:0,h:0};
-        e.preventDefault();
+function drawCropUI(ctx, W, H) {
+    if (!cropBox) return;
+    const {x,y,w,h}=cropBox;
+    ctx.fillStyle='rgba(0,0,0,0.45)';
+    ctx.fillRect(0,0,W,y); ctx.fillRect(0,y+h,W,H-y-h);
+    ctx.fillRect(0,y,x,h); ctx.fillRect(x+w,y,W-x-w,h);
+    ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.5; ctx.setLineDash([]);
+    ctx.strokeRect(x+0.5,y+0.5,w,h);
+    ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1;
+    [1/3,2/3].forEach(t=>{
+        ctx.beginPath();ctx.moveTo(x+t*w,y);ctx.lineTo(x+t*w,y+h);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(x,y+t*h);ctx.lineTo(x+w,y+t*h);ctx.stroke();
     });
+    const hs=6; ctx.strokeStyle='rgba(100,100,100,0.7)'; ctx.lineWidth=1;
+    Object.values(getHandles(cropBox)).forEach(({x:hx,y:hy})=>{ ctx.fillStyle='#fff'; ctx.fillRect(hx-hs,hy-hs,hs*2,hs*2); ctx.strokeRect(hx-hs,hy-hs,hs*2,hs*2); });
+    if (w>80&&h>24) {
+        const lbl=`${Math.round(w)} × ${Math.round(h)}`;
+        ctx.font='11px monospace'; const lw=ctx.measureText(lbl).width;
+        ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(x+w/2-lw/2-4,y+h+4,lw+8,18);
+        ctx.fillStyle='#fff'; ctx.fillText(lbl,x+w/2-lw/2,y+h+17);
+    }
+}
 
-    ovEl.addEventListener('mousemove', e => {
-        if (!cropMode) return;
-        const {x,y} = ovCoords(e);
-        if (dragHandle==='draw') {
-            cropBox=computeDrawBox(dragOrigin.startX,dragOrigin.startY,x,y);
-            renderOverlay(); return;
-        }
-        if (dragHandle) {
-            cropBox=applyHandleDrag(dragHandle,x,y,dragOrigin.box);
-            renderOverlay(); return;
-        }
-        // Cursor hint when hovering over drawn box
-        if (cropPhase==='drawn'&&cropBox) {
-            const hit=hitTest(x,y,cropBox);
-            ovEl.style.cursor=hit?CURSOR_MAP[hit]:'crosshair';
-        }
+const ovEl = document.getElementById('overlay-canvas');
+function ovCoords(e) {
+    const src=e.touches?e.touches[0]:e, rect=ovEl.getBoundingClientRect();
+    return {x:(src.clientX-rect.left)*(ovEl.width/rect.width), y:(src.clientY-rect.top)*(ovEl.height/rect.height)};
+}
+
+ovEl.addEventListener('mousedown', e => {
+    if (!cropMode||e.button!==0) return;
+    const {x,y}=ovCoords(e);
+    if (cropPhase==='drawn'&&cropBox) {
+        const hit=hitTest(x,y,cropBox);
+        if (hit) { dragHandle=hit; dragOrigin={mx:x,my:y,box:{...cropBox}}; e.preventDefault(); return; }
+    }
+    cropPhase='drawing'; dragHandle='draw'; dragOrigin={startX:x,startY:y};
+    cropBox={x,y,w:0,h:0}; e.preventDefault();
+});
+
+ovEl.addEventListener('mousemove', e => {
+    if (!cropMode) return;
+    const {x,y}=ovCoords(e);
+    if (dragHandle==='draw') { cropBox=computeDrawBox(dragOrigin.startX,dragOrigin.startY,x,y); renderOverlay(); return; }
+    if (dragHandle) { cropBox=applyHandleDrag(dragHandle,x,y,dragOrigin.box); renderOverlay(); return; }
+    if (cropPhase==='drawn'&&cropBox) { const hit=hitTest(x,y,cropBox); ovEl.style.cursor=hit?CURSOR_MAP[hit]:'crosshair'; }
+});
+
+ovEl.addEventListener('mouseup', e => {
+    if (!cropMode) return;
+    if (dragHandle==='draw') {
+        if (cropBox&&cropBox.w>5&&cropBox.h>5) { cropPhase='drawn'; document.getElementById('crop-hint').textContent='drag to move · handles to resize · apply when ready'; }
+        else { cropBox=null; cropPhase='idle'; }
+    }
+    dragHandle=null; dragOrigin=null; renderOverlay();
+});
+
+// ── Sliders ───────────────────────────────────────────────────
+function onAdjust() {
+    ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
+        const el=document.getElementById('v-'+k); if(el) el.textContent=document.getElementById('sl-'+k).value;
     });
-
-    ovEl.addEventListener('mouseup', e => {
-        if (!cropMode) return;
-        const {x,y} = ovCoords(e);
-        if (dragHandle==='draw') {
-            if (cropBox&&cropBox.w>5&&cropBox.h>5) {
-                cropPhase='drawn';
-                document.getElementById('crop-hint').textContent='drag to move · handles to resize · apply when ready';
-            } else { cropBox=null; cropPhase='idle'; }
-        }
-        dragHandle=null; dragOrigin=null;
-        renderOverlay();
+    scheduleRender();
+}
+function resetAdjust() {
+    ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
+        document.getElementById('sl-'+k).value=0;
+        const el=document.getElementById('v-'+k); if(el) el.textContent='0';
     });
+    scheduleRender();
+}
+function onStraighten() {
+    straightenAngle=parseFloat(document.getElementById('sl-straighten').value);
+    document.getElementById('v-straighten').textContent=straightenAngle+'°';
+    scheduleRender();
+}
+function onVignette() {
+    document.getElementById('v-vignette').textContent=document.getElementById('sl-vignette').value;
+    scheduleRender();
+}
+function onBorder(axis) {
+    const locked=document.getElementById('border-lock').checked;
+    const bxEl=document.getElementById('sl-bx'), byEl=document.getElementById('sl-by');
+    if (locked) { if(axis==='x') byEl.value=bxEl.value; else bxEl.value=byEl.value; }
+    document.getElementById('v-bx').textContent=bxEl.value+'px';
+    document.getElementById('v-by').textContent=byEl.value+'px';
+    scheduleRender();
+}
+function onLabelSlider(id, vid, suffix) {
+    document.getElementById(vid).textContent=document.getElementById('sl-'+id).value+suffix;
+    scheduleRender();
+}
 
-    // ── Sliders ───────────────────────────────────────────────
-    function onAdjust() {
-        ['brightness','contrast','saturation','temperature','sharpen'].forEach(k => {
-            const el = document.getElementById('v-'+k);
-            if (el) el.textContent = document.getElementById('sl-'+k).value;
-        });
-        render();
-    }
-    function resetAdjust() {
-        ['brightness','contrast','saturation','temperature','sharpen'].forEach(k => {
-            document.getElementById('sl-'+k).value=0; document.getElementById('v-'+k).textContent='0';
-        });
-        render();
-    }
-    function onStraighten() {
-        straightenAngle = parseFloat(document.getElementById('sl-straighten').value);
-        document.getElementById('v-straighten').textContent = straightenAngle + '°';
-        render();
-    }
-    function onVignette() {
-        document.getElementById('v-vignette').textContent = document.getElementById('sl-vignette').value;
-        render();
-    }
-    function onBorder() {
-        document.getElementById('v-bx').textContent = document.getElementById('sl-bx').value+'px';
-        document.getElementById('v-by').textContent = document.getElementById('sl-by').value+'px';
-        render();
-    }
+// ── Download ──────────────────────────────────────────────────
+function downloadPNG() {
+    const a=document.createElement('a');
+    a.download=origName+'_edited.png';
+    a.href=document.getElementById('output-canvas').toDataURL('image/png');
+    a.click();
+}
 
-    // ── Download ──────────────────────────────────────────────
-    function downloadPNG() {
-        const a = document.createElement('a');
-        a.download = origName + '_edited.png';
-        a.href = document.getElementById('output-canvas').toDataURL('image/png');
-        a.click();
-    }
+// ── Monotone cubic spline ─────────────────────────────────────
+function monotoneCubic(xs,ys) {
+    const n=xs.length; if(n===1) return ()=>ys[0];
+    const d=[],m=[];
+    for(let i=0;i<n-1;i++) d[i]=(ys[i+1]-ys[i])/(xs[i+1]-xs[i]);
+    m[0]=d[0]; m[n-1]=d[n-2];
+    for(let i=1;i<n-1;i++) m[i]=d[i-1]*d[i]<=0?0:(d[i-1]+d[i])/2;
+    for(let i=0;i<n-1;i++){if(d[i]===0){m[i]=m[i+1]=0;continue;} const sq=(m[i]/d[i])**2+(m[i+1]/d[i])**2; if(sq>9){const t=3/Math.sqrt(sq);m[i]*=t;m[i+1]*=t;}}
+    return x=>{
+        if(x<=xs[0]) return ys[0]; if(x>=xs[n-1]) return ys[n-1];
+        let lo=0,hi=n-1; while(hi-lo>1){const mid=(lo+hi)>>1; xs[mid]<=x?lo=mid:hi=mid;}
+        const h=xs[hi]-xs[lo],t=(x-xs[lo])/h,t2=t*t,t3=t2*t;
+        return (2*t3-3*t2+1)*ys[lo]+(t3-2*t2+t)*h*m[lo]+(-2*t3+3*t2)*ys[hi]+(t3-t2)*h*m[hi];
+    };
+}
+function buildCurveLUT() {
+    const pts=[...curvePoints].sort((a,b)=>a.x-b.x);
+    const f=monotoneCubic(pts.map(p=>p.x),pts.map(p=>p.y));
+    const lut=new Uint8Array(256);
+    for(let i=0;i<256;i++) lut[i]=Math.max(0,Math.min(255,Math.round(f(i))));
+    return lut;
+}
 
-    // ── Monotone cubic spline ─────────────────────────────────
-    function monotoneCubic(xs, ys) {
-        const n=xs.length;
-        if (n===1) return ()=>ys[0];
-        const d=[],m=[];
-        for (let i=0;i<n-1;i++) d[i]=(ys[i+1]-ys[i])/(xs[i+1]-xs[i]);
-        m[0]=d[0]; m[n-1]=d[n-2];
-        for (let i=1;i<n-1;i++) m[i]=d[i-1]*d[i]<=0?0:(d[i-1]+d[i])/2;
-        for (let i=0;i<n-1;i++) {
-            if(d[i]===0){m[i]=m[i+1]=0;continue;}
-            const sq=(m[i]/d[i])**2+(m[i+1]/d[i])**2;
-            if(sq>9){const t=3/Math.sqrt(sq);m[i]*=t;m[i+1]*=t;}
-        }
-        return x=>{
-            if(x<=xs[0]) return ys[0]; if(x>=xs[n-1]) return ys[n-1];
-            let lo=0,hi=n-1;
-            while(hi-lo>1){const mid=(lo+hi)>>1; xs[mid]<=x?lo=mid:hi=mid;}
-            const h=xs[hi]-xs[lo],t=(x-xs[lo])/h,t2=t*t,t3=t2*t;
-            return (2*t3-3*t2+1)*ys[lo]+(t3-2*t2+t)*h*m[lo]+(-2*t3+3*t2)*ys[hi]+(t3-t2)*h*m[hi];
-        };
-    }
+// ── Curve canvas ──────────────────────────────────────────────
+function drawCurve() {
+    const cv=document.getElementById('curve-canvas'), ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,CS,CS);
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,CS,CS);
+    ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=1;
+    [0.25,0.5,0.75].forEach(t=>{ ctx.beginPath();ctx.moveTo(t*CS,0);ctx.lineTo(t*CS,CS);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,t*CS);ctx.lineTo(CS,t*CS);ctx.stroke(); });
+    ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.beginPath();ctx.moveTo(0,CS);ctx.lineTo(CS,0);ctx.stroke();
+    const lut=buildCurveLUT();
+    ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=1.5; ctx.beginPath();
+    for(let x=0;x<256;x++){const px=(x/255)*CS,py=CS-(lut[x]/255)*CS; x===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
+    ctx.stroke();
+    [...curvePoints].sort((a,b)=>a.x-b.x).forEach(pt=>{
+        const px=(pt.x/255)*CS,py=CS-(pt.y/255)*CS;
+        ctx.beginPath();ctx.arc(px,py,4.5,0,Math.PI*2);
+        ctx.fillStyle='#1a1a1a';ctx.fill(); ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    });
+}
+function cvCoords(e) {
+    const cv=document.getElementById('curve-canvas'),rect=cv.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(CS/rect.width),py=(e.clientY-rect.top)*(CS/rect.height);
+    return {px,py,x:Math.max(0,Math.min(255,Math.round((px/CS)*255))),y:Math.max(0,Math.min(255,Math.round((1-py/CS)*255)))};
+}
+function hitPt(e) {
+    const {px,py}=cvCoords(e);
+    return curvePoints.find(pt=>Math.abs(px-(pt.x/255)*CS)<PT_R&&Math.abs(py-(CS-(pt.y/255)*CS))<PT_R);
+}
+(function initCurve(){
+    const cv=document.getElementById('curve-canvas');
+    cv.addEventListener('mousedown',e=>{ if(e.button!==0)return; const hit=hitPt(e); if(hit){dragPt=hit;}else{const c=cvCoords(e);const p={x:c.x,y:c.y};curvePoints.push(p);dragPt=p;} drawCurve();e.preventDefault(); });
+    cv.addEventListener('mousemove',e=>{ if(!dragPt)return; const c=cvCoords(e); dragPt.x=c.x;dragPt.y=c.y; drawCurve();scheduleRender(); });
+    cv.addEventListener('mouseup',()=>dragPt=null);
+    cv.addEventListener('mouseleave',()=>dragPt=null);
+    cv.addEventListener('dblclick',e=>{ const hit=hitPt(e); if(!hit||curvePoints.length<=2)return; curvePoints=curvePoints.filter(p=>p!==hit); drawCurve();scheduleRender(); });
+    drawCurve();
+})();
 
-    function buildCurveLUT() {
-        const pts=[...curvePoints].sort((a,b)=>a.x-b.x);
-        const f=monotoneCubic(pts.map(p=>p.x),pts.map(p=>p.y));
-        const lut=new Uint8Array(256);
-        for(let i=0;i<256;i++) lut[i]=Math.max(0,Math.min(255,Math.round(f(i))));
-        return lut;
-    }
-
-    // ── Curve canvas ──────────────────────────────────────────
-    function drawCurve() {
-        const cv=document.getElementById('curve-canvas'), ctx=cv.getContext('2d');
-        ctx.clearRect(0,0,CS,CS);
-        ctx.fillStyle='#fff'; ctx.fillRect(0,0,CS,CS);
-        ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.lineWidth=1;
-        [0.25,0.5,0.75].forEach(t=>{
-            ctx.beginPath();ctx.moveTo(t*CS,0);ctx.lineTo(t*CS,CS);ctx.stroke();
-            ctx.beginPath();ctx.moveTo(0,t*CS);ctx.lineTo(CS,t*CS);ctx.stroke();
-        });
-        ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=1;
-        ctx.beginPath();ctx.moveTo(0,CS);ctx.lineTo(CS,0);ctx.stroke();
-        const lut=buildCurveLUT();
-        ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=1.5; ctx.beginPath();
-        for(let x=0;x<256;x++){const px=(x/255)*CS,py=CS-(lut[x]/255)*CS; x===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
-        ctx.stroke();
-        [...curvePoints].sort((a,b)=>a.x-b.x).forEach(pt=>{
-            const px=(pt.x/255)*CS,py=CS-(pt.y/255)*CS;
-            ctx.beginPath();ctx.arc(px,py,4.5,0,Math.PI*2);
-            ctx.fillStyle='#1a1a1a';ctx.fill();
-            ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
-        });
-    }
-
-    function cvCoords(e) {
-        const cv=document.getElementById('curve-canvas'), rect=cv.getBoundingClientRect();
-        const px=(e.clientX-rect.left)*(CS/rect.width), py=(e.clientY-rect.top)*(CS/rect.height);
-        return {px,py,x:Math.max(0,Math.min(255,Math.round((px/CS)*255))),y:Math.max(0,Math.min(255,Math.round((1-py/CS)*255)))};
-    }
-    function hitPt(e) {
-        const {px,py}=cvCoords(e);
-        return curvePoints.find(pt=>Math.abs(px-(pt.x/255)*CS)<PT_R&&Math.abs(py-(CS-(pt.y/255)*CS))<PT_R);
-    }
-
-    (function initCurve(){
-        const cv=document.getElementById('curve-canvas');
-        cv.addEventListener('mousedown',e=>{
-            if(e.button!==0)return;
-            const hit=hitPt(e);
-            if(hit){dragPt=hit;}else{const c=cvCoords(e);const p={x:c.x,y:c.y};curvePoints.push(p);dragPt=p;}
-            drawCurve();e.preventDefault();
-        });
-        cv.addEventListener('mousemove',e=>{
-            if(!dragPt)return; const c=cvCoords(e); dragPt.x=c.x;dragPt.y=c.y; drawCurve();render();
-        });
-        cv.addEventListener('mouseup',()=>dragPt=null);
-        cv.addEventListener('mouseleave',()=>dragPt=null);
-        cv.addEventListener('dblclick',e=>{
-            const hit=hitPt(e);
-            if(!hit||curvePoints.length<=2)return;
-            curvePoints=curvePoints.filter(p=>p!==hit); drawCurve();render();
-        });
-        drawCurve();
-    })();
-
-    function applySCurve(){curvePoints=[{x:0,y:0},{x:64,y:40},{x:128,y:128},{x:192,y:215},{x:255,y:255}];drawCurve();render();}
-    function resetCurve() {curvePoints=[{x:0,y:0},{x:255,y:255}];drawCurve();render();}
-    </script>
+function applyCurvePreset(name) {
+    const presets={
+        s:       [{x:0,y:0},{x:64,y:40},{x:128,y:128},{x:192,y:215},{x:255,y:255}],
+        gentle:  [{x:0,y:0},{x:80,y:60},{x:128,y:128},{x:176,y:196},{x:255,y:255}],
+        highcon: [{x:0,y:0},{x:50,y:20},{x:128,y:128},{x:205,y:235},{x:255,y:255}],
+        fade:    [{x:0,y:20},{x:128,y:128},{x:255,y:240}],
+        matte:   [{x:0,y:30},{x:80,y:90},{x:176,y:165},{x:255,y:225}],
+    };
+    curvePoints=presets[name]||curvePoints; drawCurve(); scheduleRender();
+}
+function resetCurve() { curvePoints=[{x:0,y:0},{x:255,y:255}]; drawCurve(); scheduleRender(); }
+</script>
 </body>
 </html>
