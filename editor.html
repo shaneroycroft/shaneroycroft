@@ -364,6 +364,19 @@ const eMain = document.getElementById('e-main');
 eMain.addEventListener('dragover', e => e.preventDefault());
 eMain.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); });
 
+// Preload from ?url= query param (opened from admin manage tab)
+(function checkPreloadURL() {
+    const url = new URLSearchParams(location.search).get('url');
+    if (!url) return;
+    fetch(url)
+        .then(r => r.blob())
+        .then(blob => {
+            const name = url.split('/').pop().replace(/[?#].*$/, '') || 'photo';
+            loadFile(new File([blob], name, { type: blob.type }));
+        })
+        .catch(() => {});
+})();
+
 function loadFile(file) {
     origName = file.name.replace(/\.[^.]+$/, '');
     const url = URL.createObjectURL(file);
@@ -584,11 +597,14 @@ function drawHistogram() {
     const cv = document.getElementById('hist-canvas');
     const out = document.getElementById('output-canvas');
     if (!cv || !out.width) return;
+    // Sample only the image region — border pixels (always solid bcolor) must not skew the histogram
+    const {x1, y1, x2, y2} = imageBounds;
+    const iw = Math.max(1, x2 - x1), ih = Math.max(1, y2 - y1);
     const ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
-    const sw = 256, sh = Math.max(1, Math.round(256 * out.height / out.width));
+    const sw = 256, sh = Math.max(1, Math.round(256 * ih / iw));
     const sc = mkCanvas(sw, sh);
-    sc.getContext('2d').drawImage(out, 0, 0, sw, sh);
+    sc.getContext('2d').drawImage(out, x1, y1, iw, ih, 0, 0, sw, sh);
     const id = sc.getContext('2d').getImageData(0, 0, sw, sh).data;
     const BINS = W, sz = 256/BINS;
     const r=new Float32Array(BINS), g=new Float32Array(BINS), b=new Float32Array(BINS), lm=new Float32Array(BINS);

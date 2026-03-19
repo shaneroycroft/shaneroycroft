@@ -109,7 +109,7 @@
             background: rgba(255,255,255,0.9); font-size: 0.7rem; padding: 2px 5px;
         }
         .existing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.75rem; }
-        .existing-item { position: relative; }
+        .existing-item { position: relative; cursor: grab; }
         .existing-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; filter: grayscale(100%); transition: 0.4s; }
         .existing-item:hover img { filter: grayscale(0%); }
         .existing-item .item-actions {
@@ -128,6 +128,20 @@
             background: var(--text); display: none;
         }
         .existing-item.pinned .pin-dot { display: block; }
+        .existing-item.dragging { opacity: 0.35; }
+        .existing-item.drag-over { outline: 2px solid var(--text); outline-offset: -2px; }
+        .item-caption {
+            font-size: 0.62rem; color: var(--secondary); padding: 3px 2px 0;
+            text-align: center; cursor: text; min-height: 1.2rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .item-caption:hover { color: var(--text); }
+        .item-caption .no-cap { opacity: 0.38; font-style: italic; }
+        .item-caption input {
+            width: 100%; font-family: inherit; font-size: 0.62rem;
+            border: none; border-bottom: 1px solid var(--text);
+            background: none; color: var(--text); outline: none; padding: 0; text-align: center;
+        }
         .log { font-size: 0.75rem; color: var(--secondary); line-height: 1.8; min-height: 2rem; }
         .log .err { color: #c0392b; }
         .log .ok { color: #27ae60; }
@@ -257,6 +271,7 @@
         let manageCat = 'japan';
         let queue = []; // { file, objectUrl, name, caption }
         let manifest = null;
+        let dragSrcIdx = null;
 
         // ─── Tabs ───────────────────────────────────────────
         function switchTab(name) {
@@ -681,57 +696,105 @@
             const list = manifest[manageCat] || [];
             if (list.length === 0) { hint.textContent = 'no photos in this category yet.'; return; }
             const pinned = list.filter(e => (typeof e === 'object' && e.pinned)).length;
-            hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''}${pinned ? ` — ${pinned} pinned` : ''} — hover to manage.`;
+            hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''}${pinned ? ` — ${pinned} pinned` : ''} — drag to reorder · hover to manage.`;
+
             list.forEach((entry, i) => {
-                const src = typeof entry === 'string' ? entry : entry.src;
-                const isPinned = typeof entry === 'object' && entry.pinned;
+                const src     = typeof entry === 'string' ? entry : entry.src;
+                const caption = typeof entry === 'object' && entry.caption ? entry.caption : '';
+                const isPinned = typeof entry === 'object' && !!entry.pinned;
                 const div = document.createElement('div');
                 div.className = 'existing-item' + (isPinned ? ' pinned' : '');
+                div.draggable = true;
+                div.dataset.idx = i;
                 div.innerHTML = `
-                    <img src="${src}" loading="lazy" alt="">
+                    <img src="${src}" loading="lazy" alt="" draggable="false">
                     <div class="pin-dot"></div>
+                    <div class="item-caption" onclick="editCaption(this, '${manageCat}', ${i})">${caption ? escHtml(caption) : '<span class="no-cap">caption</span>'}</div>
                     <div class="item-actions">
+                        <button onclick="openInEditor('${escHtml(src)}')">edit ↗</button>
                         <button onclick="togglePin('${manageCat}', ${i})">${isPinned ? 'unpin' : 'pin'}</button>
                         <button class="btn-delete" onclick="deletePhoto('${manageCat}', ${i})">delete</button>
                     </div>`;
+
+                // Drag-to-reorder
+                div.addEventListener('dragstart', e => {
+                    dragSrcIdx = i;
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => div.classList.add('dragging'), 0);
+                });
+                div.addEventListener('dragend', () => {
+                    div.classList.remove('dragging');
+                    document.querySelectorAll('.existing-item').forEach(el => el.classList.remove('drag-over'));
+                });
+                div.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    document.querySelectorAll('.existing-item').forEach(el => el.classList.remove('drag-over'));
+                    if (dragSrcIdx !== i) div.classList.add('drag-over');
+                });
+                div.addEventListener('drop', async e => {
+                    e.preventDefault();
+                    div.classList.remove('drag-over');
+                    if (dragSrcIdx === null || dragSrcIdx === i) return;
+                    const arr = manifest[manageCat];
+                    const [moved] = arr.splice(dragSrcIdx, 1);
+                    arr.splice(i, 0, moved);
+                    dragSrcIdx = null;
+                    renderManageGrid();
+                    try { await saveManifest(); }
+                    catch (e) { alert('save failed: ' + e.message); }
+                });
+
                 grid.appendChild(div);
             });
+        }
+
+        function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+        function editCaption(el, cat, index) {
+            if (el.querySelector('input')) return; // already editing
+            const entry  = manifest[cat][index];
+            const current = typeof entry === 'object' && entry.caption ? entry.caption : '';
+            const input = document.createElement('input');
+            input.type = 'text'; input.value = current; input.placeholder = 'add caption…';
+            el.innerHTML = ''; el.appendChild(input);
+            input.focus(); input.select();
+            const save = async () => {
+                const val = input.value.trim();
+                const asObj = typeof entry === 'string' ? { src: entry } : { ...entry };
+                if (val) asObj.caption = val; else delete asObj.caption;
+                manifest[cat][index] = (Object.keys(asObj).length === 1 && asObj.src) ? asObj.src : asObj;
+                try { await saveManifest(); } catch(e) { alert('save failed: ' + e.message); }
+                renderManageGrid();
+            };
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } if (e.key === 'Escape') { renderManageGrid(); } });
+        }
+
+        function openInEditor(src) {
+            window.open('editor.html?url=' + encodeURIComponent(src), '_blank');
         }
 
         async function togglePin(cat, index) {
             const entry = manifest[cat][index];
             const asObj = typeof entry === 'string' ? { src: entry } : { ...entry };
-            if (asObj.pinned) {
-                delete asObj.pinned;
-            } else {
-                asObj.pinned = true;
-            }
+            if (asObj.pinned) { delete asObj.pinned; } else { asObj.pinned = true; }
             manifest[cat][index] = asObj;
-            // Sort: pinned first, preserving relative order within each group
             manifest[cat].sort((a, b) => {
                 const pa = typeof a === 'object' && a.pinned ? 1 : 0;
                 const pb = typeof b === 'object' && b.pinned ? 1 : 0;
                 return pb - pa;
             });
-            try {
-                await saveManifest();
-                renderManageGrid();
-            } catch (e) {
-                alert('failed to save: ' + e.message);
-            }
+            try { await saveManifest(); renderManageGrid(); }
+            catch (e) { alert('failed to save: ' + e.message); }
         }
 
         async function deletePhoto(cat, index) {
             if (!confirm('delete this photo from the manifest? (the file will remain in the repo)')) return;
             if (!manifest) { alert('manifest not loaded.'); return; }
             manifest[cat].splice(index, 1);
-            try {
-                await saveManifest();
-                renderManageGrid();
-            } catch (e) {
-                alert('failed to save: ' + e.message);
-                manifest[cat].splice(index, 0, manifest[cat][index]); // rollback
-            }
+            try { await saveManifest(); renderManageGrid(); }
+            catch (e) { alert('failed to save: ' + e.message); }
         }
 
 
