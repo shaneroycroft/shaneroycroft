@@ -328,6 +328,21 @@ function scheduleRender() {
     renderRAF = requestAnimationFrame(() => { renderRAF = null; render(); });
 }
 
+// Live-preview performance
+// During slider drag: render at display resolution (fast).
+// 200ms after last input: one full-res render (high quality, for download).
+let isAdjusting   = false;
+let fullResTimer  = null;
+function scheduleFullRes() {
+    clearTimeout(fullResTimer);
+    fullResTimer = setTimeout(() => { isAdjusting = false; render(); }, 200);
+}
+function beginAdjust() {
+    isAdjusting = true;
+    scheduleFullRes();
+    scheduleRender();
+}
+
 // ── History ───────────────────────────────────────────────────
 function pushHistory() {
     if (!workCanvas) return;
@@ -407,11 +422,35 @@ function render() {
     const bcolor = document.getElementById('sl-bcolor').value;
     const vigStr = parseInt(document.getElementById('sl-vignette').value);
 
-    let adj = applyEdits(workCanvas);
+    const out = document.getElementById('output-canvas');
+
+    // During live adjustment: process at display resolution to keep the UI responsive.
+    // Lock CSS display dimensions so the canvas doesn't visually resize mid-drag.
+    let src = workCanvas;
+    if (isAdjusting) {
+        const dispW = out.clientWidth  || Math.round(window.innerWidth  * 0.65);
+        const dispH = out.clientHeight || Math.round(window.innerHeight * 0.85);
+        if (workCanvas.width > dispW || workCanvas.height > dispH) {
+            const scale = Math.min(dispW / workCanvas.width, dispH / workCanvas.height);
+            src = mkCanvas(Math.max(1, Math.round(workCanvas.width * scale)),
+                           Math.max(1, Math.round(workCanvas.height * scale)));
+            src.getContext('2d').drawImage(workCanvas, 0, 0, src.width, src.height);
+        }
+        // Pin the CSS size so changing canvas.width/height doesn't cause a visual jump
+        if (out.clientWidth) {
+            out.style.width  = out.clientWidth  + 'px';
+            out.style.height = out.clientHeight + 'px';
+        }
+    } else {
+        // Full-res render — release CSS size pin so max-width/max-height take over
+        out.style.width  = '';
+        out.style.height = '';
+    }
+
+    let adj = applyEdits(src);
     adj = applyStraighten(adj, straightenAngle);
     applyVignette(adj, vigStr);
 
-    const out = document.getElementById('output-canvas');
     out.width  = adj.width  + bx * 2;
     out.height = adj.height + by * 2;
     const ctx = out.getContext('2d');
@@ -840,23 +879,23 @@ function onAdjust() {
     ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.textContent=document.getElementById('sl-'+k).value;
     });
-    scheduleRender();
+    beginAdjust();
 }
 function resetAdjust() {
     ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
         document.getElementById('sl-'+k).value=0;
         const el=document.getElementById('v-'+k); if(el) el.textContent='0';
     });
-    scheduleRender();
+    scheduleRender(); // reset is instant — no drag, render full-res immediately
 }
 function onStraighten() {
     straightenAngle=parseFloat(document.getElementById('sl-straighten').value);
     document.getElementById('v-straighten').textContent=straightenAngle+'°';
-    scheduleRender();
+    beginAdjust();
 }
 function onVignette() {
     document.getElementById('v-vignette').textContent=document.getElementById('sl-vignette').value;
-    scheduleRender();
+    beginAdjust();
 }
 function onBorder(axis) {
     const locked=document.getElementById('border-lock').checked;
@@ -864,15 +903,23 @@ function onBorder(axis) {
     if (locked) { if(axis==='x') byEl.value=bxEl.value; else bxEl.value=byEl.value; }
     document.getElementById('v-bx').textContent=bxEl.value+'px';
     document.getElementById('v-by').textContent=byEl.value+'px';
-    scheduleRender();
+    beginAdjust(); // border changes canvas size — still benefits from preview mode
 }
 function onLabelSlider(id, vid, suffix) {
     document.getElementById(vid).textContent=document.getElementById('sl-'+id).value+suffix;
-    scheduleRender();
+    beginAdjust();
 }
 
 // ── Download ──────────────────────────────────────────────────
 function downloadPNG() {
+    // Ensure we download full-res, not a preview-mode render
+    if (isAdjusting) {
+        clearTimeout(fullResTimer);
+        isAdjusting = false;
+        const out = document.getElementById('output-canvas');
+        out.style.width = ''; out.style.height = '';
+        render();
+    }
     const a=document.createElement('a');
     a.download=origName+'_edited.png';
     a.href=document.getElementById('output-canvas').toDataURL('image/png');
@@ -932,7 +979,7 @@ function hitPt(e) {
 (function initCurve(){
     const cv=document.getElementById('curve-canvas');
     cv.addEventListener('mousedown',e=>{ if(e.button!==0)return; const hit=hitPt(e); if(hit){dragPt=hit;}else{const c=cvCoords(e);const p={x:c.x,y:c.y};curvePoints.push(p);dragPt=p;} drawCurve();e.preventDefault(); });
-    cv.addEventListener('mousemove',e=>{ if(!dragPt)return; const c=cvCoords(e); dragPt.x=c.x;dragPt.y=c.y; drawCurve();scheduleRender(); });
+    cv.addEventListener('mousemove',e=>{ if(!dragPt)return; const c=cvCoords(e); dragPt.x=c.x;dragPt.y=c.y; drawCurve();beginAdjust(); });
     cv.addEventListener('mouseup',()=>dragPt=null);
     cv.addEventListener('mouseleave',()=>dragPt=null);
     cv.addEventListener('dblclick',e=>{ const hit=hitPt(e); if(!hit||curvePoints.length<=2)return; curvePoints=curvePoints.filter(p=>p!==hit); drawCurve();scheduleRender(); });
