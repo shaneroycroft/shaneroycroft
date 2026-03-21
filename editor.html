@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>editor | shane roycroft</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -110,14 +110,16 @@
         .s-input:focus { border-color: var(--text); }
 
         /* Canvas area */
-        .e-main { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; background: #efefef; padding: 2.5rem; }
+        .e-main { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #efefef; }
         #drop-hint { text-align: center; padding: 3.5rem 3rem; border: 1px dashed #ccc; cursor: pointer; background: var(--bg); min-width: 260px; }
         #drop-hint p { font-size: 0.82rem; color: var(--secondary); }
         #drop-hint p + p { margin-top: 0.3rem; font-size: 0.72rem; }
-        #canvas-wrap { position: relative; display: inline-block; flex-shrink: 0; box-shadow: 0 0 0 1px #111, 0 6px 32px rgba(0,0,0,0.28); }
-        #output-canvas { display: block; max-width: calc(100vw - 300px - 5rem); max-height: calc(100vh - 46px - 5rem); }
+        #canvas-wrap { position: relative; display: inline-block; flex-shrink: 0; box-shadow: 0 0 0 1px #111, 0 6px 32px rgba(0,0,0,0.28); transform-origin: center center; }
+        #output-canvas { display: block; max-width: calc(100vw - 300px - 4rem); max-height: calc(100vh - 46px - 4rem); }
         #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         #overlay-canvas.crop-mode { pointer-events: auto; cursor: crosshair; }
+        /* Zoom indicator in top bar */
+        #zoom-ind { font-size: 0.68rem; color: var(--secondary); min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
@@ -140,6 +142,9 @@
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onmousedown="showOriginal(true)" onmouseup="showOriginal(false)" ontouchstart="showOriginal(true)" ontouchend="showOriginal(false)">before/after</button>
         <span class="e-bar-sep">|</span>
+        <span id="zoom-ind"></span>
+        <button class="e-bar-btn" id="zoom-reset-btn" onclick="resetZoom()" style="display:none">fit</button>
+        <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
         <span class="e-bar-spacer"></span>
@@ -160,12 +165,14 @@
             <details class="e-sec" open>
                 <summary>adjust</summary>
                 <div class="e-body">
-                    <div class="s-row"><label>brightness <input type="number" class="val-input" id="v-brightness" value="0" min="-100" max="100" step="1" data-key="brightness" oninput="syncVal(this)"></label><input type="range" id="sl-brightness" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>exposure <input type="number" class="val-input" id="v-exposure" value="0" min="-100" max="100" step="1" data-key="exposure" oninput="syncVal(this)"></label><input type="range" id="sl-exposure" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>contrast <input type="number" class="val-input" id="v-contrast" value="0" min="-100" max="100" step="1" data-key="contrast" oninput="syncVal(this)"></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>highlights <input type="number" class="val-input" id="v-highlights" value="0" min="-100" max="100" step="1" data-key="highlights" oninput="syncVal(this)"></label><input type="range" id="sl-highlights" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>shadows <input type="number" class="val-input" id="v-shadows" value="0" min="-100" max="100" step="1" data-key="shadows" oninput="syncVal(this)"></label><input type="range" id="sl-shadows" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>vibrance <input type="number" class="val-input" id="v-vibrance" value="0" min="-100" max="100" step="1" data-key="vibrance" oninput="syncVal(this)"></label><input type="range" id="sl-vibrance" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>saturation <input type="number" class="val-input" id="v-saturation" value="0" min="-100" max="100" step="1" data-key="saturation" oninput="syncVal(this)"></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>temperature <input type="number" class="val-input" id="v-temperature" value="0" min="-100" max="100" step="1" data-key="temperature" oninput="syncVal(this)"></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>clarity <input type="number" class="val-input" id="v-clarity" value="0" min="0" max="100" step="1" data-key="clarity" oninput="syncVal(this)"></label><input type="range" id="sl-clarity" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row-btns"><button class="s-link" onclick="resetAdjust()">reset</button></div>
                 </div>
@@ -316,6 +323,32 @@ const HIST_MAX = 20;
 // Image bounds in output-canvas pixel coords (set in render)
 let imageBounds = {x1:0,y1:0,x2:0,y2:0};
 
+// ── Zoom / Pan ────────────────────────────────────────────────
+let zoom = 1, panX = 0, panY = 0;
+let panDragging = false, panLastX = 0, panLastY = 0;
+let touchStartState = null; // two-finger pinch state
+
+function clampPan() {
+    if (zoom <= 1) { panX = 0; panY = 0; return; }
+    const wrap = document.getElementById('canvas-wrap');
+    const main = document.getElementById('e-main');
+    const maxPanX = Math.max(0, (wrap.offsetWidth  * zoom - main.clientWidth)  / 2);
+    const maxPanY = Math.max(0, (wrap.offsetHeight * zoom - main.clientHeight) / 2);
+    panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+    panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+}
+function applyZoom() {
+    const wrap = document.getElementById('canvas-wrap');
+    wrap.style.transform = zoom === 1 ? '' : `translate(${panX}px,${panY}px) scale(${zoom})`;
+    const ind = document.getElementById('zoom-ind');
+    if (ind) ind.textContent = zoom !== 1 ? `${Math.round(zoom * 100)}%` : '';
+    const btn = document.getElementById('zoom-reset-btn');
+    if (btn) btn.style.display = zoom !== 1 ? '' : 'none';
+    const em = document.getElementById('e-main');
+    if (!panDragging) em.style.cursor = zoom > 1 && !cropMode ? 'grab' : '';
+}
+function resetZoom() { zoom = 1; panX = 0; panY = 0; applyZoom(); }
+
 // Curve
 let curvePoints = [{x:0,y:0},{x:255,y:255}];
 let dragPt = null;
@@ -342,18 +375,28 @@ function scheduleRender() {
 
 // Live-preview performance
 // During slider drag: render at display resolution (fast).
-// 200ms after last input: one full-res render (high quality, for download).
-let isAdjusting   = false;
-let fullResTimer  = null;
+// On mouseup/touchend (finishAdjust): immediate full-res render.
+// 600ms fallback timer for cases where release events are missed.
+let isAdjusting  = false;
+let fullResTimer = null;
 function scheduleFullRes() {
     clearTimeout(fullResTimer);
-    fullResTimer = setTimeout(() => { isAdjusting = false; render(); }, 200);
+    fullResTimer = setTimeout(() => { isAdjusting = false; render(); }, 600);
+}
+function finishAdjust() {
+    if (!isAdjusting) return;
+    clearTimeout(fullResTimer);
+    isAdjusting = false;
+    render(); // immediate full-res on slider release
 }
 function beginAdjust() {
     isAdjusting = true;
     scheduleFullRes();
     scheduleRender();
 }
+// Fire full-res render the moment any slider is released
+document.addEventListener('mouseup',   () => finishAdjust());
+document.addEventListener('touchend',  () => setTimeout(finishAdjust, 30));
 
 // ── Editable value fields ──────────────────────────────────────
 // Called when user types in a val-input; syncs the paired range slider
@@ -446,7 +489,7 @@ function loadFile(file) {
         origCanvas.getContext('2d').drawImage(img, 0, 0);
         workCanvas = cloneCanvas(origCanvas);
         history = [cloneCanvas(workCanvas)]; historyIdx = 0; updateUndoUI();
-        cancelCrop();
+        cancelCrop(); resetZoom();
         document.getElementById('drop-hint').style.display = 'none';
         document.getElementById('canvas-wrap').style.display = 'inline-block';
         document.getElementById('dl-btn').disabled = false;
@@ -515,16 +558,20 @@ function render() {
 
 // ── Pixel pipeline ────────────────────────────────────────────
 function applyEdits(src) {
-    const brightness  = parseFloat(document.getElementById('sl-brightness').value);
+    const exposure    = parseFloat(document.getElementById('sl-exposure').value);
     const contrast    = parseFloat(document.getElementById('sl-contrast').value);
     const highlights  = parseFloat(document.getElementById('sl-highlights').value);
     const shadows     = parseFloat(document.getElementById('sl-shadows').value);
+    const vibrance    = parseFloat(document.getElementById('sl-vibrance').value);
     const saturation  = parseFloat(document.getElementById('sl-saturation').value);
     const temperature = parseFloat(document.getElementById('sl-temperature').value);
+    const clarity     = parseFloat(document.getElementById('sl-clarity').value);
     const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
-    const bright = brightness / 100 * 255;
+    // Exposure: multiplicative in EV stops (-3 to +3), more accurate than additive brightness
+    const expF   = Math.pow(2, exposure * 3 / 100);
     const cF     = (259 * (contrast + 255)) / (255 * (259 - contrast));
     const satF   = 1 + saturation / 100;
+    const vibF   = vibrance / 100;
     const tempR  = temperature * 0.4;
     const tempB  = temperature * 0.4;
     const hStr   = highlights / 100 * 80;
@@ -539,21 +586,34 @@ function applyEdits(src) {
 
     for (let i = 0; i < d.length; i += 4) {
         let r=d[i], g=d[i+1], b=d[i+2];
-        r+=bright; g+=bright; b+=bright;
+        // Exposure: multiplicative (EV stops) — preserves tonal relationships
+        r*=expF; g*=expF; b*=expF;
+        // Contrast
         r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
+        // Highlights / Shadows via luminance mask
         const lum = 0.2126*r + 0.7152*g + 0.0722*b;
         const hMask = Math.pow(Math.max(0, lum/255), 1.8);
         const sMask = Math.pow(Math.max(0, 1-lum/255), 1.8);
-        const adj = hStr*hMask + sStr*sMask;
-        r+=adj; g+=adj; b+=adj;
+        const hlAdj = hStr*hMask + sStr*sMask;
+        r+=hlAdj; g+=hlAdj; b+=hlAdj;
+        // Saturation (linear)
         const gr = 0.2126*r + 0.7152*g + 0.0722*b;
         r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
+        // Vibrance: selectively boosts less-saturated pixels, leaving already-vivid ones alone
+        if (vibF !== 0) {
+            const gr2 = 0.2126*r + 0.7152*g + 0.0722*b;
+            const sat = Math.max(Math.abs(r-gr2), Math.abs(g-gr2), Math.abs(b-gr2)) / 255;
+            const vb = 1 + vibF * (1 - Math.min(1, sat * 2));
+            r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
+        }
+        // Temperature
         r+=tempR; b-=tempB;
         d[i]  =lut[Math.max(0,Math.min(255,r|0))];
         d[i+1]=lut[Math.max(0,Math.min(255,g|0))];
         d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
     }
     ctx.putImageData(id, 0, 0);
+    if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
     if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
     return out;
 }
@@ -573,6 +633,52 @@ function applySharpening(ctx, w, h, amount) {
         }
     }
     ctx.putImageData(id, 0, 0);
+}
+
+// Clarity: local contrast via high-pass blend (large-radius unsharp mask)
+function applyClarity(ctx, w, h, amount) {
+    if (amount <= 0) return;
+    const id = ctx.getImageData(0, 0, w, h);
+    const orig = new Uint8ClampedArray(id.data);
+    const blurred = new Uint8ClampedArray(id.data);
+    // Box blur 3 passes with radius ~9 approximates a large Gaussian — fast sliding-window O(n)
+    boxBlur(blurred, w, h, 9);
+    boxBlur(blurred, w, h, 9);
+    boxBlur(blurred, w, h, 9);
+    const str = amount / 100 * 0.65;
+    for (let i = 0; i < orig.length; i += 4) {
+        for (let c = 0; c < 3; c++) {
+            id.data[i+c] = Math.max(0, Math.min(255, orig[i+c] + str * (orig[i+c] - blurred[i+c])));
+        }
+    }
+    ctx.putImageData(id, 0, 0);
+}
+// Separable box blur — sliding window, O(W*H) per pass, operates in-place on data array
+function boxBlur(data, w, h, r) {
+    const tmp = new Uint8ClampedArray(data.length);
+    // Horizontal pass
+    for (let y = 0; y < h; y++) {
+        let rs=0, gs=0, bs=0;
+        const row = y * w;
+        for (let x = 0; x <= r && x < w; x++) { const i=(row+x)*4; rs+=data[i]; gs+=data[i+1]; bs+=data[i+2]; }
+        for (let x = 0; x < w; x++) {
+            const cnt = Math.min(x+r,w-1) - Math.max(x-r,0) + 1;
+            const i=(row+x)*4; tmp[i]=rs/cnt; tmp[i+1]=gs/cnt; tmp[i+2]=bs/cnt; tmp[i+3]=data[i+3];
+            if (x+r+1 < w) { const ni=(row+x+r+1)*4; rs+=data[ni]; gs+=data[ni+1]; bs+=data[ni+2]; }
+            if (x-r   >= 0) { const oi=(row+x-r  )*4; rs-=data[oi]; gs-=data[oi+1]; bs-=data[oi+2]; }
+        }
+    }
+    // Vertical pass
+    for (let x = 0; x < w; x++) {
+        let rs=0, gs=0, bs=0;
+        for (let y = 0; y <= r && y < h; y++) { const i=(y*w+x)*4; rs+=tmp[i]; gs+=tmp[i+1]; bs+=tmp[i+2]; }
+        for (let y = 0; y < h; y++) {
+            const cnt = Math.min(y+r,h-1) - Math.max(y-r,0) + 1;
+            const i=(y*w+x)*4; data[i]=rs/cnt; data[i+1]=gs/cnt; data[i+2]=bs/cnt;
+            if (y+r+1 < h) { const ni=((y+r+1)*w+x)*4; rs+=tmp[ni]; gs+=tmp[ni+1]; bs+=tmp[ni+2]; }
+            if (y-r   >= 0) { const oi=((y-r  )*w+x)*4; rs-=tmp[oi]; gs-=tmp[oi+1]; bs-=tmp[oi+2]; }
+        }
+    }
 }
 
 function applyStraighten(src, angleDeg) {
@@ -927,15 +1033,83 @@ ovEl.addEventListener('mouseup', e => {
     dragHandle=null; dragOrigin=null; renderOverlay();
 });
 
+// ── Zoom / Pan event handlers ─────────────────────────────────
+// Mouse wheel zoom (toward cursor)
+eMain.addEventListener('wheel', e => {
+    if (!workCanvas) return;
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.14 : 1 / 1.14;
+    const newZoom = Math.max(1, Math.min(8, zoom * factor));
+    if (newZoom === zoom) return;
+    const rect = eMain.getBoundingClientRect();
+    const cx = e.clientX - rect.left - rect.width  / 2;
+    const cy = e.clientY - rect.top  - rect.height / 2;
+    const scale = newZoom / zoom;
+    panX = panX + (cx - panX) * (1 - scale);
+    panY = panY + (cy - panY) * (1 - scale);
+    zoom = newZoom;
+    clampPan(); applyZoom();
+}, { passive: false });
+
+// Mouse drag pan (when zoom > 1 and not over crop overlay)
+eMain.addEventListener('mousedown', e => {
+    if (zoom <= 1 || !workCanvas || (cropMode && e.target === ovEl)) return;
+    panDragging = true; panLastX = e.clientX; panLastY = e.clientY;
+    eMain.style.cursor = 'grabbing'; e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+    if (!panDragging) return;
+    panX += e.clientX - panLastX; panY += e.clientY - panLastY;
+    panLastX = e.clientX; panLastY = e.clientY;
+    clampPan(); applyZoom();
+});
+window.addEventListener('mouseup', () => {
+    if (!panDragging) return;
+    panDragging = false; applyZoom();
+});
+
+// Two-finger pinch zoom + drag
+eMain.addEventListener('touchstart', e => {
+    if (e.touches.length >= 2 && workCanvas) {
+        e.preventDefault();
+        const [t0, t1] = [e.touches[0], e.touches[1]];
+        const rect = eMain.getBoundingClientRect();
+        touchStartState = {
+            dist: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY),
+            zoom, panX, panY,
+            cx: (t0.clientX + t1.clientX) / 2 - rect.left - rect.width  / 2,
+            cy: (t0.clientY + t1.clientY) / 2 - rect.top  - rect.height / 2,
+        };
+    }
+}, { passive: false });
+eMain.addEventListener('touchmove', e => {
+    if (e.touches.length >= 2 && touchStartState) {
+        e.preventDefault();
+        const [t0, t1] = [e.touches[0], e.touches[1]];
+        const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+        const rect = eMain.getBoundingClientRect();
+        const mcx  = (t0.clientX + t1.clientX) / 2 - rect.left - rect.width  / 2;
+        const mcy  = (t0.clientY + t1.clientY) / 2 - rect.top  - rect.height / 2;
+        const s = dist / touchStartState.dist;
+        zoom = Math.max(1, Math.min(8, touchStartState.zoom * s));
+        const zs = zoom / touchStartState.zoom;
+        panX = touchStartState.panX + (touchStartState.cx - touchStartState.panX) * (1 - zs) + (mcx - touchStartState.cx);
+        panY = touchStartState.panY + (touchStartState.cy - touchStartState.panY) * (1 - zs) + (mcy - touchStartState.cy);
+        if (zoom === 1) { panX = 0; panY = 0; }
+        clampPan(); applyZoom();
+    }
+}, { passive: false });
+eMain.addEventListener('touchend', e => { if (e.touches.length < 2) touchStartState = null; }, { passive: false });
+
 // ── Sliders ───────────────────────────────────────────────────
 function onAdjust() {
-    ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
+    ['exposure','contrast','highlights','shadows','vibrance','saturation','temperature','clarity','sharpen'].forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
     });
     beginAdjust();
 }
 function resetAdjust() {
-    ['brightness','contrast','highlights','shadows','saturation','temperature','sharpen'].forEach(k => {
+    ['exposure','contrast','highlights','shadows','vibrance','saturation','temperature','clarity','sharpen'].forEach(k => {
         document.getElementById('sl-'+k).value=0;
         const el=document.getElementById('v-'+k); if(el) el.value='0';
     });
