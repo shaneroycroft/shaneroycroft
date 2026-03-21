@@ -511,22 +511,30 @@ function render() {
 
     const out = document.getElementById('output-canvas');
 
-    // During live adjustment: process at display resolution to keep the UI responsive.
-    // Lock CSS display dimensions so the canvas doesn't visually resize mid-drag.
+    // During live adjustment: render at display resolution for responsiveness.
+    // Key: bxR/byR are scaled with the image so the preview border/text proportions
+    // exactly match the full-res render — no "revert" snap when full-res fires.
     let src = workCanvas;
+    let bxR = bx, byR = by;
     if (isAdjusting) {
         const dispW = out.clientWidth  || Math.round(window.innerWidth  * 0.65);
         const dispH = out.clientHeight || Math.round(window.innerHeight * 0.85);
-        if (workCanvas.width > dispW || workCanvas.height > dispH) {
-            const scale = Math.min(dispW / workCanvas.width, dispH / workCanvas.height);
-            src = mkCanvas(Math.max(1, Math.round(workCanvas.width * scale)),
-                           Math.max(1, Math.round(workCanvas.height * scale)));
-            src.getContext('2d').drawImage(workCanvas, 0, 0, src.width, src.height);
-        }
-        // Pin the CSS size so changing canvas.width/height doesn't cause a visual jump
-        if (out.clientWidth) {
-            out.style.width  = out.clientWidth  + 'px';
-            out.style.height = out.clientHeight + 'px';
+        // Compute what the full canvas (image + borders) would look like at display scale
+        const fullW = workCanvas.width  + bx * 2;
+        const fullH = workCanvas.height + by * 2;
+        if (fullW > dispW || fullH > dispH) {
+            const cssScale = Math.min(dispW / fullW, dispH / fullH);
+            const cssW = Math.max(1, Math.round(fullW  * cssScale));
+            const cssH = Math.max(1, Math.round(fullH  * cssScale));
+            bxR = Math.round(bx * cssScale);
+            byR = Math.round(by * cssScale);
+            const imgW = Math.max(1, cssW - bxR * 2);
+            const imgH = Math.max(1, cssH - byR * 2);
+            src = mkCanvas(imgW, imgH);
+            src.getContext('2d').drawImage(workCanvas, 0, 0, imgW, imgH);
+            // Pin CSS to the exact target size so preview canvas pixels = CSS pixels (1:1)
+            out.style.width  = cssW + 'px';
+            out.style.height = cssH + 'px';
         }
     } else {
         // Full-res render — release CSS size pin so max-width/max-height take over
@@ -538,16 +546,16 @@ function render() {
     adj = applyStraighten(adj, straightenAngle);
     applyVignette(adj, vigStr);
 
-    out.width  = adj.width  + bx * 2;
-    out.height = adj.height + by * 2;
+    out.width  = adj.width  + bxR * 2;
+    out.height = adj.height + byR * 2;
     const ctx = out.getContext('2d');
     ctx.fillStyle = bcolor;
     ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(adj, bx, by);
+    ctx.drawImage(adj, bxR, byR);
 
-    applyTextOverlay(ctx, out.width, out.height, bx, by);
+    applyTextOverlay(ctx, out.width, out.height, bxR, byR);
 
-    imageBounds = {x1: bx, y1: by, x2: bx + adj.width, y2: by + adj.height};
+    imageBounds = {x1: bxR, y1: byR, x2: bxR + adj.width, y2: byR + adj.height};
 
     const ov = document.getElementById('overlay-canvas');
     ov.width  = out.width;
@@ -613,8 +621,12 @@ function applyEdits(src) {
         d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
     }
     ctx.putImageData(id, 0, 0);
-    if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
-    if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
+    // Clarity and sharpening are convolution passes — skip during live preview (isAdjusting)
+    // to avoid blocking the thread; they apply at full resolution when dragging stops.
+    if (!isAdjusting) {
+        if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
+        if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
+    }
     return out;
 }
 
