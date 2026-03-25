@@ -50,31 +50,28 @@ body {
 
 /* ── Navigation ──────────────────────────────────────────── */
 nav {
-    padding: 1.25rem 2rem;
+    padding: 3.5rem 2rem 2rem;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
     position: sticky;
     top: 0;
     background: var(--nav-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     z-index: 100;
-    gap: 0;
 }
 
 .logo {
     font-family: 'Playfair Display', serif;
     font-weight: 400;
     font-style: italic;
-    font-size: 1.3rem;
+    font-size: 1.4rem;
     letter-spacing: 0.5px;
     text-transform: lowercase;
     text-decoration: none;
     color: var(--text);
-    flex-shrink: 0;
+    margin-bottom: 2rem;
     transition: opacity 0.3s;
 }
 
@@ -83,9 +80,9 @@ nav {
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    gap: 2.5rem;
     text-transform: lowercase;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     letter-spacing: 1px;
 }
 
@@ -117,11 +114,10 @@ nav {
 
 .theme-toggle:hover { color: var(--text); }
 
-/* ── Photography Sub-Nav (full-width second row in nav) ───── */
+/* ── Photography Sub-Nav ─────────────────────────────────── */
 .sub-nav {
-    flex-basis: 100%;
-    margin-top: 1rem;
-    padding-bottom: 0.5rem;
+    margin-top: 2rem;
+    padding-bottom: 2px;
     display: flex;
     gap: 1.5rem;
     font-size: 0.7rem;
@@ -527,8 +523,8 @@ footer {
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
-    nav { padding: 1rem 1.25rem; }
-    .nav-links { gap: 1.25rem; }
+    nav { padding: 2rem 1.5rem 1.5rem; }
+    .nav-links { gap: 1.5rem; }
     .gallery { columns: 1; }
     .photo-sections { gap: 3rem; }
     .project-card { grid-template-columns: 1fr; gap: 0.5rem; }

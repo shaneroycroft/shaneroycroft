@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
-    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+    <script>(function(){try{var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 </head>
 <body>
     <nav>
@@ -35,7 +35,7 @@
     <div class="container fade-in">
         <h1 class="serif">hello.</h1>
         <p class="text-secondary" style="max-width: 500px; margin-bottom: 0; font-size: 1.05rem; line-height: 1.8;">
-            i'm shane — a photographer and builder based in australia. i shoot on film and digital, and i build things for the web and blockchain.
+            observing the in-between. a collection of projects and cinematic moments captured in my travels.
         </p>
         <a id="featured-grid" class="featured-grid" href="photography.html" style="display:none; text-decoration:none;"></a>
     </div>
@@ -49,11 +49,21 @@
 
     <script src="theme.js"></script>
     <script>
-        // Load featured photos from portfolio (fallback: first available category)
+        // Load featured photos: portfolio + pinned from other categories
         fetch('photos.json?t=' + Date.now())
             .then(r => r.json())
             .then(data => {
-                let photos = (data.portfolio || []).slice(0, 3);
+                const explicit = (data.portfolio || []);
+                const seen = new Set(explicit.map(e => norm(e).src));
+                const pinned = [];
+                Object.entries(data).forEach(([cat, photos]) => {
+                    if (cat === 'portfolio') return;
+                    (photos || []).forEach(e => {
+                        const p = norm(e);
+                        if (e.pinned && !seen.has(p.src)) { seen.add(p.src); pinned.push(e); }
+                    });
+                });
+                let photos = [...explicit, ...pinned].slice(0, 3);
                 if (!photos.length) {
                     for (const cat of Object.values(data)) {
                         if (cat.length) { photos = cat.slice(0, 3); break; }

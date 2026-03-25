@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
-    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+    <script>(function(){try{var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 </head>
 <body>
     <nav>
@@ -62,7 +62,7 @@
                     <p>On-chain event ticketing built on Cardano. Tickets are CIP-68 NFTs with post-mint updatability — resale prices are enforced on-chain, no scalpers. Includes an interactive venue seat visualizer with POV previews, mobile QR gate check-in, artist pages with upcoming events, and organizer analytics for revenue, royalties, and sales. Wallet-signed JWT auth via CIP-30 challenge-response (no seed phrase). Shareable ticket passport — works on any device, no crypto wallet needed.</p>
                     <p class="text-secondary" style="font-size: 0.78rem; margin-top: 0.75rem; letter-spacing: 0.03em;">Aiken · Lucid Evolution · Blockfrost · Supabase · CIP-30 · CIP-68 · IPFS · React 18 · Tailwind v4</p>
                     <div class="project-links">
-                        <span class="project-link project-link--soon">in progress</span>
+                        <a href="https://cardano-event-demo.github-c07.workers.dev/" target="_blank" rel="noopener" class="project-link">preview (preprod) →</a>
                         <span class="project-badge">building</span>
                     </div>
                 </div>

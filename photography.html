@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
-    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+    <script>(function(){try{var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 </head>
 <body>
     <nav>
@@ -102,6 +102,20 @@
             });
         }
 
+        // Portfolio = explicit portfolio entries + pinned photos from other categories
+        function getPortfolioPhotos() {
+            const explicit = (categories['portfolio'] || []).map(norm);
+            const seen = new Set(explicit.map(p => p.src));
+            Object.entries(categories).forEach(([cat, photos]) => {
+                if (cat === 'portfolio') return;
+                (photos || []).forEach(entry => {
+                    const p = norm(entry);
+                    if (entry.pinned && !seen.has(p.src)) { seen.add(p.src); explicit.push(p); }
+                });
+            });
+            return explicit;
+        }
+
         function buildSections(sections) {
             const container = document.getElementById('photo-sections');
             sections.forEach(cat => {
@@ -118,7 +132,7 @@
                 const grid = document.createElement('div');
                 grid.className = 'gallery';
 
-                const photos = (categories[cat] || []).map(norm);
+                const photos = cat === 'portfolio' ? getPortfolioPhotos() : (categories[cat] || []).map(norm);
 
                 if (photos.length === 0) {
                     const empty = document.createElement('p');
