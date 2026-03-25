@@ -1,5 +1,10 @@
 {
-  "portfolio": [],
+  "portfolio": [
+    {
+      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/portfolio/1774448225228_dscf4528.jpeg",
+      "caption": "osaka - japan"
+    }
+  ],
   "japan": [
     {
       "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/japan/1774444394807_dscf4631.jpeg",
