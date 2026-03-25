@@ -50,7 +50,7 @@ body {
 
 /* ── Navigation ──────────────────────────────────────────── */
 nav {
-    padding: 3.5rem 2rem 2rem;
+    padding: 2rem 2rem 1.5rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -71,7 +71,7 @@ nav {
     text-transform: lowercase;
     text-decoration: none;
     color: var(--text);
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
     transition: opacity 0.3s;
 }
 
