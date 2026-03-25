@@ -16,15 +16,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
+    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 </head>
 <body>
     <nav>
         <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
-            <a href="index.html">about</a>
+            <a href="about.html">about</a>
             <a href="photography.html">photography</a>
             <a href="projects.html" class="active">projects</a>
             <a href="contact.html">contact</a>
+            <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" onclick="toggleTheme()">●</button>
         </div>
     </nav>
 
@@ -36,7 +38,8 @@
                     <h3>this site</h3>
                     <p>A static portfolio hosted on GitHub Pages — no backend, no CMS. Photos upload directly to the repo via the GitHub API with client-side compression, captions, and dynamic category management. Includes a full browser-based photo editor.</p>
                     <div class="project-links">
-                        <a href="https://github.com/shaneroycroft/shaneroycroft" target="_blank" rel="noopener" class="project-link">view on github →</a>
+                        <a href="https://www.shaneroycroft.com" target="_blank" rel="noopener" class="project-link">live site →</a>
+                        <a href="https://github.com/shaneroycroft/shaneroycroft" target="_blank" rel="noopener" class="project-link">github →</a>
                         <span class="project-badge project-badge--live">live</span>
                     </div>
                 </div>
@@ -73,5 +76,7 @@
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         </a>
     </footer>
+
+    <script src="theme.js"></script>
 </body>
 </html>

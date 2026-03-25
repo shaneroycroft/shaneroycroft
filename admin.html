@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
+    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
     <style>
         /* ── Admin tabs ─────────────────────────────────── */
         .admin-tabs {
@@ -180,10 +181,11 @@
     <nav>
         <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
-            <a href="index.html">about</a>
+            <a href="about.html">about</a>
             <a href="photography.html">photography</a>
             <a href="projects.html">projects</a>
             <a href="contact.html">contact</a>
+            <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" onclick="toggleTheme()">●</button>
         </div>
     </nav>
 
@@ -262,6 +264,7 @@
         </a>
     </footer>
 
+    <script src="theme.js"></script>
     <script>
         const REPO = 'shaneroycroft/shaneroycroft';
         const BRANCH = 'main';

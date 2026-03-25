@@ -15,30 +15,101 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
+    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+    <style>
+        .captcha-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .captcha-question {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+        .captcha-input {
+            width: 56px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            padding: 0.3rem 0;
+            background: transparent;
+            color: var(--text);
+            outline: none;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+        .captcha-input:focus { border-bottom-color: var(--text); }
+        .captcha-input.err { border-bottom-color: #c0392b; }
+        .captcha-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.75rem;
+            text-transform: lowercase;
+            letter-spacing: 1px;
+            color: var(--secondary);
+            padding: 0;
+            transition: color 0.3s;
+        }
+        .captcha-btn:hover { color: var(--text); }
+        .email-reveal {
+            display: none;
+            margin-top: 0;
+            animation: fadeIn 0.4s ease forwards;
+        }
+    </style>
 </head>
 <body>
     <nav>
         <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
-            <a href="index.html">about</a>
+            <a href="about.html">about</a>
             <a href="photography.html">photography</a>
             <a href="projects.html">projects</a>
             <a href="contact.html" class="active">contact</a>
+            <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" onclick="toggleTheme()">●</button>
         </div>
     </nav>
 
     <div class="container fade-in">
         <h2 class="serif">say hello.</h2>
         <p class="text-secondary" style="margin-bottom: 2.5rem; max-width: 420px; line-height: 1.8;">
-            the best way to reach me is on x.
+            best reached on x, or by email if you prefer something more direct.
         </p>
-        <a href="https://x.com/helloiamshane" target="_blank" rel="noopener" class="home-link" style="max-width: 320px; display: flex; text-decoration: none;">
-            <span class="home-link-label">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;fill:currentColor;vertical-align:middle;margin-right:0.5rem;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                @helloiamshane
-            </span>
-            <span class="home-link-arrow">→</span>
-        </a>
+
+        <div class="home-links" style="max-width: 360px;">
+            <!-- X link -->
+            <a href="https://x.com/helloiamshane" target="_blank" rel="noopener" class="home-link">
+                <span class="home-link-label" style="display: flex; align-items: center; gap: 0.6rem;">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:12px;height:12px;fill:currentColor;flex-shrink:0;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    @helloiamshane
+                </span>
+                <span class="home-link-arrow">→</span>
+            </a>
+
+            <!-- Email — unlocked after captcha -->
+            <div class="home-link" style="flex-direction: column; align-items: flex-start; cursor: default;">
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                    <span class="home-link-label" style="color: var(--secondary);">email</span>
+                    <span class="home-link-arrow" style="opacity:0.3;">→</span>
+                </div>
+                <div class="captcha-row" id="captcha-row">
+                    <span class="captcha-question" id="captcha-q"></span>
+                    <input class="captcha-input" id="captcha-in" type="number" inputmode="numeric" placeholder="?" autocomplete="off" onkeydown="if(event.key==='Enter')checkCaptcha()">
+                    <button class="captcha-btn" onclick="checkCaptcha()">reveal →</button>
+                </div>
+                <a class="home-link email-reveal" id="email-reveal" style="border-top:none; padding-top:0.4rem; width:100%; display:none; text-decoration:none; color:var(--text);" href="#">
+                    <span class="home-link-label" id="email-text"></span>
+                    <span class="home-link-arrow">→</span>
+                </a>
+            </div>
+        </div>
     </div>
 
     <footer>
@@ -47,5 +118,46 @@
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         </a>
     </footer>
+
+    <script src="theme.js"></script>
+    <script>
+        // Obfuscated address — assembled at runtime only
+        const _ep = ['site', String.fromCharCode(64), 'shaneroycroft', String.fromCharCode(46), 'com'];
+
+        let _ans = 0;
+
+        function initCaptcha() {
+            const a = Math.floor(Math.random() * 9) + 1;
+            const b = Math.floor(Math.random() * 9) + 1;
+            _ans = a + b;
+            document.getElementById('captcha-q').textContent = 'what is ' + a + ' + ' + b + '?';
+            const inp = document.getElementById('captcha-in');
+            inp.value = '';
+            inp.classList.remove('err');
+        }
+
+        function checkCaptcha() {
+            const inp = document.getElementById('captcha-in');
+            if (parseInt(inp.value, 10) === _ans) {
+                const addr = _ep.join('');
+                document.getElementById('captcha-row').style.display = 'none';
+                const reveal = document.getElementById('email-reveal');
+                document.getElementById('email-text').textContent = addr;
+                reveal.href = 'mailto:' + addr;
+                reveal.style.display = 'flex';
+            } else {
+                inp.classList.add('err');
+                inp.value = '';
+                inp.placeholder = 'try again';
+                setTimeout(() => {
+                    inp.classList.remove('err');
+                    inp.placeholder = '?';
+                    initCaptcha();
+                }, 900);
+            }
+        }
+
+        initCaptcha();
+    </script>
 </body>
 </html>

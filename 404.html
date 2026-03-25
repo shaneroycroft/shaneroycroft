@@ -10,15 +10,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
+    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 </head>
 <body>
     <nav>
         <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
-            <a href="index.html">about</a>
+            <a href="about.html">about</a>
             <a href="photography.html">photography</a>
             <a href="projects.html">projects</a>
             <a href="contact.html">contact</a>
+            <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" onclick="toggleTheme()">●</button>
         </div>
     </nav>
 
@@ -34,5 +36,7 @@
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         </a>
     </footer>
+
+    <script src="theme.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
     <style>
         html, body { height: 100%; overflow: hidden; }
 
@@ -1237,5 +1238,6 @@ function applyCurvePreset(name) {
 }
 function resetCurve() { curvePoints=[{x:0,y:0},{x:255,y:255}]; drawCurve(); scheduleRender(); }
 </script>
+<script src="theme.js"></script>
 </body>
 </html>

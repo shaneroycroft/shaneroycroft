@@ -18,37 +18,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
+    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 </head>
 <body>
     <nav>
         <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
-            <a href="index.html" class="active">about</a>
+            <a href="about.html">about</a>
             <a href="photography.html">photography</a>
             <a href="projects.html">projects</a>
             <a href="contact.html">contact</a>
+            <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" onclick="toggleTheme()">●</button>
         </div>
     </nav>
 
     <div class="container fade-in">
         <h1 class="serif">hello.</h1>
-        <p class="text-secondary" style="max-width: 500px; margin-bottom: 2.5rem; font-size: 1.05rem; line-height: 1.8;">
-            i'm passionate about photography and building creative things — this is where i share what i'm working on.
+        <p class="text-secondary" style="max-width: 500px; margin-bottom: 0; font-size: 1.05rem; line-height: 1.8;">
+            i'm shane — a photographer and builder based in australia. i shoot on film and digital, and i build things for the web and blockchain.
         </p>
-        <div class="home-links">
-            <a href="photography.html" class="home-link">
-                <span class="home-link-label">photography</span>
-                <span class="home-link-arrow">→</span>
-            </a>
-            <a href="projects.html" class="home-link">
-                <span class="home-link-label">projects</span>
-                <span class="home-link-arrow">→</span>
-            </a>
-            <a href="contact.html" class="home-link">
-                <span class="home-link-label">get in touch</span>
-                <span class="home-link-arrow">→</span>
-            </a>
-        </div>
+        <a id="featured-grid" class="featured-grid" href="photography.html" style="display:none; text-decoration:none;"></a>
     </div>
 
     <footer>
@@ -57,5 +46,45 @@
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         </a>
     </footer>
+
+    <script src="theme.js"></script>
+    <script>
+        // Load featured photos from portfolio (fallback: first available category)
+        fetch('photos.json?t=' + Date.now())
+            .then(r => r.json())
+            .then(data => {
+                let photos = (data.portfolio || []).slice(0, 3);
+                if (!photos.length) {
+                    for (const cat of Object.values(data)) {
+                        if (cat.length) { photos = cat.slice(0, 3); break; }
+                    }
+                }
+                if (photos.length) renderFeatured(photos);
+            })
+            .catch(() => {});
+
+        function norm(e) {
+            return typeof e === 'string' ? { src: e, caption: '' } : e;
+        }
+
+        function renderFeatured(photos) {
+            const grid = document.getElementById('featured-grid');
+            if (!grid) return;
+            photos.forEach(p => {
+                p = norm(p);
+                const div = document.createElement('div');
+                div.className = 'featured-item';
+                const img = document.createElement('img');
+                img.src = p.src;
+                img.alt = p.caption || '';
+                img.loading = 'lazy';
+                img.onload = () => img.classList.add('loaded');
+                if (img.complete) img.classList.add('loaded');
+                div.appendChild(img);
+                grid.appendChild(div);
+            });
+            grid.style.display = 'grid';
+        }
+    </script>
 </body>
 </html>

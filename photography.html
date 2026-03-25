@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>photography | shane roycroft</title>
-    <meta name="description" content="Photography by Shane Roycroft — Japan, the desert, and more.">
+    <meta name="description" content="Photography by Shane Roycroft — portfolio, Japan, the desert, and more.">
     <meta property="og:title" content="photography | shane roycroft">
     <meta property="og:description" content="Photography by Shane Roycroft.">
     <meta property="og:type" content="website">
@@ -16,21 +16,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
+    <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 </head>
 <body>
     <nav>
         <a href="index.html" class="logo">shane roycroft</a>
         <div class="nav-links">
-            <a href="index.html">about</a>
+            <a href="about.html">about</a>
             <a href="photography.html" class="active">photography</a>
             <a href="projects.html">projects</a>
             <a href="contact.html">contact</a>
+            <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" onclick="toggleTheme()">●</button>
         </div>
         <div class="sub-nav" id="sub-nav"></div>
     </nav>
 
     <div class="container fade-in">
-        <div class="gallery" id="photo-grid"></div>
+        <div class="photo-sections" id="photo-sections"></div>
     </div>
 
     <div id="lightbox" onclick="closeLightbox()">
@@ -40,13 +42,20 @@
         <button id="lightbox-next" onclick="event.stopPropagation(); shiftLightbox(1)">&#8594;</button>
     </div>
 
+    <footer>
+        <span>&copy; 2026 shane roycroft</span>
+        <a href="https://x.com/helloiamshane" target="_blank" rel="noopener" class="footer-x" aria-label="X / Twitter">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+    </footer>
+
+    <script src="theme.js"></script>
     <script>
         const PHOTOS_URL = 'photos.json?t=' + Date.now();
-        let categories = { 'japan': [], 'the desert': [], 'more': [] };
-        let currentList = []; // always normalised to {src, caption} objects
+        let categories = {};
+        let currentList = [];
         let currentIndex = 0;
 
-        // Normalise a manifest entry — may be a plain string or {src, caption}
         function norm(entry) {
             return typeof entry === 'string' ? { src: entry, caption: '' } : entry;
         }
@@ -56,67 +65,132 @@
             .then(data => { categories = data; initPage(); })
             .catch(() => initPage());
 
-        function buildSubNav(activecat) {
+        function initPage() {
+            const keys = Object.keys(categories);
+
+            // Show portfolio always + any category with photos
+            const visible = keys.filter(k =>
+                k === 'portfolio' || (categories[k] || []).length > 0
+            );
+
+            if (visible.length === 0) {
+                document.getElementById('photo-sections').innerHTML =
+                    '<p class="text-muted" style="padding-top:2rem;">no photos yet.</p>';
+                return;
+            }
+
+            buildSubNav(visible);
+            buildSections(visible);
+            setupScrollHighlight(visible);
+
+            // Scroll to hash on load
+            const hash = window.location.hash.replace('#', '').replace(/-/g, ' ');
+            if (hash && categories[hash] !== undefined) {
+                setTimeout(() => scrollToSection(hash), 80);
+            }
+        }
+
+        function buildSubNav(sections) {
             const nav = document.getElementById('sub-nav');
             nav.innerHTML = '';
-            Object.keys(categories).forEach(cat => {
+            sections.forEach(cat => {
                 const span = document.createElement('span');
                 span.textContent = cat;
-                if (cat === activecat) span.classList.add('active');
-                span.onclick = () => setCategory(cat);
+                span.id = 'subnav-' + slugify(cat);
+                span.onclick = () => scrollToSection(cat);
                 nav.appendChild(span);
             });
         }
 
-        function initPage() {
-            const hash = window.location.hash.replace('#', '').replace(/-/g, ' ');
-            const first = Object.keys(categories)[0] || 'japan';
-            render(categories[hash] !== undefined ? hash : first);
+        function buildSections(sections) {
+            const container = document.getElementById('photo-sections');
+            sections.forEach(cat => {
+                const section = document.createElement('section');
+                section.className = 'photo-section';
+                section.id = 'section-' + slugify(cat);
+                section.dataset.cat = cat;
+
+                const label = document.createElement('h2');
+                label.className = 'photo-section-label serif';
+                label.textContent = cat;
+                section.appendChild(label);
+
+                const grid = document.createElement('div');
+                grid.className = 'gallery';
+
+                const photos = (categories[cat] || []).map(norm);
+
+                if (photos.length === 0) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-muted';
+                    empty.style.paddingTop = '0.5rem';
+                    empty.textContent = 'no photos yet.';
+                    grid.appendChild(empty);
+                } else {
+                    photos.forEach((item, i) => createItem(item, i, grid, cat));
+                }
+
+                section.appendChild(grid);
+                container.appendChild(section);
+            });
         }
 
-        function setCategory(cat) {
-            window.location.hash = cat.replace(/\s+/g, '-');
-            render(cat);
-        }
-
-        function render(cat) {
-            const grid = document.getElementById('photo-grid');
-            grid.innerHTML = '';
-
-            buildSubNav(cat);
-
-            const raw = categories[cat] || [];
-            currentList = raw.map(norm);
-
-            if (currentList.length === 0) {
-                grid.innerHTML = '<p class="text-muted" style="padding-top:2rem;">no photos yet.</p>';
-                return;
-            }
-
-            currentList.forEach((item, i) => createItem(item, i, grid));
-        }
-
-        function createItem(item, index, container) {
+        function createItem(item, index, container, cat) {
             const div = document.createElement('div');
             div.className = 'gallery-item';
+
             const img = document.createElement('img');
             img.src = item.src;
             img.loading = 'lazy';
             img.alt = item.caption || '';
             img.onload = () => img.classList.add('loaded');
-            img.onclick = () => openLightbox(index);
-            // If cached, onload may have already fired
             if (img.complete) img.classList.add('loaded');
+            img.onclick = () => {
+                currentList = (categories[cat] || []).map(norm);
+                openLightbox(index);
+            };
+
             div.appendChild(img);
+
             if (item.caption) {
                 const cap = document.createElement('div');
                 cap.className = 'gallery-caption';
                 cap.textContent = item.caption;
                 div.appendChild(cap);
             }
+
             container.appendChild(div);
         }
 
+        function scrollToSection(cat) {
+            window.location.hash = slugify(cat);
+            const section = document.getElementById('section-' + slugify(cat));
+            if (section) {
+                const navH = document.querySelector('nav').offsetHeight;
+                const top = section.getBoundingClientRect().top + window.scrollY - navH - 24;
+                window.scrollTo({ top, behavior: 'smooth' });
+            }
+        }
+
+        function setupScrollHighlight(sections) {
+            const navH = document.querySelector('nav').offsetHeight;
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    const cat = entry.target.dataset.cat;
+                    const span = document.getElementById('subnav-' + slugify(cat));
+                    if (span) span.classList.toggle('active', entry.isIntersecting);
+                });
+            }, { rootMargin: `-${navH + 8}px 0px -55% 0px` });
+
+            sections.forEach(cat => {
+                const el = document.getElementById('section-' + slugify(cat));
+                if (el) observer.observe(el);
+            });
+        }
+
+        function slugify(str) { return str.replace(/\s+/g, '-'); }
+
+        // ── Lightbox ──────────────────────────────────────
         function openLightbox(index) {
             currentIndex = index;
             const item = currentList[index];
@@ -159,12 +233,5 @@
             if (Math.abs(dx) > 48) shiftLightbox(dx < 0 ? 1 : -1);
         });
     </script>
-
-    <footer>
-        <span>&copy; 2026 shane roycroft</span>
-        <a href="https://x.com/helloiamshane" target="_blank" rel="noopener" class="footer-x" aria-label="X / Twitter">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-        </a>
-    </footer>
 </body>
 </html>
