@@ -175,6 +175,24 @@
             outline: none; width: 160px;
         }
         .cat-new-input:focus { border-color: var(--text); }
+
+        /* ── Stats bar ───────────────────────────────────── */
+        .stats-bar { font-size: 0.72rem; color: var(--secondary); padding: 0 0 1.25rem; margin-bottom: 2rem; display: none; }
+
+        /* ── Homepage preview ────────────────────────────── */
+        .hp-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-width: 360px; }
+        .hp-preview-item { position: relative; aspect-ratio: 1; overflow: hidden; }
+        .hp-preview-item img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(100%); }
+        .hp-preview-label { position: absolute; bottom: 0; left: 0; right: 0; font-size: 0.58rem; color: #fff; background: rgba(0,0,0,0.6); padding: 3px 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hp-empty { font-size: 0.8rem; color: var(--secondary); }
+
+        /* ── Category actions ────────────────────────────── */
+        .cat-actions { display: flex; gap: 1.25rem; margin-bottom: 1.5rem; }
+        .cat-action-btn { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.72rem; color: var(--secondary); letter-spacing: 0.5px; text-decoration: underline; padding: 0; transition: color 0.2s; }
+        .cat-action-btn:hover { color: var(--text); }
+        .cat-action-btn.danger:hover { color: #c0392b; }
+        .cat-rename-form { display: none; align-items: center; gap: 0.5rem; margin-bottom: 1.75rem; }
+        .cat-rename-form.visible { display: flex; }
     </style>
 </head>
 <body>
@@ -206,10 +224,14 @@
             <button class="btn-ghost" onclick="clearPAT()">clear</button>
         </div>
 
+        <!-- Stats bar — hidden until PAT verified -->
+        <div class="stats-bar" id="stats-bar"></div>
+
         <!-- Tab bar — hidden until PAT verified -->
         <div class="admin-tabs" id="admin-tabs" style="display:none;">
             <span class="admin-tab active" onclick="switchTab('upload')">upload</span>
             <span class="admin-tab" onclick="switchTab('manage')">manage</span>
+            <span class="admin-tab" onclick="switchTab('homepage')">homepage</span>
         </div>
 
         <!-- Upload tab -->
@@ -249,8 +271,22 @@
                     <button class="btn-sm" onclick="createCategory('manage')">create</button>
                     <button class="btn-ghost" onclick="hideCatForm('manage')">cancel</button>
                 </div>
+                <div class="cat-actions" id="cat-actions"></div>
+                <div class="cat-rename-form" id="cat-rename-form">
+                    <input class="cat-new-input" id="cat-rename-input" maxlength="40">
+                    <button class="btn-sm" onclick="confirmRename()">rename</button>
+                    <button class="btn-ghost" onclick="hideCatRename()">cancel</button>
+                </div>
                 <p class="text-muted" style="font-size:0.75rem; margin-bottom: 1rem;" id="manage-hint"></p>
                 <div class="existing-grid" id="existing-grid"></div>
+            </div>
+        </div>
+
+        <!-- Homepage preview tab -->
+        <div class="tab-panel" id="tab-homepage">
+            <div class="admin-section">
+                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom: 1.5rem; line-height: 1.8;">these 3 photos appear on the landing page. add photos to <em>portfolio</em>, or pin photos in other categories to control what shows.</p>
+                <div class="hp-preview" id="hp-preview"></div>
             </div>
         </div>
 
@@ -281,7 +317,8 @@
             document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
             document.querySelector(`.admin-tab[onclick="switchTab('${name}')"]`).classList.add('active');
             document.getElementById('tab-' + name).style.display = 'block';
-            if (name === 'manage') renderManageGrid();
+            if (name === 'manage') { renderManageGrid(); renderCatActions(); }
+            if (name === 'homepage') renderHomepagePreview();
         }
 
         // ─── PAT ───────────────────────────────────────────
@@ -321,6 +358,7 @@
 
         function setAdminVisible(visible) {
             document.getElementById('admin-tabs').style.display = visible ? 'flex' : 'none';
+            document.getElementById('stats-bar').style.display = visible ? 'block' : 'none';
             document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
             if (visible) {
                 const active = document.querySelector('.tab-panel.active') || document.getElementById('tab-upload');
@@ -338,6 +376,7 @@
                     uploadCat = cats[0] || 'japan';
                     manageCat = cats[0] || 'japan';
                     renderAllCategoryTabs();
+                    renderStats();
                     setAdminVisible(true);
                 } else {
                     setPatStatus('token invalid or no repo access', 'err');
@@ -489,6 +528,7 @@
                 await saveManifest();
                 hideCatForm(context);
                 renderAllCategoryTabs();
+                renderStats();
                 if (context === 'upload') selectUploadCat(name);
                 else selectManageCat(name);
                 log('category created.', 'ok');
@@ -503,6 +543,7 @@
             if (e.key !== 'Enter') return;
             if (document.getElementById('upload-new-form').classList.contains('visible')) createCategory('upload');
             else if (document.getElementById('manage-new-form').classList.contains('visible')) createCategory('manage');
+            else if (document.getElementById('cat-rename-form').classList.contains('visible')) confirmRename();
         });
 
         function renderAllCategoryTabs() {
@@ -651,6 +692,8 @@
                     await saveManifest();
                     log(`done. ${success} photo${success > 1 ? 's' : ''} uploaded.`, 'ok');
                     renderManageGrid();
+                    renderStats();
+                    renderHomepagePreview();
                 } catch (e) {
                     log('photos uploaded but manifest save failed: ' + e.message, 'err');
                 }
@@ -688,6 +731,7 @@
             manageCat = cat;
             renderCategoryTabs('manage-tabs', cat, selectManageCat);
             renderManageGrid();
+            renderCatActions();
         }
 
         function renderManageGrid() {
@@ -787,7 +831,7 @@
                 const pb = typeof b === 'object' && b.pinned ? 1 : 0;
                 return pb - pa;
             });
-            try { await saveManifest(); renderManageGrid(); }
+            try { await saveManifest(); renderManageGrid(); renderHomepagePreview(); }
             catch (e) { alert('failed to save: ' + e.message); }
         }
 
@@ -795,11 +839,151 @@
             if (!confirm('delete this photo from the manifest? (the file will remain in the repo)')) return;
             if (!manifest) { alert('manifest not loaded.'); return; }
             manifest[cat].splice(index, 1);
-            try { await saveManifest(); renderManageGrid(); }
+            try { await saveManifest(); renderManageGrid(); renderStats(); renderHomepagePreview(); }
             catch (e) { alert('failed to save: ' + e.message); }
         }
 
 
+
+        // ─── Stats ─────────────────────────────────────────
+        function renderStats() {
+            const bar = document.getElementById('stats-bar');
+            if (!manifest) { bar.textContent = ''; return; }
+            const cats = Object.keys(manifest);
+            let total = 0, pinned = 0;
+            cats.forEach(cat => {
+                const list = manifest[cat] || [];
+                total += list.length;
+                pinned += list.filter(e => typeof e === 'object' && e.pinned).length;
+            });
+            bar.textContent = `${total} photo${total !== 1 ? 's' : ''} · ${cats.length} categor${cats.length !== 1 ? 'ies' : 'y'}${pinned ? ` · ${pinned} pinned` : ''}`;
+        }
+
+        // ─── Homepage Preview ───────────────────────────────
+        function computeFeatured() {
+            if (!manifest) return [];
+            const seen = new Set();
+            const explicit = (manifest.portfolio || []).map(e => {
+                const src = typeof e === 'string' ? e : e.src;
+                const cap = (typeof e === 'object' && e.caption) ? e.caption : '';
+                return { src, cap, from: 'portfolio' };
+            }).filter(({ src }) => { if (seen.has(src)) return false; seen.add(src); return true; });
+            const pinned = [];
+            Object.keys(manifest).forEach(cat => {
+                if (cat === 'portfolio') return;
+                (manifest[cat] || []).forEach(e => {
+                    if (typeof e === 'object' && e.pinned && !seen.has(e.src)) {
+                        seen.add(e.src);
+                        pinned.push({ src: e.src, cap: e.caption || '', from: cat });
+                    }
+                });
+            });
+            let photos = [...explicit, ...pinned].slice(0, 3);
+            if (photos.length === 0) {
+                const firstCat = Object.keys(manifest).find(cat => (manifest[cat] || []).length > 0);
+                if (firstCat) {
+                    photos = (manifest[firstCat] || []).slice(0, 3).map(e => ({
+                        src: typeof e === 'string' ? e : e.src,
+                        cap: (typeof e === 'object' && e.caption) ? e.caption : '',
+                        from: firstCat
+                    }));
+                }
+            }
+            return photos;
+        }
+
+        function renderHomepagePreview() {
+            const container = document.getElementById('hp-preview');
+            if (!container) return;
+            const photos = computeFeatured();
+            if (photos.length === 0) {
+                container.innerHTML = '<p class="hp-empty">no photos — add to portfolio or pin photos in other categories.</p>';
+                return;
+            }
+            container.innerHTML = '';
+            photos.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'hp-preview-item';
+                div.innerHTML = `<img src="${escHtml(p.src)}" loading="lazy" alt=""><span class="hp-preview-label">${escHtml(p.from)}</span>`;
+                container.appendChild(div);
+            });
+        }
+
+        // ─── Category Rename / Delete ───────────────────────
+        function renderCatActions() {
+            const el = document.getElementById('cat-actions');
+            if (!el || !manageCat) return;
+            el.innerHTML = '';
+            const renameBtn = document.createElement('button');
+            renameBtn.className = 'cat-action-btn';
+            renameBtn.textContent = 'rename';
+            renameBtn.onclick = showCatRename;
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'cat-action-btn danger';
+            deleteBtn.textContent = 'delete';
+            deleteBtn.onclick = () => deleteCategoryAction(manageCat);
+            el.appendChild(renameBtn);
+            el.appendChild(deleteBtn);
+        }
+
+        function showCatRename() {
+            hideCatForm('manage');
+            const input = document.getElementById('cat-rename-input');
+            input.value = manageCat;
+            document.getElementById('cat-rename-form').classList.add('visible');
+            input.focus(); input.select();
+        }
+
+        function hideCatRename() {
+            document.getElementById('cat-rename-form').classList.remove('visible');
+        }
+
+        async function confirmRename() {
+            const input = document.getElementById('cat-rename-input');
+            const newName = input.value.trim().toLowerCase();
+            if (!newName || newName === manageCat) { hideCatRename(); return; }
+            if (manifest[newName] !== undefined) { alert('a category with that name already exists.'); return; }
+            const prev = manageCat;
+            const rebuilt = {};
+            Object.keys(manifest).forEach(k => { rebuilt[k === prev ? newName : k] = manifest[k]; });
+            manifest = rebuilt;
+            manageCat = newName;
+            if (uploadCat === prev) uploadCat = newName;
+            try {
+                await saveManifest();
+                hideCatRename();
+                renderAllCategoryTabs();
+                renderManageGrid();
+                renderCatActions();
+                renderStats();
+            } catch(e) {
+                const rb = {};
+                Object.keys(manifest).forEach(k => { rb[k === newName ? prev : k] = manifest[k]; });
+                manifest = rb; manageCat = prev; if (uploadCat === newName) uploadCat = prev;
+                alert('failed to save: ' + e.message);
+            }
+        }
+
+        async function deleteCategoryAction(cat) {
+            const list = manifest[cat] || [];
+            const msg = list.length > 0
+                ? `"${cat}" has ${list.length} photo${list.length > 1 ? 's' : ''}. remove from manifest? (files stay in repo)`
+                : `delete category "${cat}"?`;
+            if (!confirm(msg)) return;
+            delete manifest[cat];
+            const remaining = Object.keys(manifest);
+            manageCat = remaining[0] || '';
+            if (uploadCat === cat) uploadCat = remaining[0] || '';
+            try {
+                await saveManifest();
+                renderAllCategoryTabs();
+                if (manageCat) { renderManageGrid(); renderCatActions(); }
+                renderStats();
+                renderHomepagePreview();
+            } catch(e) {
+                alert('failed to save: ' + e.message);
+            }
+        }
 
         // ─── Init ──────────────────────────────────────────
         window.addEventListener('load', () => {
