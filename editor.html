@@ -305,6 +305,7 @@
                     <div class="s-row"><label>saturation <input type="number" class="val-input" id="v-saturation" value="0" min="-100" max="100" step="1" data-key="saturation" oninput="syncVal(this)"></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>temperature <input type="number" class="val-input" id="v-temperature" value="0" min="-100" max="100" step="1" data-key="temperature" oninput="syncVal(this)"></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>tint <input type="number" class="val-input" id="v-tint" value="0" min="-100" max="100" step="1" data-key="tint" oninput="syncVal(this)"></label><input type="range" id="sl-tint" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row-btns" style="margin-top:-0.3rem;margin-bottom:0.6rem;"><button id="wb-pick-btn" class="ar-btn" onclick="toggleWBEyedropper()" title="click a neutral area to set white balance">✛ pick neutral</button></div>
                     <div class="s-row"><label>clarity <input type="number" class="val-input" id="v-clarity" value="0" min="0" max="100" step="1" data-key="clarity" oninput="syncVal(this)"></label><input type="range" id="sl-clarity" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>noise reduction <input type="number" class="val-input" id="v-noise" value="0" min="0" max="100" step="1" data-key="noise" oninput="syncVal(this)"></label><input type="range" id="sl-noise" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -799,17 +800,21 @@ vec3 hsl2rgb(float h,float s,float l){
 }
 void main(){
     vec4 px=texture2D(uImg,vUV); vec3 c=px.rgb*255.0;
-    c*=uExpF;
-    c=uCF*(c-128.0)+128.0;
-    float lm=dot(c,vec3(0.2126,0.7152,0.0722));
-    c+=uHlStr*pow(clamp(lm/255.0,0.0,1.0),1.8)+uShStr*pow(clamp(1.0-lm/255.0,0.0,1.0),1.8);
-    if(uFadeFloor>0.0)c=uFadeFloor+c*(255.0-uFadeFloor)/255.0;
-    float gr=dot(c,vec3(0.2126,0.7152,0.0722));c=gr+uSatF*(c-gr);
+    // Linearise from sRGB to linear light for tone ops
+    vec3 cL=pow(clamp(c/255.0,0.0,1.0),vec3(2.2))*255.0;
+    cL*=uExpF;
+    cL=uCF*(cL-128.0)+128.0;
+    float lm=dot(cL,vec3(0.2126,0.7152,0.0722));
+    cL+=uHlStr*pow(clamp(lm/255.0,0.0,1.0),1.8)+uShStr*pow(clamp(1.0-lm/255.0,0.0,1.0),1.8);
+    if(uFadeFloor>0.0)cL=uFadeFloor+cL*(255.0-uFadeFloor)/255.0;
+    float gr=dot(cL,vec3(0.2126,0.7152,0.0722));cL=gr+uSatF*(cL-gr);
     if(uVibF!=0.0){
-        float gr2=dot(c,vec3(0.2126,0.7152,0.0722));
-        float sat=max(max(abs(c.r-gr2),abs(c.g-gr2)),abs(c.b-gr2))/255.0;
-        c=gr2+(1.0+uVibF*(1.0-min(1.0,sat*2.0)))*(c-gr2);
+        float gr2=dot(cL,vec3(0.2126,0.7152,0.0722));
+        float sat=max(max(abs(cL.r-gr2),abs(cL.g-gr2)),abs(cL.b-gr2))/255.0;
+        cL=gr2+(1.0+uVibF*(1.0-min(1.0,sat*2.0)))*(cL-gr2);
     }
+    // Re-encode back to sRGB before colour/HSL ops
+    c=pow(clamp(cL/255.0,0.0,1.0),vec3(1.0/2.2))*255.0;
     c.r+=uTempR;c.b-=uTempB;c.g-=uTintG;c.r+=uTintRB;c.b+=uTintRB;
     if(uDoHSL>0.5){
         c=clamp(c,0.0,255.0);
@@ -1781,6 +1786,49 @@ function onVignette() {
     document.getElementById('v-vignette').value=document.getElementById('sl-vignette').value;
     beginAdjust();
 }
+
+// ── White Balance Eyedropper ───────────────────────────────────
+let wbEyedropperActive = false;
+function toggleWBEyedropper() {
+    wbEyedropperActive = !wbEyedropperActive;
+    const btn = document.getElementById('wb-pick-btn');
+    if (btn) btn.classList.toggle('active', wbEyedropperActive);
+    const out = document.getElementById('output-canvas');
+    if (out) out.style.cursor = wbEyedropperActive ? 'crosshair' : '';
+}
+function _wbPickHandler(e) {
+    if (!wbEyedropperActive || !workCanvas) return;
+    e.preventDefault(); e.stopPropagation();
+    // Map click to output canvas pixel, then to workCanvas pixel
+    const out = document.getElementById('output-canvas');
+    const rect = out.getBoundingClientRect();
+    const cx = (e.clientX - rect.left) * (out.width  / rect.width);
+    const cy = (e.clientY - rect.top)  * (out.height / rect.height);
+    const bx = parseInt(document.getElementById('sl-bx').value);
+    const by = parseInt(document.getElementById('sl-by').value);
+    const ix = Math.round((cx - bx) * workCanvas.width  / Math.max(1, out.width  - bx * 2));
+    const iy = Math.round((cy - by) * workCanvas.height / Math.max(1, out.height - by * 2));
+    if (ix < 0 || iy < 0 || ix >= workCanvas.width || iy >= workCanvas.height) {
+        toggleWBEyedropper(); return;
+    }
+    const ctx = workCanvas.getContext('2d');
+    const px = ctx.getImageData(ix, iy, 1, 1).data;
+    const r = px[0] / 255, g = px[1] / 255, b = px[2] / 255;
+    const avg = (r + g + b) / 3;
+    const tempShift = -(b - avg) * 0.8 * 100;
+    const tintShift = -(g - avg) * 0.5 * 100;
+    const tempSl = document.getElementById('sl-temperature');
+    const tintSl = document.getElementById('sl-tint');
+    const newTemp = Math.max(-100, Math.min(100, parseFloat(tempSl.value) + tempShift));
+    const newTint = Math.max(-100, Math.min(100, parseFloat(tintSl.value) + tintShift));
+    tempSl.value = Math.round(newTemp);
+    tintSl.value = Math.round(newTint);
+    document.getElementById('v-temperature').value = Math.round(newTemp);
+    document.getElementById('v-tint').value = Math.round(newTint);
+    toggleWBEyedropper();
+    beginAdjust();
+}
+document.getElementById('output-canvas').addEventListener('click', _wbPickHandler);
 function onBorder(axis) {
     const locked=document.getElementById('border-lock').checked;
     const bxEl=document.getElementById('sl-bx'), byEl=document.getElementById('sl-by');
@@ -2125,6 +2173,25 @@ const _BUILT_IN_PRESETS = [
     { name: 'matte fade',
       s: { exposure:0, contrast:-18, highlights:-8, shadows:8, fade:38, vibrance:0, saturation:-22, temperature:-5, tint:0, clarity:0, sharpen:0, noise:0, grain:5, vignette:12 },
       curve: [{x:0,y:28},{x:80,y:92},{x:176,y:168},{x:255,y:228}] },
+    { name: 'portra 400',
+      s: { exposure:0, contrast:-10, highlights:15, shadows:20, fade:15, vibrance:0, saturation:-8, temperature:18, tint:0, clarity:0, sharpen:0, noise:0, grain:5, vignette:12 },
+      curve: [{x:0,y:10},{x:90,y:102},{x:180,y:192},{x:255,y:252}] },
+    { name: 'fuji 400h',
+      s: { exposure:0, contrast:12, highlights:-5, shadows:12, fade:0, vibrance:0, saturation:5, temperature:-8, tint:0, clarity:0, sharpen:0, noise:0, grain:5, vignette:15 },
+      curve: [{x:0,y:0},{x:80,y:85},{x:180,y:190},{x:255,y:255}] },
+    { name: 'hp5 push',
+      s: { exposure:0, contrast:25, highlights:0, shadows:0, fade:0, vibrance:0, saturation:-95, temperature:5, tint:0, clarity:15, sharpen:0, noise:0, grain:20, vignette:22 },
+      curve: [{x:0,y:0},{x:45,y:18},{x:200,y:228},{x:255,y:255}] },
+    { name: 'kodachrome',
+      s: { exposure:0, contrast:20, highlights:-8, shadows:8, fade:8, vibrance:15, saturation:18, temperature:22, tint:0, clarity:0, sharpen:5, noise:0, grain:5, vignette:18 },
+      curve: [{x:0,y:0},{x:60,y:38},{x:195,y:218},{x:255,y:255}] },
+    { name: 'cross process',
+      s: { exposure:0, contrast:18, highlights:0, shadows:0, fade:0, vibrance:0, saturation:12, temperature:-5, tint:0, clarity:0, sharpen:0, noise:0, grain:8, vignette:15 },
+      st: { sc:'#1a2b8c', ss:40, hc:'#a85a00', hs:35, bal:-20 },
+      curve: [{x:0,y:0},{x:64,y:50},{x:192,y:210},{x:255,y:255}] },
+    { name: 'matte',
+      s: { exposure:0, contrast:-15, highlights:0, shadows:15, fade:30, vibrance:0, saturation:-12, temperature:8, tint:0, clarity:0, sharpen:0, noise:0, grain:5, vignette:10 },
+      curve: [{x:0,y:35},{x:80,y:95},{x:176,y:168},{x:255,y:222}] },
 ];
 
 function _applyPreset(preset) {
