@@ -714,7 +714,157 @@ function render() {
     drawHistogram();
 }
 
-// ── Pixel pipeline ────────────────────────────────────────────
+// ── WebGL pipeline ─────────────────────────────────────────────
+const _VERT = `attribute vec2 aPos; varying vec2 vUV;
+void main(){ vUV=aPos*0.5+0.5; gl_Position=vec4(aPos,0.0,1.0); }`;
+
+const _FRAG = `precision highp float;
+uniform sampler2D uImg,uLUT; varying vec2 vUV;
+uniform float uExpF,uCF,uHlStr,uShStr,uFadeFloor,uSatF,uVibF,uTempR,uTempB,uTintG,uTintRB;
+uniform float uDoHSL,uHslH[8],uHslS[8],uHslL[8];
+uniform float uDoSplit,uShadowHue,uShadowStr,uHighlightHue,uHighlightStr,uSplitBalance;
+
+float hmask(float h,float c){float d=abs(h-c);if(d>180.0)d=360.0-d;return d>=60.0?0.0:1.0-d/60.0;}
+
+vec3 rgb2hsl(vec3 c){
+    float mx=max(c.r,max(c.g,c.b)),mn=min(c.r,min(c.g,c.b)),l=(mx+mn)*0.5;
+    if(mx==mn)return vec3(0.0,0.0,l);
+    float d=mx-mn,s=l>0.5?d/(2.0-mx-mn):d/(mx+mn),h=0.0;
+    if(mx==c.r)h=(c.g-c.b)/d+(c.g<c.b?6.0:0.0);
+    else if(mx==c.g)h=(c.b-c.r)/d+2.0;
+    else h=(c.r-c.g)/d+4.0;
+    return vec3(h/6.0*360.0,s,l);
+}
+float h2r(float p,float q,float t){
+    if(t<0.0)t+=1.0;if(t>1.0)t-=1.0;
+    if(t<1.0/6.0)return p+(q-p)*6.0*t;
+    if(t<0.5)return q;
+    if(t<2.0/3.0)return p+(q-p)*(2.0/3.0-t)*6.0;
+    return p;
+}
+vec3 hsl2rgb(float h,float s,float l){
+    if(s==0.0)return vec3(l);
+    float q=l<0.5?l*(1.0+s):l+s-l*s,p2=2.0*l-q,h1=h/360.0;
+    return vec3(h2r(p2,q,h1+1.0/3.0),h2r(p2,q,h1),h2r(p2,q,h1-1.0/3.0));
+}
+void main(){
+    vec4 px=texture2D(uImg,vUV); vec3 c=px.rgb*255.0;
+    c*=uExpF;
+    c=uCF*(c-128.0)+128.0;
+    float lm=dot(c,vec3(0.2126,0.7152,0.0722));
+    c+=uHlStr*pow(clamp(lm/255.0,0.0,1.0),1.8)+uShStr*pow(clamp(1.0-lm/255.0,0.0,1.0),1.8);
+    if(uFadeFloor>0.0)c=uFadeFloor+c*(255.0-uFadeFloor)/255.0;
+    float gr=dot(c,vec3(0.2126,0.7152,0.0722));c=gr+uSatF*(c-gr);
+    if(uVibF!=0.0){
+        float gr2=dot(c,vec3(0.2126,0.7152,0.0722));
+        float sat=max(max(abs(c.r-gr2),abs(c.g-gr2)),abs(c.b-gr2))/255.0;
+        c=gr2+(1.0+uVibF*(1.0-min(1.0,sat*2.0)))*(c-gr2);
+    }
+    c.r+=uTempR;c.b-=uTempB;c.g-=uTintG;c.r+=uTintRB;c.b+=uTintRB;
+    if(uDoHSL>0.5){
+        c=clamp(c,0.0,255.0);
+        vec3 hsl=rgb2hsl(c/255.0);float h=hsl.x,s=hsl.y,l=hsl.z,dH=0.0,dS=0.0,dL=0.0;
+        dH+=hmask(h,  0.0)*uHslH[0];dS+=hmask(h,  0.0)*uHslS[0];dL+=hmask(h,  0.0)*uHslL[0];
+        dH+=hmask(h, 30.0)*uHslH[1];dS+=hmask(h, 30.0)*uHslS[1];dL+=hmask(h, 30.0)*uHslL[1];
+        dH+=hmask(h, 60.0)*uHslH[2];dS+=hmask(h, 60.0)*uHslS[2];dL+=hmask(h, 60.0)*uHslL[2];
+        dH+=hmask(h,120.0)*uHslH[3];dS+=hmask(h,120.0)*uHslS[3];dL+=hmask(h,120.0)*uHslL[3];
+        dH+=hmask(h,180.0)*uHslH[4];dS+=hmask(h,180.0)*uHslS[4];dL+=hmask(h,180.0)*uHslL[4];
+        dH+=hmask(h,240.0)*uHslH[5];dS+=hmask(h,240.0)*uHslS[5];dL+=hmask(h,240.0)*uHslL[5];
+        dH+=hmask(h,270.0)*uHslH[6];dS+=hmask(h,270.0)*uHslS[6];dL+=hmask(h,270.0)*uHslL[6];
+        dH+=hmask(h,300.0)*uHslH[7];dS+=hmask(h,300.0)*uHslS[7];dL+=hmask(h,300.0)*uHslL[7];
+        h=mod(mod(h+dH,360.0)+360.0,360.0);
+        s=clamp(s*(1.0+dS/100.0),0.0,1.0);
+        l=clamp(l+dL/100.0*0.5,0.0,1.0);
+        if(uDoSplit>0.5){
+            float mid=0.5-uSplitBalance/200.0;
+            float sW=(mid>0.0?clamp((mid-l)/mid,0.0,1.0):0.0)*uShadowStr;
+            float hW=(mid<1.0?clamp((l-mid)/(1.0-mid),0.0,1.0):0.0)*uHighlightStr;
+            if(sW>0.0){float hd=mod(uShadowHue-h+540.0,360.0)-180.0;h=mod(mod(h+hd*sW*0.5,360.0)+360.0,360.0);s=min(1.0,s+sW*0.45);}
+            if(hW>0.0){float hd=mod(uHighlightHue-h+540.0,360.0)-180.0;h=mod(mod(h+hd*hW*0.5,360.0)+360.0,360.0);s=min(1.0,s+hW*0.45);}
+        }
+        c=hsl2rgb(h,s,l)*255.0;
+    }
+    c=clamp(c,0.0,255.0);
+    gl_FragColor=vec4(
+        texture2D(uLUT,vec2((c.r+0.5)/256.0,0.5)).r,
+        texture2D(uLUT,vec2((c.g+0.5)/256.0,0.5)).r,
+        texture2D(uLUT,vec2((c.b+0.5)/256.0,0.5)).r,
+        px.a);
+}`;
+
+let _glState = null;
+function _initGL() {
+    if (_glState !== null) return _glState;
+    try {
+        const cv = document.createElement('canvas');
+        const gl = cv.getContext('webgl',{preserveDrawingBuffer:true}) ||
+                   cv.getContext('experimental-webgl',{preserveDrawingBuffer:true});
+        if (!gl) { _glState = false; return false; }
+        const mkSh = (t, src) => {
+            const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn('GL shader:', gl.getShaderInfoLog(s)); return null; }
+            return s;
+        };
+        const vs = mkSh(gl.VERTEX_SHADER, _VERT), fs = mkSh(gl.FRAGMENT_SHADER, _FRAG);
+        if (!vs || !fs) { _glState = false; return false; }
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn('GL link:', gl.getProgramInfoLog(prog)); _glState = false; return false; }
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+        const aPos = gl.getAttribLocation(prog, 'aPos');
+        const mkTex = () => {
+            const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+            [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER].forEach(p => gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST));
+            [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(p => gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE));
+            return t;
+        };
+        const imgTex = mkTex(), lutTex = mkTex();
+        gl.useProgram(prog);
+        const L = {};
+        ['uImg','uLUT','uExpF','uCF','uHlStr','uShStr','uFadeFloor','uSatF','uVibF',
+         'uTempR','uTempB','uTintG','uTintRB','uDoHSL','uHslH','uHslS','uHslL',
+         'uDoSplit','uShadowHue','uShadowStr','uHighlightHue','uHighlightStr','uSplitBalance'
+        ].forEach(n => L[n] = gl.getUniformLocation(prog, n));
+        _glState = { gl, cv, prog, buf, aPos, imgTex, lutTex, L, maxTex: gl.getParameter(gl.MAX_TEXTURE_SIZE) };
+        return _glState;
+    } catch(e) { console.warn('WebGL init failed:', e); _glState = false; return false; }
+}
+
+function _applyEditsGL(src, p) {
+    const st = _initGL(); if (!st) return null;
+    if (src.width > st.maxTex || src.height > st.maxTex) return null;
+    const { gl, cv, buf, aPos, imgTex, lutTex, L } = st;
+    cv.width = src.width; cv.height = src.height;
+    gl.viewport(0, 0, src.width, src.height);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, lutTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 256, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, p.lut);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, imgTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.uniform1i(L.uImg,0); gl.uniform1i(L.uLUT,1);
+    gl.uniform1f(L.uExpF,p.expF); gl.uniform1f(L.uCF,p.cF);
+    gl.uniform1f(L.uHlStr,p.hlStr); gl.uniform1f(L.uShStr,p.shStr);
+    gl.uniform1f(L.uFadeFloor,p.fadeFloor); gl.uniform1f(L.uSatF,p.satF);
+    gl.uniform1f(L.uVibF,p.vibF); gl.uniform1f(L.uTempR,p.tempR);
+    gl.uniform1f(L.uTempB,p.tempB); gl.uniform1f(L.uTintG,p.tintG);
+    gl.uniform1f(L.uTintRB,p.tintRB); gl.uniform1f(L.uDoHSL,p.doHSL?1:0);
+    gl.uniform1fv(L.uHslH,p.hslH); gl.uniform1fv(L.uHslS,p.hslS); gl.uniform1fv(L.uHslL,p.hslL);
+    gl.uniform1f(L.uDoSplit,p.doSplit?1:0); gl.uniform1f(L.uShadowHue,p.shadowHue);
+    gl.uniform1f(L.uShadowStr,p.shadowStr); gl.uniform1f(L.uHighlightHue,p.highlightHue);
+    gl.uniform1f(L.uHighlightStr,p.highlightStr); gl.uniform1f(L.uSplitBalance,p.splitBalance);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const out = mkCanvas(src.width, src.height);
+    out.getContext('2d').drawImage(cv, 0, 0);
+    return out;
+}
+
+// ── Pixel pipeline ─────────────────────────────────────────────
 function applyEdits(src) {
     const exposure    = parseFloat(document.getElementById('sl-exposure').value);
     const contrast    = parseFloat(document.getElementById('sl-contrast').value);
@@ -728,21 +878,42 @@ function applyEdits(src) {
     const clarity     = parseFloat(document.getElementById('sl-clarity').value);
     const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
 
-    const expF      = Math.pow(2, exposure * 3 / 100);
-    const cF        = (259 * (contrast + 255)) / (255 * (259 - contrast));
-    const satF      = 1 + saturation / 100;
-    const vibF      = vibrance / 100;
-    const tempR     = temperature * 0.4;
-    const tempB     = temperature * 0.4;
-    const tintG     = tint * 0.45;   // green-magenta axis: positive = magenta (G-)
-    const tintRB    = tint * 0.12;   // slight warm/cool shift in R and B
-    const fadeFloor = fade / 100 * 38; // max 38px black lift
-    const hStr      = highlights / 100 * 80;
-    const sStr      = shadows    / 100 * 80;
-    const lut       = buildCurveLUT();
-    const doHSL     = hslActive || splitActive;
+    const lut = buildCurveLUT();
+    const params = {
+        lut,
+        expF:      Math.pow(2, exposure * 3 / 100),
+        cF:        (259 * (contrast + 255)) / (255 * (259 - contrast)),
+        hlStr:     highlights / 100 * 80,
+        shStr:     shadows    / 100 * 80,
+        fadeFloor: fade / 100 * 38,
+        satF:      1 + saturation / 100,
+        vibF:      vibrance / 100,
+        tempR:     temperature * 0.4,
+        tempB:     temperature * 0.4,
+        tintG:     tint * 0.45,
+        tintRB:    tint * 0.12,
+        doHSL:     hslActive || splitActive,
+        hslH:      Array.from(hslH),
+        hslS:      Array.from(hslS),
+        hslL:      Array.from(hslL),
+        doSplit:   splitActive,
+        shadowHue, shadowStr, highlightHue, highlightStr, splitBalance
+    };
 
-    // Inline hue2rgb for HSL→RGB conversion (called in inner loop)
+    // GPU path (WebGL)
+    const glOut = _applyEditsGL(src, params);
+    if (glOut) {
+        if (!isAdjusting) {
+            const ctx = glOut.getContext('2d');
+            if (clarity > 0) applyClarity(ctx, glOut.width, glOut.height, clarity);
+            if (sharpen > 0) applySharpening(ctx, glOut.width, glOut.height, sharpen);
+        }
+        return glOut;
+    }
+
+    // CPU fallback ────────────────────────────────────────────────
+    const { expF, cF, hlStr: hStr, shStr: sStr, fadeFloor, satF, vibF, tempR, tempB, tintG, tintRB, doHSL } = params;
+
     const hue2rgb = (p, q, t) => {
         if (t < 0) t += 1; if (t > 1) t -= 1;
         if (t < 1/6) return p + (q - p) * 6 * t;
@@ -759,36 +930,28 @@ function applyEdits(src) {
 
     for (let i = 0; i < d.length; i += 4) {
         let r=d[i], g=d[i+1], b=d[i+2];
-        // Exposure (EV stops)
         r*=expF; g*=expF; b*=expF;
-        // Contrast
         r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
-        // Highlights / Shadows via luminance mask
         const lum = 0.2126*r + 0.7152*g + 0.0722*b;
         const hlMask = Math.pow(Math.max(0, lum/255), 1.8);
         const shMask = Math.pow(Math.max(0, 1-lum/255), 1.8);
         const hlAdj = hStr*hlMask + sStr*shMask;
         r+=hlAdj; g+=hlAdj; b+=hlAdj;
-        // Fade: lift blacks (shadow floor)
         if (fadeFloor > 0) {
             r = fadeFloor + r*(255-fadeFloor)/255;
             g = fadeFloor + g*(255-fadeFloor)/255;
             b = fadeFloor + b*(255-fadeFloor)/255;
         }
-        // Saturation (linear)
         const gr = 0.2126*r + 0.7152*g + 0.0722*b;
         r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
-        // Vibrance
         if (vibF !== 0) {
             const gr2 = 0.2126*r + 0.7152*g + 0.0722*b;
             const sat = Math.max(Math.abs(r-gr2), Math.abs(g-gr2), Math.abs(b-gr2)) / 255;
             const vb = 1 + vibF * (1 - Math.min(1, sat * 2));
             r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
         }
-        // Temperature + Tint (white balance)
         r+=tempR; b-=tempB;
         g-=tintG; r+=tintRB; b+=tintRB;
-        // HSL + Split tone (RGB→HSL→RGB, only if active)
         if (doHSL) {
             r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
             const rn=r/255, gn=g/255, bn=b/255;
@@ -800,9 +963,8 @@ function applyEdits(src) {
                 if(mx===rn)      hh=((gn-bn)/dd+(gn<bn?6:0));
                 else if(mx===gn) hh=((bn-rn)/dd+2);
                 else             hh=((rn-gn)/dd+4);
-                hh=hh/6*360; // 0–360
+                hh=hh/6*360;
             }
-            // Per-band HSL adjustments
             if (hslActive) {
                 let dH=0, dS=0, dL=0;
                 for (let bi=0; bi<8; bi++) {
@@ -813,7 +975,6 @@ function applyEdits(src) {
                 sh=Math.max(0,Math.min(1,sh*(1+dS/100)));
                 lh=Math.max(0,Math.min(1,lh+dL/100*0.5));
             }
-            // Split tone
             if (splitActive) {
                 const mid = 0.5 - splitBalance/200;
                 const sW = Math.max(0, mid>0?(mid-lh)/mid:0) * shadowStr;
@@ -829,7 +990,6 @@ function applyEdits(src) {
                     sh=Math.min(1,sh+hW*0.45);
                 }
             }
-            // HSL → RGB
             const hh01=hh/360;
             if (sh===0) { r=lh*255; g=lh*255; b=lh*255; }
             else {
@@ -839,13 +999,11 @@ function applyEdits(src) {
                 b=hue2rgb(p2,q2,hh01-1/3)*255;
             }
         }
-        // Tone curve LUT
         d[i]  =lut[Math.max(0,Math.min(255,r|0))];
         d[i+1]=lut[Math.max(0,Math.min(255,g|0))];
         d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
     }
     ctx.putImageData(id, 0, 0);
-    // Convolution passes — skip during live preview
     if (!isAdjusting) {
         if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
         if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
