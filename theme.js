@@ -46,7 +46,7 @@
 
     // ── Page transitions ──────────────────────────────────
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:99998;opacity:1;pointer-events:none;transition:opacity 0.3s ease;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:99998;opacity:1;pointer-events:none;transition:opacity 0.15s ease;';
     document.body.appendChild(overlay);
 
     // Fade in on arrival
@@ -63,6 +63,6 @@
         const dest = link.href;
         overlay.style.opacity = '1';
         overlay.style.pointerEvents = 'all';
-        setTimeout(() => { window.location.href = dest; }, 280);
+        setTimeout(() => { window.location.href = dest; }, 140);
     });
 })();

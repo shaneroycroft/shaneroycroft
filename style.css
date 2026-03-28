@@ -50,7 +50,7 @@ body {
 
 /* ── Navigation ──────────────────────────────────────────── */
 nav {
-    padding: 2rem 2rem 1.5rem;
+    padding: 1.5rem 2rem 1.25rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -71,7 +71,7 @@ nav {
     text-transform: lowercase;
     text-decoration: none;
     color: var(--text);
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
     transition: opacity 0.3s;
 }
 
@@ -116,7 +116,7 @@ nav {
 
 /* ── Photography Sub-Nav ─────────────────────────────────── */
 .sub-nav {
-    margin-top: 2rem;
+    margin-top: 1.25rem;
     padding-bottom: 2px;
     display: flex;
     gap: 1.5rem;
