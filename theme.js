@@ -43,4 +43,26 @@
             updateIcon();
         }
     });
+
+    // ── Page transitions ──────────────────────────────────
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:99998;opacity:1;pointer-events:none;transition:opacity 0.3s ease;';
+    document.body.appendChild(overlay);
+
+    // Fade in on arrival
+    requestAnimationFrame(() => requestAnimationFrame(() => { overlay.style.opacity = '0'; }));
+
+    // Fade out on departure
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('a');
+        if (!link || !link.href) return;
+        if (link.target === '_blank') return;
+        if (link.origin !== location.origin) return;
+        if (link.href === location.href) return;
+        e.preventDefault();
+        const dest = link.href;
+        overlay.style.opacity = '1';
+        overlay.style.pointerEvents = 'all';
+        setTimeout(() => { window.location.href = dest; }, 280);
+    });
 })();
