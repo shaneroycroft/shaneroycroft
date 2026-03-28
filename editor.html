@@ -92,6 +92,7 @@
         .s-link { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.7rem; color: var(--secondary); padding: 0; text-decoration: underline; transition: color 0.2s; }
         .s-link:hover { color: var(--text); }
         .s-link.red { color: #c0392b; }
+        .s-link.active { color: var(--text); font-weight: 600; }
         .s-row-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.7rem; }
         .s-btn { background: var(--text); color: var(--bg); border: none; padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
         .s-btn-ghost { background: none; color: var(--text); border: 1px solid var(--border); padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
@@ -186,11 +187,6 @@
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="jpeg quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
-        <label style="display:flex;align-items:center;gap:0.3rem;flex-shrink:0;">
-            <span style="font-size:0.65rem;color:var(--secondary);white-space:nowrap;">resize to</span>
-            <input type="number" id="dl-maxdim" placeholder="—" min="100" max="20000" title="cap longest edge on export in pixels (leave blank for original size)" style="width:52px;font-family:inherit;font-size:0.68rem;color:var(--secondary);background:none;border:1px solid var(--border);padding:0.2rem 0.35rem;text-align:right;">
-            <span style="font-size:0.65rem;color:var(--secondary);">px</span>
-        </label>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
         <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
@@ -263,18 +259,14 @@
                         <label>straighten <input type="number" class="val-input" id="v-straighten" value="0" min="-15" max="15" step="0.5" data-key="straighten" oninput="syncVal(this)"></label>
                         <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" data-default="0" oninput="onStraighten()" ondblclick="resetSlider(this)">
                     </div>
-                    <div class="s-row">
-                        <label>keystone v <input type="number" class="val-input" id="v-kv" value="0" min="-100" max="100" step="1" oninput="keystoneV=parseFloat(this.value)||0;document.getElementById('sl-kv').value=keystoneV;renderOverlay();beginAdjust()"></label>
-                        <input type="range" id="sl-kv" min="-100" max="100" value="0" step="1" data-default="0" oninput="onKeystoneV()" ondblclick="resetSlider(this)">
+                    <div class="s-row" style="margin-bottom:0.5rem;">
+                        <button class="s-link" id="persp-btn" onclick="togglePerspective()">perspective</button>
+                        <button class="s-link" onclick="resetPerspective()" style="margin-left:1rem;">reset</button>
                     </div>
-                    <div class="s-row">
-                        <label>keystone h <input type="number" class="val-input" id="v-kh" value="0" min="-100" max="100" step="1" oninput="keystoneH=parseFloat(this.value)||0;document.getElementById('sl-kh').value=keystoneH;renderOverlay();beginAdjust()"></label>
-                        <input type="range" id="sl-kh" min="-100" max="100" value="0" step="1" data-default="0" oninput="onKeystoneH()" ondblclick="resetSlider(this)">
-                    </div>
-                    <p class="s-note" style="margin-top:0.5rem;">keystone corrects converging lines — v fixes vertical parallels (building shots), h fixes horizontal.</p>
+                    <p class="s-note">drag the corner handles to correct converging lines. commit bakes the transform.</p>
                     <div class="s-row-btns">
                         <button class="s-btn" onclick="commitTransform()">commit + auto-crop</button>
-                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;document.getElementById('sl-kv').value=0;document.getElementById('sl-kh').value=0;straightenAngle=0;keystoneV=0;keystoneH=0;renderOverlay();scheduleRender()">reset</button>
+                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;straightenAngle=0;resetPerspective();renderOverlay();scheduleRender()">reset</button>
                     </div>
                 </div>
             </details>
@@ -513,9 +505,12 @@ let dragOrigin = null;
 
 // Transform
 let straightenAngle = 0;
-let keystoneV = 0;
-let keystoneH = 0;
 let showingOriginal = false;
+
+// Perspective correction (4-corner homography)
+let perspCorners = null; // null = inactive, array of 4 {x,y} in image coords
+let perspDragging = -1;  // index of corner being dragged
+let perspHover = -1;     // index of corner being hovered
 
 // Brush tools (dodge / burn)
 let activeTool      = null;
@@ -743,7 +738,21 @@ function render() {
 
     let adj = applyEdits(src);
     adj = applyStraighten(adj, straightenAngle);
-    adj = applyKeystone(adj, keystoneV, keystoneH);
+    if (perspCorners) {
+        const w = adj.width, h = adj.height;
+        const srcPts = [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
+        const moved = perspCorners.some((p,i) => Math.abs(p.x-srcPts[i].x)>0.5 || Math.abs(p.y-srcPts[i].y)>0.5);
+        if (moved) {
+            // Scale perspCorners from workCanvas coords to adj coords (may differ during preview downscale)
+            const scaleX = adj.width / workCanvas.width;
+            const scaleY = adj.height / workCanvas.height;
+            const scaledCorners = perspCorners.map(p => ({x: p.x*scaleX, y: p.y*scaleY}));
+            const adjSrcPts = [{x:0,y:0},{x:adj.width,y:0},{x:adj.width,y:adj.height},{x:0,y:adj.height}];
+            const fwd = computeHomography(adjSrcPts, scaledCorners);
+            const inv = invertHomography(fwd);
+            adj = applyHomography(adj, inv);
+        }
+    }
     applyVignette(adj, vigStr);
     if (!isAdjusting && grainAmt > 0) applyGrain(adj, grainAmt);
 
@@ -1166,47 +1175,113 @@ function applyStraighten(src, angleDeg) {
     return out;
 }
 
-function applyKeystone(src, kV, kH) {
-    if (kV === 0 && kH === 0) return src;
+function computeHomography(src, dst) {
+    // src and dst are arrays of 4 {x,y} points
+    // Returns 9-element array (row-major 3x3 matrix) mapping src->dst
+    const A = [];
+    for (let i = 0; i < 4; i++) {
+        const sx = src[i].x, sy = src[i].y;
+        const dx = dst[i].x, dy = dst[i].y;
+        A.push([-sx,-sy,-1, 0,0,0, sx*dx,sy*dx,dx]);
+        A.push([0,0,0, -sx,-sy,-1, sx*dy,sy*dy,dy]);
+    }
+    // Proper setup: from Ah=0 with h8=1, extract 8x8 system
+    const M = [];
+    const b = [];
+    for (let i = 0; i < 8; i++) {
+        const row = [];
+        for (let j = 0; j < 8; j++) row.push(A[i][j]);
+        M.push(row);
+        b.push(-A[i][8]); // RHS: move h8 column
+    }
+    // Gaussian elimination with partial pivoting
+    for (let col = 0; col < 8; col++) {
+        let maxRow = col;
+        for (let row = col+1; row < 8; row++) {
+            if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+        }
+        [M[col], M[maxRow]] = [M[maxRow], M[col]];
+        [b[col], b[maxRow]] = [b[maxRow], b[col]];
+        const pivot = M[col][col];
+        if (Math.abs(pivot) < 1e-10) continue;
+        for (let row = col+1; row < 8; row++) {
+            const f = M[row][col] / pivot;
+            for (let k = col; k < 8; k++) M[row][k] -= f * M[col][k];
+            b[row] -= f * b[col];
+        }
+    }
+    // Back substitution
+    const h = new Array(9).fill(0);
+    h[8] = 1;
+    for (let row = 7; row >= 0; row--) {
+        let sum = b[row];
+        for (let col = row+1; col < 8; col++) sum -= M[row][col] * h[col];
+        h[row] = sum / M[row][row];
+    }
+    return h; // [h0..h8] where matrix is [[h0,h1,h2],[h3,h4,h5],[h6,h7,h8]]
+}
+
+function invertHomography(h) {
+    // Invert 3x3 matrix stored as 9-element array
+    const [a,b,c,d,e,f,g,hh,i] = h;
+    const det = a*(e*i-f*hh) - b*(d*i-f*g) + c*(d*hh-e*g);
+    if (Math.abs(det) < 1e-10) return h;
+    const inv = [
+        (e*i-f*hh)/det, (c*hh-b*i)/det, (b*f-c*e)/det,
+        (f*g-d*i)/det,  (a*i-c*g)/det,  (c*d-a*f)/det,
+        (d*hh-e*g)/det, (b*g-a*hh)/det, (a*e-b*d)/det
+    ];
+    return inv;
+}
+
+function applyHomography(src, H) {
+    // Apply homography H (inverse) to src canvas, return new canvas
     const w = src.width, h = src.height;
-    const N = Math.min(400, Math.max(h, w)); // strip count
-    let cur = src;
-    if (kV !== 0) {
-        const factor = kV / 200; // ±0.5 at limits
-        const dst = mkCanvas(w, h);
-        const ctx = dst.getContext('2d');
-        const sh = h / N;
-        for (let i = 0; i < N; i++) {
-            const t = (i + 0.5) / N;
-            const scaleX = 1 + factor * (1 - 2 * t); // 1+factor at top, 1-factor at bottom
-            const dstW = Math.max(1, w * scaleX);
-            const dstX = (w - dstW) / 2;
-            ctx.drawImage(cur, 0, i*sh, w, sh, dstX, i*sh, dstW, sh);
+    const dst = mkCanvas(w, h);
+    const dctx = dst.getContext('2d');
+    const srcCtx = src.getContext('2d');
+    const srcData = srcCtx.getImageData(0, 0, w, h);
+    const dstData = dctx.createImageData(w, h);
+    const sd = srcData.data, dd = dstData.data;
+    const [h0,h1,h2,h3,h4,h5,h6,h7,h8] = H;
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            // Map output (x,y) back to source via inverse homography
+            const denom = h6*x + h7*y + h8;
+            const sx = (h0*x + h1*y + h2) / denom;
+            const sy = (h3*x + h4*y + h5) / denom;
+            // Bilinear interpolation
+            const x0 = Math.floor(sx), y0 = Math.floor(sy);
+            const x1 = x0+1, y1 = y0+1;
+            const fx = sx - x0, fy = sy - y0;
+            const idx = (y*w+x)*4;
+            if (x0 >= 0 && y0 >= 0 && x1 < w && y1 < h) {
+                const i00=(y0*w+x0)*4, i10=(y0*w+x1)*4;
+                const i01=(y1*w+x0)*4, i11=(y1*w+x1)*4;
+                for (let c=0;c<3;c++) {
+                    dd[idx+c] = Math.round(
+                        sd[i00+c]*(1-fx)*(1-fy) +
+                        sd[i10+c]*fx*(1-fy) +
+                        sd[i01+c]*(1-fx)*fy +
+                        sd[i11+c]*fx*fy
+                    );
+                }
+                dd[idx+3] = 255;
+            }
+            // else leave transparent (black corners — auto-crop handles this)
         }
-        cur = dst;
     }
-    if (kH !== 0) {
-        const factor = kH / 200;
-        const dst = mkCanvas(w, h);
-        const ctx = dst.getContext('2d');
-        const sw = w / N;
-        for (let i = 0; i < N; i++) {
-            const t = (i + 0.5) / N;
-            const scaleY = 1 + factor * (1 - 2 * t);
-            const dstH = Math.max(1, h * scaleY);
-            const dstY = (h - dstH) / 2;
-            ctx.drawImage(cur, i*sw, 0, sw, h, i*sw, dstY, sw, dstH);
-        }
-        cur = dst;
-    }
-    return cur;
+    dctx.putImageData(dstData, 0, 0);
+    return dst;
 }
 
 function commitTransform() {
-    if (!workCanvas || (straightenAngle === 0 && keystoneV === 0 && keystoneH === 0)) return;
+    const hasStraighten = straightenAngle !== 0;
+    const hasPersp = perspCorners !== null;
+    if (!workCanvas || (!hasStraighten && !hasPersp)) return;
     pushHistory();
     let c = workCanvas;
-    if (straightenAngle !== 0) {
+    if (hasStraighten) {
         const W = c.width, H = c.height;
         const a = Math.abs(straightenAngle * Math.PI / 180);
         const ca = Math.cos(a), sa = Math.sin(a);
@@ -1221,34 +1296,68 @@ function commitTransform() {
             c = nc;
         }
     }
-    if (keystoneV !== 0 || keystoneH !== 0) {
-        c = applyKeystone(c, keystoneV, keystoneH);
-        // Auto-crop black corners: trim inward by the max scale shift
-        const trimV = Math.abs(keystoneV) / 200;
-        const trimH = Math.abs(keystoneH) / 200;
-        const trimX = Math.round(c.width  * trimV / 2);
-        const trimY = Math.round(c.height * trimH / 2);
-        if (trimX > 0 || trimY > 0) {
-            const nw = c.width  - trimX * 2;
-            const nh = c.height - trimY * 2;
-            const nc = mkCanvas(nw, nh);
-            nc.getContext('2d').drawImage(c, trimX, trimY, nw, nh, 0, 0, nw, nh);
-            c = nc;
+    if (hasPersp) {
+        const w = c.width, h = c.height;
+        const srcPts = [{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
+        const moved = perspCorners.some((p,i) =>
+            Math.abs(p.x-srcPts[i].x)>0.5 || Math.abs(p.y-srcPts[i].y)>0.5);
+        if (moved) {
+            const fwd = computeHomography(srcPts, perspCorners);
+            const inv = invertHomography(fwd);
+            c = applyHomography(c, inv);
+            // Auto-crop: find the bounding box of the warped source corners
+            const warpedCorners = srcPts.map(p => {
+                const [h0,h1,h2,h3,h4,h5,h6,h7,h8] = fwd;
+                const denom = h6*p.x+h7*p.y+h8;
+                return {x:(h0*p.x+h1*p.y+h2)/denom, y:(h3*p.x+h4*p.y+h5)/denom};
+            });
+            const minX = Math.max(0, Math.ceil(Math.min(...warpedCorners.map(p=>p.x))));
+            const minY = Math.max(0, Math.ceil(Math.min(...warpedCorners.map(p=>p.y))));
+            const maxX = Math.min(w, Math.floor(Math.max(...warpedCorners.map(p=>p.x))));
+            const maxY = Math.min(h, Math.floor(Math.max(...warpedCorners.map(p=>p.y))));
+            if (maxX > minX+10 && maxY > minY+10) {
+                const nc = mkCanvas(maxX-minX, maxY-minY);
+                nc.getContext('2d').drawImage(c, minX, minY, maxX-minX, maxY-minY, 0, 0, maxX-minX, maxY-minY);
+                c = nc;
+            }
         }
+        perspCorners = null;
+        const btn = document.getElementById('persp-btn');
+        if (btn) btn.classList.remove('active');
     }
     workCanvas = c;
     straightenAngle = 0;
-    keystoneV = 0; keystoneH = 0;
     document.getElementById('sl-straighten').value = 0;
     document.getElementById('v-straighten').value = 0;
-    document.getElementById('sl-kv').value = 0;
-    document.getElementById('v-kv').value = 0;
-    document.getElementById('sl-kh').value = 0;
-    document.getElementById('v-kh').value = 0;
     render();
 }
 
 function commitStraighten() { commitTransform(); }
+
+function togglePerspective() {
+    if (perspCorners) {
+        resetPerspective();
+    } else {
+        if (!workCanvas) return;
+        const w = workCanvas.width, h = workCanvas.height;
+        perspCorners = [
+            {x:0, y:0}, {x:w, y:0},
+            {x:w, y:h}, {x:0, y:h}
+        ];
+        document.getElementById('persp-btn').classList.add('active');
+        renderOverlay();
+    }
+}
+
+function resetPerspective() {
+    perspCorners = null;
+    perspDragging = -1;
+    perspHover = -1;
+    const btn = document.getElementById('persp-btn');
+    if (btn) btn.classList.remove('active');
+    renderOverlay();
+    scheduleRender();
+}
 
 function applyVignette(canvas, strength) {
     if (strength <= 0) return;
@@ -1380,8 +1489,7 @@ function renderOverlay() {
     ctx.clearRect(0, 0, ov.width, ov.height);
     if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
     if (straightenAngle !== 0) drawStraightenGrid(ctx, ov.width, ov.height);
-    if (keystoneV !== 0) drawKeystoneGuides(ctx, ov.width, ov.height, 'v');
-    if (keystoneH !== 0) drawKeystoneGuides(ctx, ov.width, ov.height, 'h');
+    if (perspCorners) drawPerspHandles(ctx, ov.width, ov.height);
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
     if (activeTool && brushCursorPos) drawBrushCursor(ctx);
 }
@@ -1406,23 +1514,34 @@ function drawStraightenGrid(ctx, W, H) {
     ctx.setLineDash([]); ctx.lineDashOffset = 0;
 }
 
-function drawKeystoneGuides(ctx, W, H, axis) {
-    const ov = document.getElementById('overlay-canvas');
-    const rect = ov.getBoundingClientRect();
-    const scale = rect.width > 0 ? W / rect.width : 1;
-    const lw = Math.max(1, scale);
-    const ln = (x1,y1,x2,y2,alpha) => {
-        ctx.lineWidth = lw * 1.5;
-        ctx.setLineDash([]);
-        ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    };
-    // Draw reference lines showing where parallels should be
-    if (axis === 'v') {
-        [1/4, 1/2, 3/4].forEach(t => ln(t*W, 0, t*W, H, 0.6));
-    } else {
-        [1/4, 1/2, 3/4].forEach(t => ln(0, t*H, W, t*H, 0.6));
-    }
+function drawPerspHandles(ctx, W, H) {
+    if (!perspCorners || !workCanvas) return;
+    const scaleX = W / workCanvas.width;
+    const scaleY = H / workCanvas.height;
+    const pts = perspCorners.map(p => ({x: p.x*scaleX, y: p.y*scaleY}));
+    const r = Math.max(6, Math.min(12, W * 0.012));
+
+    // Draw quadrilateral
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i=1;i<4;i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = Math.max(1, W*0.001);
+    ctx.setLineDash([]);
+    ctx.stroke();
+
+    // Draw corner handles
+    pts.forEach((p, i) => {
+        const isActive = perspDragging === i || perspHover === i;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+        ctx.fillStyle = isActive ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = Math.max(1, r*0.15);
+        ctx.stroke();
+    });
 }
 
 function drawGrid(ctx, W, H) {
@@ -1619,6 +1738,23 @@ ovEl.addEventListener('mousedown', e => {
         applyBrushStroke(e.clientX, e.clientY);
         return;
     }
+    // Perspective corner picking
+    if (perspCorners && !cropMode && !activeTool && e.button === 0) {
+        const rect = ovEl.getBoundingClientRect();
+        const scaleX = workCanvas.width / rect.width;
+        const scaleY = workCanvas.height / rect.height;
+        const ix = (e.clientX - rect.left) * scaleX;
+        const iy = (e.clientY - rect.top) * scaleY;
+        const hitR = Math.max(20, workCanvas.width * 0.02);
+        for (let i=0;i<4;i++) {
+            const dx = perspCorners[i].x - ix, dy = perspCorners[i].y - iy;
+            if (Math.sqrt(dx*dx+dy*dy) < hitR) {
+                perspDragging = i;
+                e.preventDefault();
+                return;
+            }
+        }
+    }
     if (!cropMode||e.button!==0) return;
     const {x,y}=ovCoords(e);
     if (cropPhase==='drawn'&&cropBox) {
@@ -1637,6 +1773,32 @@ ovEl.addEventListener('mousemove', e => {
         if (brushPainting) { applyBrushStroke(e.clientX, e.clientY); }
         return;
     }
+    if (perspDragging >= 0 && perspCorners && workCanvas) {
+        const rect = ovEl.getBoundingClientRect();
+        const scaleX = workCanvas.width / rect.width;
+        const scaleY = workCanvas.height / rect.height;
+        perspCorners[perspDragging] = {
+            x: Math.max(0, Math.min(workCanvas.width,  (e.clientX - rect.left) * scaleX)),
+            y: Math.max(0, Math.min(workCanvas.height, (e.clientY - rect.top)  * scaleY))
+        };
+        renderOverlay();
+        return;
+    }
+    // Hover detection for perspective handles
+    if (perspCorners && workCanvas) {
+        const rect = ovEl.getBoundingClientRect();
+        const scaleX = workCanvas.width / rect.width;
+        const scaleY = workCanvas.height / rect.height;
+        const ix = (e.clientX - rect.left) * scaleX;
+        const iy = (e.clientY - rect.top) * scaleY;
+        const hitR = Math.max(20, workCanvas.width * 0.02);
+        let newHover = -1;
+        for (let i=0;i<4;i++) {
+            const dx = perspCorners[i].x-ix, dy = perspCorners[i].y-iy;
+            if (Math.sqrt(dx*dx+dy*dy) < hitR) { newHover = i; break; }
+        }
+        if (newHover !== perspHover) { perspHover = newHover; renderOverlay(); }
+    }
     if (!cropMode) return;
     const {x,y}=ovCoords(e);
     if (dragHandle==='draw') { cropBox=computeDrawBox(dragOrigin.startX,dragOrigin.startY,x,y); renderOverlay(); return; }
@@ -1647,6 +1809,12 @@ ovEl.addEventListener('mousemove', e => {
 ovEl.addEventListener('mouseup', e => {
     if (activeTool) {
         if (brushPainting) { brushPainting = false; brushLastPos = null; finishAdjust(); }
+        return;
+    }
+    if (perspDragging >= 0) {
+        perspDragging = -1;
+        renderOverlay();
+        scheduleRender(); // preview the warp live
         return;
     }
     if (!cropMode) return;
@@ -1661,8 +1829,25 @@ ovEl.addEventListener('mouseleave', () => {
     if (activeTool) { brushCursorPos = null; renderOverlay(); }
 });
 
-// Touch support for brush tools
+// Touch support for brush tools and perspective handles
 ovEl.addEventListener('touchstart', e => {
+    if (perspCorners && !activeTool && !cropMode && e.touches.length === 1) {
+        const t = e.touches[0];
+        const rect = ovEl.getBoundingClientRect();
+        const scaleX = workCanvas.width / rect.width;
+        const scaleY = workCanvas.height / rect.height;
+        const ix = (t.clientX - rect.left) * scaleX;
+        const iy = (t.clientY - rect.top) * scaleY;
+        const hitR = Math.max(20, workCanvas.width * 0.02);
+        for (let i=0;i<4;i++) {
+            const dx = perspCorners[i].x - ix, dy = perspCorners[i].y - iy;
+            if (Math.sqrt(dx*dx+dy*dy) < hitR) {
+                perspDragging = i;
+                e.preventDefault();
+                return;
+            }
+        }
+    }
     if (!activeTool) return;
     e.preventDefault();
     brushPainting = true; brushLastPos = null;
@@ -1671,6 +1856,19 @@ ovEl.addEventListener('touchstart', e => {
     applyBrushStroke(t.clientX, t.clientY);
 }, { passive: false });
 ovEl.addEventListener('touchmove', e => {
+    if (perspDragging >= 0 && perspCorners && workCanvas) {
+        e.preventDefault();
+        const t = e.touches[0];
+        const rect = ovEl.getBoundingClientRect();
+        const scaleX = workCanvas.width / rect.width;
+        const scaleY = workCanvas.height / rect.height;
+        perspCorners[perspDragging] = {
+            x: Math.max(0, Math.min(workCanvas.width,  (t.clientX - rect.left) * scaleX)),
+            y: Math.max(0, Math.min(workCanvas.height, (t.clientY - rect.top)  * scaleY))
+        };
+        renderOverlay();
+        return;
+    }
     if (!activeTool) return;
     e.preventDefault();
     const t = e.touches[0];
@@ -1678,6 +1876,12 @@ ovEl.addEventListener('touchmove', e => {
     if (brushPainting) applyBrushStroke(t.clientX, t.clientY);
 }, { passive: false });
 ovEl.addEventListener('touchend', () => {
+    if (perspDragging >= 0) {
+        perspDragging = -1;
+        renderOverlay();
+        scheduleRender();
+        return;
+    }
     if (activeTool && brushPainting) { brushPainting = false; brushLastPos = null; finishAdjust(); }
 });
 
@@ -1770,18 +1974,6 @@ function onStraighten() {
     renderOverlay();
     beginAdjust();
 }
-function onKeystoneV() {
-    keystoneV=parseFloat(document.getElementById('sl-kv').value);
-    document.getElementById('v-kv').value=keystoneV;
-    renderOverlay();
-    beginAdjust();
-}
-function onKeystoneH() {
-    keystoneH=parseFloat(document.getElementById('sl-kh').value);
-    document.getElementById('v-kh').value=keystoneH;
-    renderOverlay();
-    beginAdjust();
-}
 function onVignette() {
     document.getElementById('v-vignette').value=document.getElementById('sl-vignette').value;
     beginAdjust();
@@ -1853,14 +2045,7 @@ function downloadImage() {
     const fmt     = document.getElementById('dl-format').value;
     const quality = parseInt(document.getElementById('dl-quality').value) / 100;
     const ext     = fmt === 'jpeg' ? 'jpg' : 'png';
-    const maxDim  = parseInt(document.getElementById('dl-maxdim').value) || 0;
-    let src = document.getElementById('output-canvas');
-    if (maxDim > 0 && (src.width > maxDim || src.height > maxDim)) {
-        const scale   = maxDim / Math.max(src.width, src.height);
-        const resized = mkCanvas(Math.round(src.width * scale), Math.round(src.height * scale));
-        resized.getContext('2d').drawImage(src, 0, 0, resized.width, resized.height);
-        src = resized;
-    }
+    const src = document.getElementById('output-canvas');
     const a = document.createElement('a');
     a.download = origName + '_edited.' + ext;
     a.href = src.toDataURL('image/' + fmt, quality);
@@ -2332,7 +2517,7 @@ renderPresetList();
             </div>
             <div class="info-item">
                 <span class="info-item-key">transform</span>
-                <span class="info-item-desc">rotate 90° cw/ccw, flip horizontal or vertical. straighten corrects a tilted horizon — a grid overlay appears to guide alignment. keystone v/h corrects converging verticals or horizontals (e.g. buildings shot at an angle). commit bakes the transform in and auto-crops black corners.</span>
+                <span class="info-item-desc">rotate 90° cw/ccw, flip horizontal or vertical. straighten corrects a tilted horizon — a grid overlay appears to guide alignment. perspective correction lets you drag four corner handles to fix converging lines. commit bakes the transform in and auto-crops black corners.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">composition grid</span>
@@ -2393,10 +2578,6 @@ renderPresetList();
             <div class="info-item">
                 <span class="info-item-key">format</span>
                 <span class="info-item-desc">png (lossless) or jpeg. for jpeg, a quality slider appears (60–100).</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key">resize to … px</span>
-                <span class="info-item-desc">cap the longest edge on export. leave blank to download at full resolution.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">before / after</span>
