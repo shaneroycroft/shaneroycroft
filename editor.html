@@ -130,6 +130,7 @@
         #output-canvas { display: block; max-width: calc(100vw - 300px - 4rem); max-height: calc(100vh - 46px - 4rem); }
         #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         #overlay-canvas.crop-mode { pointer-events: auto; cursor: crosshair; }
+        #overlay-canvas.brush-mode { pointer-events: auto; cursor: none; }
         /* Zoom indicator in top bar */
         #zoom-ind { font-size: 0.68rem; color: var(--secondary); min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
     </style>
@@ -331,6 +332,28 @@
             </details>
 
             <details class="e-sec">
+                <summary>tools</summary>
+                <div class="e-body">
+                    <p class="s-note">paint directly on the image to locally lighten (dodge) or darken (burn).</p>
+                    <div class="s-row-btns" style="margin-bottom:1rem;">
+                        <button id="tool-dodge" class="s-btn-ghost" onclick="setTool('dodge')">dodge</button>
+                        <button id="tool-burn"  class="s-btn-ghost" onclick="setTool('burn')">burn</button>
+                        <button id="tool-off"   class="s-btn"       onclick="setTool(null)">off</button>
+                    </div>
+                    <div class="s-row"><label>size <input type="number" class="val-input" id="v-brush-size" value="60" min="5" max="400" step="1" data-key="brush-size" oninput="syncVal(this)"></label><input type="range" id="sl-brush-size" min="5" max="400" value="60" data-default="60" oninput="onBrushSlider()"></div>
+                    <div class="s-row"><label>strength <input type="number" class="val-input" id="v-brush-str" value="30" min="1" max="100" step="1" data-key="brush-str" oninput="syncVal(this)"></label><input type="range" id="sl-brush-str" min="1" max="100" value="30" data-default="30" oninput="onBrushSlider()"></div>
+                    <div class="s-row" style="margin-bottom:0">
+                        <label>range</label>
+                        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.3rem;">
+                            <button class="ar-btn brush-range-btn" onclick="setBrushRange(this,'shadows')">shadows</button>
+                            <button class="ar-btn brush-range-btn active" onclick="setBrushRange(this,'midtones')">midtones</button>
+                            <button class="ar-btn brush-range-btn" onclick="setBrushRange(this,'highlights')">highlights</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="e-sec">
                 <summary>crop</summary>
                 <div class="e-body">
                     <p class="s-note">drag on the image to select region. applied before adjustments.</p>
@@ -443,6 +466,15 @@ let dragOrigin = null;
 // Transform
 let straightenAngle = 0;
 let showingOriginal = false;
+
+// Brush tools (dodge / burn)
+let activeTool      = null;
+let brushSize       = 60;
+let brushStrength   = 30;
+let brushRange      = 'midtones';
+let brushPainting   = false;
+let brushLastPos    = null;
+let brushCursorPos  = null;
 
 // HSL
 const HSL_CENTERS = [0, 30, 60, 120, 180, 240, 270, 300];
@@ -1050,6 +1082,7 @@ function renderOverlay() {
     ctx.clearRect(0, 0, ov.width, ov.height);
     if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
+    if (activeTool && brushCursorPos) drawBrushCursor(ctx);
 }
 
 function drawGrid(ctx, W, H) {
@@ -1082,6 +1115,7 @@ function drawGrid(ctx, W, H) {
 // ── Crop ──────────────────────────────────────────────────────
 function startCrop() {
     if (!workCanvas) return;
+    if (activeTool) setTool(null);
     cropMode=true; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
     document.getElementById('crop-idle').style.display = 'none';
     document.getElementById('crop-active').style.display = 'block';
@@ -1237,6 +1271,14 @@ function ovCoords(e) {
 }
 
 ovEl.addEventListener('mousedown', e => {
+    if (activeTool && e.button === 0) {
+        e.preventDefault();
+        brushPainting = true; brushLastPos = null;
+        pushHistory();
+        beginAdjust();
+        applyBrushStroke(e.clientX, e.clientY);
+        return;
+    }
     if (!cropMode||e.button!==0) return;
     const {x,y}=ovCoords(e);
     if (cropPhase==='drawn'&&cropBox) {
@@ -1248,6 +1290,13 @@ ovEl.addEventListener('mousedown', e => {
 });
 
 ovEl.addEventListener('mousemove', e => {
+    if (activeTool) {
+        const {x,y} = ovCoords(e);
+        brushCursorPos = {x, y};
+        renderOverlay();
+        if (brushPainting) { applyBrushStroke(e.clientX, e.clientY); }
+        return;
+    }
     if (!cropMode) return;
     const {x,y}=ovCoords(e);
     if (dragHandle==='draw') { cropBox=computeDrawBox(dragOrigin.startX,dragOrigin.startY,x,y); renderOverlay(); return; }
@@ -1256,12 +1305,40 @@ ovEl.addEventListener('mousemove', e => {
 });
 
 ovEl.addEventListener('mouseup', e => {
+    if (activeTool) {
+        if (brushPainting) { brushPainting = false; brushLastPos = null; finishAdjust(); }
+        return;
+    }
     if (!cropMode) return;
     if (dragHandle==='draw') {
         if (cropBox&&cropBox.w>5&&cropBox.h>5) { cropPhase='drawn'; document.getElementById('crop-hint').textContent='drag to move · handles to resize · apply when ready'; }
         else { cropBox=null; cropPhase='idle'; }
     }
     dragHandle=null; dragOrigin=null; renderOverlay();
+});
+
+ovEl.addEventListener('mouseleave', () => {
+    if (activeTool) { brushCursorPos = null; renderOverlay(); }
+});
+
+// Touch support for brush tools
+ovEl.addEventListener('touchstart', e => {
+    if (!activeTool) return;
+    e.preventDefault();
+    brushPainting = true; brushLastPos = null;
+    pushHistory(); beginAdjust();
+    const t = e.touches[0];
+    applyBrushStroke(t.clientX, t.clientY);
+}, { passive: false });
+ovEl.addEventListener('touchmove', e => {
+    if (!activeTool) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    brushCursorPos = ovCoords(e);
+    if (brushPainting) applyBrushStroke(t.clientX, t.clientY);
+}, { passive: false });
+ovEl.addEventListener('touchend', () => {
+    if (activeTool && brushPainting) { brushPainting = false; brushLastPos = null; finishAdjust(); }
 });
 
 // ── Zoom / Pan event handlers ─────────────────────────────────
@@ -1284,7 +1361,7 @@ eMain.addEventListener('wheel', e => {
 
 // Mouse drag pan (when zoom > 1 and not over crop overlay)
 eMain.addEventListener('mousedown', e => {
-    if (zoom <= 1 || !workCanvas || (cropMode && e.target === ovEl)) return;
+    if (zoom <= 1 || !workCanvas || ((cropMode || activeTool) && e.target === ovEl)) return;
     panDragging = true; panLastX = e.clientX; panLastY = e.clientY;
     eMain.style.cursor = 'grabbing'; e.preventDefault();
 });
@@ -1388,6 +1465,159 @@ function onFormatChange() {
     const isJpeg = document.getElementById('dl-format').value === 'jpeg';
     document.getElementById('dl-quality').style.display = isJpeg ? '' : 'none';
     document.getElementById('dl-quality-val').style.display = isJpeg ? '' : 'none';
+}
+
+// ── Burn / Dodge ──────────────────────────────────────────────
+function setTool(tool) {
+    activeTool = tool || null;
+    ['dodge','burn','off'].forEach(t => {
+        const btn = document.getElementById('tool-' + t);
+        if (!btn) return;
+        const isActive = (activeTool === t) || (!activeTool && t === 'off');
+        btn.className = isActive ? 's-btn' : 's-btn-ghost';
+    });
+    if (activeTool) {
+        if (cropMode) cancelCrop();
+        ovEl.classList.remove('crop-mode');
+        ovEl.classList.add('brush-mode');
+    } else {
+        ovEl.classList.remove('brush-mode');
+        brushCursorPos = null;
+        renderOverlay();
+    }
+}
+
+function setBrushRange(btn, range) {
+    brushRange = range;
+    document.querySelectorAll('.brush-range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function onBrushSlider() {
+    brushSize     = parseInt(document.getElementById('sl-brush-size').value);
+    brushStrength = parseInt(document.getElementById('sl-brush-str').value);
+    document.getElementById('v-brush-size').value = brushSize;
+    document.getElementById('v-brush-str').value  = brushStrength;
+    renderOverlay();
+}
+
+function drawBrushCursor(ctx) {
+    if (!brushCursorPos || !workCanvas) return;
+    // Convert workCanvas brush radius to overlay canvas pixels
+    const out = document.getElementById('output-canvas');
+    const bx  = parseInt(document.getElementById('sl-bx').value);
+    const adjW = Math.max(1, out.width - bx * 2);
+    const r = (brushSize / 2) * adjW / Math.max(1, workCanvas.width);
+    const {x, y} = brushCursorPos;
+    ctx.save();
+    ctx.setLineDash([]);
+    // Outer white ring
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5; ctx.stroke();
+    // Inner dark ring for contrast on bright backgrounds
+    ctx.beginPath(); ctx.arc(x, y, r - 1, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+    // Centre dot
+    ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
+    ctx.restore();
+}
+
+function clientToOverlayCanvas(clientX, clientY) {
+    // Returns coordinates in overlay canvas pixel space
+    const out  = document.getElementById('output-canvas');
+    const rect = out.getBoundingClientRect();
+    return {
+        x: (clientX - rect.left) * (out.width  / rect.width),
+        y: (clientY - rect.top)  * (out.height / rect.height)
+    };
+}
+
+function overlayToWorkCanvas(ox, oy) {
+    // Maps overlay canvas pixel coords to workCanvas pixel coords
+    const out = document.getElementById('output-canvas');
+    const bx  = parseInt(document.getElementById('sl-bx').value);
+    const by  = parseInt(document.getElementById('sl-by').value);
+    const ix  = ox - bx, iy = oy - by;
+    const adjW = Math.max(1, out.width  - bx * 2);
+    const adjH = Math.max(1, out.height - by * 2);
+    if (straightenAngle !== 0) {
+        const rad = -straightenAngle * Math.PI / 180;
+        const dx = ix - adjW / 2, dy = iy - adjH / 2;
+        return {
+            x: dx * Math.cos(rad) - dy * Math.sin(rad) + workCanvas.width  / 2,
+            y: dx * Math.sin(rad) + dy * Math.cos(rad) + workCanvas.height / 2
+        };
+    }
+    return {
+        x: ix * workCanvas.width  / adjW,
+        y: iy * workCanvas.height / adjH
+    };
+}
+
+function applyBrushAt(wx, wy) {
+    if (!workCanvas || !activeTool) return;
+    const r   = brushSize / 2;
+    const str = brushStrength / 100 * 0.3; // max ~30% change per stroke
+    const x0  = Math.max(0, Math.floor(wx - r));
+    const y0  = Math.max(0, Math.floor(wy - r));
+    const x1  = Math.min(workCanvas.width,  Math.ceil(wx + r));
+    const y1  = Math.min(workCanvas.height, Math.ceil(wy + r));
+    if (x1 <= x0 || y1 <= y0) return;
+    const ctx = workCanvas.getContext('2d');
+    const id  = ctx.getImageData(x0, y0, x1 - x0, y1 - y0);
+    const d   = id.data;
+    const isDodge = activeTool === 'dodge';
+    for (let py = y0; py < y1; py++) {
+        for (let px = x0; px < x1; px++) {
+            const dx = px - wx, dy = py - wy;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > r) continue;
+            // Cosine falloff: full strength at centre, zero at edge
+            const falloff = Math.cos(dist / r * Math.PI * 0.5);
+            const i = ((py - y0) * (x1 - x0) + (px - x0)) * 4;
+            const lum = 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2];
+            let rangeMask;
+            if      (brushRange === 'shadows')    rangeMask = Math.pow(Math.max(0, 1 - lum/255), 1.5);
+            else if (brushRange === 'highlights') rangeMask = Math.pow(lum/255, 1.5);
+            else                                  rangeMask = 1 - Math.abs(2*lum/255 - 1);
+            const w = str * falloff * rangeMask;
+            if (isDodge) {
+                d[i]   = Math.min(255, d[i]   + (255 - d[i])   * w);
+                d[i+1] = Math.min(255, d[i+1] + (255 - d[i+1]) * w);
+                d[i+2] = Math.min(255, d[i+2] + (255 - d[i+2]) * w);
+            } else {
+                d[i]   = Math.max(0, d[i]   - d[i]   * w);
+                d[i+1] = Math.max(0, d[i+1] - d[i+1] * w);
+                d[i+2] = Math.max(0, d[i+2] - d[i+2] * w);
+            }
+        }
+    }
+    ctx.putImageData(id, x0, y0);
+}
+
+function applyBrushStroke(clientX, clientY) {
+    const oc  = clientToOverlayCanvas(clientX, clientY);
+    const pos = overlayToWorkCanvas(oc.x, oc.y);
+    if (!pos) return;
+    if (brushLastPos) {
+        // Interpolate between last and current for smooth coverage
+        const dx = pos.x - brushLastPos.x, dy = pos.y - brushLastPos.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const step = Math.max(1, brushSize * 0.2);
+        if (dist > step) {
+            const steps = Math.ceil(dist / step);
+            for (let k = 1; k <= steps; k++) {
+                applyBrushAt(brushLastPos.x + dx*k/steps, brushLastPos.y + dy*k/steps);
+            }
+        } else {
+            applyBrushAt(pos.x, pos.y);
+        }
+    } else {
+        applyBrushAt(pos.x, pos.y);
+    }
+    brushLastPos = pos;
+    scheduleRender();
 }
 
 // ── HSL ───────────────────────────────────────────────────────
