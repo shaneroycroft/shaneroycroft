@@ -100,6 +100,17 @@
         /* Size warning */
         .size-warn { font-size: 0.65rem; letter-spacing: 0.5px; color: #c0392b; padding: 0.45rem 1.2rem; border-bottom: 1px solid var(--border); }
 
+        /* Info modal */
+        #info-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--lightbox-bg); z-index: 500; overflow-y: auto; display: none; }
+        .info-wrap { max-width: 560px; margin: 0 auto; padding: 3.5rem 2rem 5rem; }
+        .info-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2.5rem; }
+        .info-section { margin-bottom: 1.75rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+        .info-section-title { font-size: 0.65rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin-bottom: 0.75rem; }
+        .info-item { display: flex; gap: 1.25rem; margin-bottom: 0.55rem; align-items: baseline; }
+        .info-item-key { font-size: 0.75rem; color: var(--text); min-width: 120px; flex-shrink: 0; font-weight: 400; }
+        .info-item-desc { font-size: 0.75rem; color: var(--secondary); line-height: 1.55; }
+        .info-kbd { display: inline-block; font-size: 0.62rem; background: var(--border); color: var(--text); padding: 0.1rem 0.35rem; font-family: monospace; letter-spacing: 0; }
+
         /* Presets */
         .preset-group-label { font-size: 0.6rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin: 0.65rem 0 0.35rem; }
         .preset-grid { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -169,6 +180,8 @@
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
+        <span class="e-bar-sep">|</span>
+        <button class="e-bar-btn" onclick="document.getElementById('info-modal').style.display='block'" title="editor guide">?</button>
         <span class="e-bar-spacer"></span>
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="jpeg quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
@@ -190,6 +203,68 @@
                 <div class="e-hist-label">histogram</div>
                 <canvas id="hist-canvas" width="222" height="66"></canvas>
             </div>
+
+            <details class="e-sec">
+                <summary>crop</summary>
+                <div class="e-body">
+                    <p class="s-note">drag on the image to select region. applied before adjustments.</p>
+                    <div class="s-row" style="margin-bottom:0.75rem;">
+                        <label>aspect ratio</label>
+                        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.3rem;">
+                            <button class="ar-btn active" onclick="setAR(this,'free')">free</button>
+                            <button class="ar-btn" onclick="setAR(this,'1:1')">1:1</button>
+                            <button class="ar-btn" onclick="setAR(this,'4:3')">4:3</button>
+                            <button class="ar-btn" onclick="setAR(this,'3:4')">3:4</button>
+                            <button class="ar-btn" onclick="setAR(this,'3:2')">3:2</button>
+                            <button class="ar-btn" onclick="setAR(this,'2:3')">2:3</button>
+                            <button class="ar-btn" onclick="setAR(this,'16:9')">16:9</button>
+                            <button class="ar-btn" onclick="setAR(this,'9:16')">9:16</button>
+                            <button class="ar-btn" onclick="setAR(this,'5:4')">5:4</button>
+                            <button class="ar-btn" onclick="setAR(this,'4:5')">4:5</button>
+                            <button class="ar-btn" onclick="setAR(this,'7:5')">7:5</button>
+                            <button class="ar-btn" onclick="setAR(this,'5:7')">5:7</button>
+                            <button class="ar-btn" onclick="setAR(this,'custom')">custom</button>
+                        </div>
+                    </div>
+                    <div id="ar-custom-row" style="display:none;gap:0.4rem;align-items:center;margin-bottom:0.75rem;">
+                        <input id="ar-w" type="number" min="1" max="99" value="3" style="width:42px;font-family:inherit;font-size:0.72rem;border:1px solid var(--border);padding:0.2rem 0.3rem;background:var(--bg);color:var(--text);" oninput="onCustomAR()">
+                        <span style="font-size:0.7rem;color:var(--secondary);">:</span>
+                        <input id="ar-h" type="number" min="1" max="99" value="2" style="width:42px;font-family:inherit;font-size:0.72rem;border:1px solid var(--border);padding:0.2rem 0.3rem;background:var(--bg);color:var(--text);" oninput="onCustomAR()">
+                    </div>
+                    <div id="crop-idle"><button class="s-btn" onclick="startCrop()">draw crop</button></div>
+                    <div id="crop-active" style="display:none;">
+                        <p class="s-note" id="crop-hint">drag on the image to draw crop area</p>
+                        <div class="s-row-btns">
+                            <button class="s-btn" onclick="applyCrop()">apply</button>
+                            <button class="s-btn-ghost" onclick="cancelCrop()">cancel</button>
+                        </div>
+                        <div class="s-row-btns" style="margin-top:0.35rem;">
+                            <button class="s-link red" onclick="resetToOriginal()">reset to original</button>
+                        </div>
+                    </div>
+                    <p class="s-note" id="crop-info" style="margin-top:0.5rem;margin-bottom:0;"></p>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>transform</summary>
+                <div class="e-body">
+                    <div class="transform-grid">
+                        <button class="s-btn-ghost" onclick="rotateWork(-90)">↺ 90° ccw</button>
+                        <button class="s-btn-ghost" onclick="rotateWork(90)">↻ 90° cw</button>
+                        <button class="s-btn-ghost" onclick="flipWork('h')">↔ flip h</button>
+                        <button class="s-btn-ghost" onclick="flipWork('v')">↕ flip v</button>
+                    </div>
+                    <div class="s-row" style="margin-top:1rem;">
+                        <label>straighten <input type="number" class="val-input" id="v-straighten" value="0" min="-15" max="15" step="0.5" data-key="straighten" oninput="syncVal(this)"></label>
+                        <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" data-default="0" oninput="onStraighten()" ondblclick="resetSlider(this)">
+                    </div>
+                    <div class="s-row-btns">
+                        <button class="s-btn" onclick="commitStraighten()">commit + auto-crop</button>
+                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;onStraighten()">reset</button>
+                    </div>
+                </div>
+            </details>
 
             <details class="e-sec">
                 <summary>presets</summary>
@@ -298,6 +373,13 @@
             </details>
 
             <details class="e-sec">
+                <summary>vignette</summary>
+                <div class="e-body">
+                    <div class="s-row"><label>strength <input type="number" class="val-input" id="v-vignette" value="0" min="0" max="100" step="1" data-key="vignette" oninput="syncVal(this)"></label><input type="range" id="sl-vignette" min="0" max="100" value="0" data-default="0" oninput="onVignette()" ondblclick="resetSlider(this)"></div>
+                </div>
+            </details>
+
+            <details class="e-sec">
                 <summary>border</summary>
                 <div class="e-body">
                     <div class="lock-row">
@@ -307,33 +389,6 @@
                     <div class="s-row"><label>horizontal (l&r) <input type="number" class="val-input" id="v-bx" value="0" min="0" max="400" step="1" data-key="bx" oninput="syncVal(this)"></label><input type="range" id="sl-bx" min="0" max="400" value="0" data-default="0" oninput="onBorder('x')" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>vertical (t&b) <input type="number" class="val-input" id="v-by" value="0" min="0" max="400" step="1" data-key="by" oninput="syncVal(this)"></label><input type="range" id="sl-by" min="0" max="400" value="0" data-default="0" oninput="onBorder('y')" ondblclick="resetSlider(this)"></div>
                     <div class="c-row"><label>colour</label><input type="color" id="sl-bcolor" value="#ffffff" oninput="scheduleRender()"></div>
-                </div>
-            </details>
-
-            <details class="e-sec">
-                <summary>transform</summary>
-                <div class="e-body">
-                    <div class="transform-grid">
-                        <button class="s-btn-ghost" onclick="rotateWork(-90)">↺ 90° ccw</button>
-                        <button class="s-btn-ghost" onclick="rotateWork(90)">↻ 90° cw</button>
-                        <button class="s-btn-ghost" onclick="flipWork('h')">↔ flip h</button>
-                        <button class="s-btn-ghost" onclick="flipWork('v')">↕ flip v</button>
-                    </div>
-                    <div class="s-row" style="margin-top:1rem;">
-                        <label>straighten <input type="number" class="val-input" id="v-straighten" value="0" min="-15" max="15" step="0.5" data-key="straighten" oninput="syncVal(this)"></label>
-                        <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" data-default="0" oninput="onStraighten()" ondblclick="resetSlider(this)">
-                    </div>
-                    <div class="s-row-btns">
-                        <button class="s-btn" onclick="commitStraighten()">commit + auto-crop</button>
-                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;onStraighten()">reset</button>
-                    </div>
-                </div>
-            </details>
-
-            <details class="e-sec">
-                <summary>vignette</summary>
-                <div class="e-body">
-                    <div class="s-row"><label>strength <input type="number" class="val-input" id="v-vignette" value="0" min="0" max="100" step="1" data-key="vignette" oninput="syncVal(this)"></label><input type="range" id="sl-vignette" min="0" max="100" value="0" data-default="0" oninput="onVignette()" ondblclick="resetSlider(this)"></div>
                 </div>
             </details>
 
@@ -353,7 +408,7 @@
             </details>
 
             <details class="e-sec">
-                <summary>tools</summary>
+                <summary>dodge &amp; burn</summary>
                 <div class="e-body">
                     <p class="s-note">paint directly on the image to locally lighten (dodge) or darken (burn).</p>
                     <div class="s-row-btns" style="margin-bottom:1rem;">
@@ -371,48 +426,6 @@
                             <button class="ar-btn brush-range-btn" onclick="setBrushRange(this,'highlights')">highlights</button>
                         </div>
                     </div>
-                </div>
-            </details>
-
-            <details class="e-sec">
-                <summary>crop</summary>
-                <div class="e-body">
-                    <p class="s-note">drag on the image to select region. applied before adjustments.</p>
-                    <div class="s-row" style="margin-bottom:0.75rem;">
-                        <label>aspect ratio</label>
-                        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.3rem;">
-                            <button class="ar-btn active" onclick="setAR(this,'free')">free</button>
-                            <button class="ar-btn" onclick="setAR(this,'1:1')">1:1</button>
-                            <button class="ar-btn" onclick="setAR(this,'4:3')">4:3</button>
-                            <button class="ar-btn" onclick="setAR(this,'3:4')">3:4</button>
-                            <button class="ar-btn" onclick="setAR(this,'3:2')">3:2</button>
-                            <button class="ar-btn" onclick="setAR(this,'2:3')">2:3</button>
-                            <button class="ar-btn" onclick="setAR(this,'16:9')">16:9</button>
-                            <button class="ar-btn" onclick="setAR(this,'9:16')">9:16</button>
-                            <button class="ar-btn" onclick="setAR(this,'5:4')">5:4</button>
-                            <button class="ar-btn" onclick="setAR(this,'4:5')">4:5</button>
-                            <button class="ar-btn" onclick="setAR(this,'7:5')">7:5</button>
-                            <button class="ar-btn" onclick="setAR(this,'5:7')">5:7</button>
-                            <button class="ar-btn" onclick="setAR(this,'custom')">custom</button>
-                        </div>
-                    </div>
-                    <div id="ar-custom-row" style="display:none;gap:0.4rem;align-items:center;margin-bottom:0.75rem;">
-                        <input id="ar-w" type="number" min="1" max="99" value="3" style="width:42px;font-family:inherit;font-size:0.72rem;border:1px solid var(--border);padding:0.2rem 0.3rem;background:var(--bg);color:var(--text);" oninput="onCustomAR()">
-                        <span style="font-size:0.7rem;color:var(--secondary);">:</span>
-                        <input id="ar-h" type="number" min="1" max="99" value="2" style="width:42px;font-family:inherit;font-size:0.72rem;border:1px solid var(--border);padding:0.2rem 0.3rem;background:var(--bg);color:var(--text);" oninput="onCustomAR()">
-                    </div>
-                    <div id="crop-idle"><button class="s-btn" onclick="startCrop()">draw crop</button></div>
-                    <div id="crop-active" style="display:none;">
-                        <p class="s-note" id="crop-hint">drag on the image to draw crop area</p>
-                        <div class="s-row-btns">
-                            <button class="s-btn" onclick="applyCrop()">apply</button>
-                            <button class="s-btn-ghost" onclick="cancelCrop()">cancel</button>
-                        </div>
-                        <div class="s-row-btns" style="margin-top:0.35rem;">
-                            <button class="s-link red" onclick="resetToOriginal()">reset to original</button>
-                        </div>
-                    </div>
-                    <p class="s-note" id="crop-info" style="margin-top:0.5rem;margin-bottom:0;"></p>
                 </div>
             </details>
 
@@ -2102,5 +2115,134 @@ function renderPresetList() {
 renderPresetList();
 </script>
 <script src="theme.js"></script>
+
+<!-- Info modal -->
+<div id="info-modal" onclick="if(event.target===this)closeInfoModal()">
+    <div class="info-wrap">
+        <div class="info-head">
+            <h2 class="serif" style="font-size:1.4rem;">editor guide</h2>
+            <button class="s-link" onclick="closeInfoModal()">close ×</button>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">composition</div>
+            <div class="info-item">
+                <span class="info-item-key">crop</span>
+                <span class="info-item-desc">drag to draw a crop region. choose a preset aspect ratio or lock the current one. apply or cancel with the buttons.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">transform</span>
+                <span class="info-item-desc">rotate 90° cw/ccw, flip horizontal or vertical, or use the straighten slider to correct a tilted horizon.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">composition grid</span>
+                <span class="info-item-desc">overlay a rule of thirds, golden ratio, diagonal, or 4×4 grid on the canvas to guide composition.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">tone &amp; colour</div>
+            <div class="info-item">
+                <span class="info-item-key">presets</span>
+                <span class="info-item-desc">apply a built-in film look (kodak portra, fuji velvia, tri-x b&w, cinematic, golden hour, matte fade) or save and recall your own.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">adjust</span>
+                <span class="info-item-desc">exposure, contrast, highlights, shadows, fade, vibrance, saturation, temperature, tint, clarity, sharpening, noise reduction, and grain. click a value to type it directly.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">tone curve</span>
+                <span class="info-item-desc">click on the curve to add control points; drag them to reshape tone. right-click or drag off-canvas to remove a point. applied after all other adjustments.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">hsl</span>
+                <span class="info-item-desc">per-colour-band hue, saturation, and luminance across 8 bands: red, orange, yellow, green, aqua, blue, purple, magenta.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">split tone</span>
+                <span class="info-item-desc">tint shadows and highlights independently. the balance slider shifts which tones are affected.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">finishing</div>
+            <div class="info-item">
+                <span class="info-item-key">vignette</span>
+                <span class="info-item-desc">darkens corners. amount controls strength; feather controls the blend radius.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">border</span>
+                <span class="info-item-desc">adds a solid-colour border around the image. set width and pick a colour.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">label</span>
+                <span class="info-item-desc">stamp text onto the image in permanent marker. adjust size, opacity, position, and colour. useful for watermarks or captions.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">local adjustments</div>
+            <div class="info-item">
+                <span class="info-item-key">dodge &amp; burn</span>
+                <span class="info-item-desc">paint exposure directly onto the image. dodge brightens; burn darkens. adjust brush size and strength. use reset to clear the mask.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">output</div>
+            <div class="info-item">
+                <span class="info-item-key">format</span>
+                <span class="info-item-desc">png (lossless) or jpeg. for jpeg, a quality slider appears (60–100).</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">max px</span>
+                <span class="info-item-desc">cap the longest edge on export. leave blank to download at full resolution.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">before / after</span>
+                <span class="info-item-desc">hold the button to compare against the original image.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">keyboard shortcuts</div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">Ctrl Z</span></span>
+                <span class="info-item-desc">undo</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">Ctrl Y</span></span>
+                <span class="info-item-desc">redo</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">Esc</span></span>
+                <span class="info-item-desc">close this guide</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">← →</span></span>
+                <span class="info-item-desc">navigate lightbox (photography page)</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">privacy</div>
+            <div class="info-item">
+                <span class="info-item-key">100% local</span>
+                <span class="info-item-desc">nothing is uploaded. all processing happens in your browser. your photos never leave your device.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function closeInfoModal() {
+    document.getElementById('info-modal').style.display = 'none';
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('info-modal').style.display === 'block') {
+        closeInfoModal();
+    }
+});
+</script>
 </body>
 </html>
