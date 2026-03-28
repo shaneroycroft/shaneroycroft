@@ -1,1 +1,1 @@
-## Self-directed builder who enjoys steering AI as my co-founder/engineer. With solid tech basics, I prompt and manage the creation of shipped projects like a full Web3 ticketing platform and my own portfolio site.
+## Self-directed builder who enjoys steering AI as my co-founder/engineer. With solid tech basics, I prompt and manage the creation of shipped projects like a full Web3 ticketing platform, my own portfolio site with robust client side photo editor and various automotive tools.
