@@ -186,7 +186,11 @@
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="jpeg quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
-        <input type="number" id="dl-maxdim" placeholder="max px" min="100" max="20000" title="max output dimension in pixels (leave blank for original size)" style="width:62px;font-family:inherit;font-size:0.68rem;color:var(--secondary);background:none;border:1px solid var(--border);padding:0.2rem 0.35rem;text-align:right;">
+        <label style="display:flex;align-items:center;gap:0.3rem;flex-shrink:0;">
+            <span style="font-size:0.65rem;color:var(--secondary);white-space:nowrap;">resize to</span>
+            <input type="number" id="dl-maxdim" placeholder="—" min="100" max="20000" title="cap longest edge on export in pixels (leave blank for original size)" style="width:52px;font-family:inherit;font-size:0.68rem;color:var(--secondary);background:none;border:1px solid var(--border);padding:0.2rem 0.35rem;text-align:right;">
+            <span style="font-size:0.65rem;color:var(--secondary);">px</span>
+        </label>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
         <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
@@ -259,9 +263,18 @@
                         <label>straighten <input type="number" class="val-input" id="v-straighten" value="0" min="-15" max="15" step="0.5" data-key="straighten" oninput="syncVal(this)"></label>
                         <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" data-default="0" oninput="onStraighten()" ondblclick="resetSlider(this)">
                     </div>
+                    <div class="s-row">
+                        <label>keystone v <input type="number" class="val-input" id="v-kv" value="0" min="-100" max="100" step="1" oninput="keystoneV=parseFloat(this.value)||0;document.getElementById('sl-kv').value=keystoneV;renderOverlay();beginAdjust()"></label>
+                        <input type="range" id="sl-kv" min="-100" max="100" value="0" step="1" data-default="0" oninput="onKeystoneV()" ondblclick="resetSlider(this)">
+                    </div>
+                    <div class="s-row">
+                        <label>keystone h <input type="number" class="val-input" id="v-kh" value="0" min="-100" max="100" step="1" oninput="keystoneH=parseFloat(this.value)||0;document.getElementById('sl-kh').value=keystoneH;renderOverlay();beginAdjust()"></label>
+                        <input type="range" id="sl-kh" min="-100" max="100" value="0" step="1" data-default="0" oninput="onKeystoneH()" ondblclick="resetSlider(this)">
+                    </div>
+                    <p class="s-note" style="margin-top:0.5rem;">keystone corrects converging lines — v fixes vertical parallels (building shots), h fixes horizontal.</p>
                     <div class="s-row-btns">
-                        <button class="s-btn" onclick="commitStraighten()">commit + auto-crop</button>
-                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;onStraighten()">reset</button>
+                        <button class="s-btn" onclick="commitTransform()">commit + auto-crop</button>
+                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;document.getElementById('sl-kv').value=0;document.getElementById('sl-kh').value=0;straightenAngle=0;keystoneV=0;keystoneH=0;renderOverlay();scheduleRender()">reset</button>
                     </div>
                 </div>
             </details>
@@ -499,6 +512,8 @@ let dragOrigin = null;
 
 // Transform
 let straightenAngle = 0;
+let keystoneV = 0;
+let keystoneH = 0;
 let showingOriginal = false;
 
 // Brush tools (dodge / burn)
@@ -727,6 +742,7 @@ function render() {
 
     let adj = applyEdits(src);
     adj = applyStraighten(adj, straightenAngle);
+    adj = applyKeystone(adj, keystoneV, keystoneH);
     applyVignette(adj, vigStr);
     if (!isAdjusting && grainAmt > 0) applyGrain(adj, grainAmt);
 
@@ -1145,27 +1161,89 @@ function applyStraighten(src, angleDeg) {
     return out;
 }
 
-function commitStraighten() {
-    if (!workCanvas || straightenAngle === 0) return;
-    pushHistory();
-    const W = workCanvas.width, H = workCanvas.height;
-    const a = Math.abs(straightenAngle * Math.PI / 180);
-    const ca = Math.cos(a), sa = Math.sin(a);
-    const wr = Math.floor(W*ca - H*sa);
-    const hr = Math.floor(H*ca - W*sa);
-    workCanvas = applyStraighten(workCanvas, straightenAngle);
-    if (wr > 20 && hr > 20) {
-        const ix = Math.floor((workCanvas.width  - wr) / 2);
-        const iy = Math.floor((workCanvas.height - hr) / 2);
-        const nc = mkCanvas(wr, hr);
-        nc.getContext('2d').drawImage(workCanvas, ix, iy, wr, hr, 0, 0, wr, hr);
-        workCanvas = nc;
+function applyKeystone(src, kV, kH) {
+    if (kV === 0 && kH === 0) return src;
+    const w = src.width, h = src.height;
+    const N = Math.min(400, Math.max(h, w)); // strip count
+    let cur = src;
+    if (kV !== 0) {
+        const factor = kV / 200; // ±0.5 at limits
+        const dst = mkCanvas(w, h);
+        const ctx = dst.getContext('2d');
+        const sh = h / N;
+        for (let i = 0; i < N; i++) {
+            const t = (i + 0.5) / N;
+            const scaleX = 1 + factor * (1 - 2 * t); // 1+factor at top, 1-factor at bottom
+            const dstW = Math.max(1, w * scaleX);
+            const dstX = (w - dstW) / 2;
+            ctx.drawImage(cur, 0, i*sh, w, sh, dstX, i*sh, dstW, sh);
+        }
+        cur = dst;
     }
+    if (kH !== 0) {
+        const factor = kH / 200;
+        const dst = mkCanvas(w, h);
+        const ctx = dst.getContext('2d');
+        const sw = w / N;
+        for (let i = 0; i < N; i++) {
+            const t = (i + 0.5) / N;
+            const scaleY = 1 + factor * (1 - 2 * t);
+            const dstH = Math.max(1, h * scaleY);
+            const dstY = (h - dstH) / 2;
+            ctx.drawImage(cur, i*sw, 0, sw, h, i*sw, dstY, sw, dstH);
+        }
+        cur = dst;
+    }
+    return cur;
+}
+
+function commitTransform() {
+    if (!workCanvas || (straightenAngle === 0 && keystoneV === 0 && keystoneH === 0)) return;
+    pushHistory();
+    let c = workCanvas;
+    if (straightenAngle !== 0) {
+        const W = c.width, H = c.height;
+        const a = Math.abs(straightenAngle * Math.PI / 180);
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const wr = Math.floor(W*ca - H*sa);
+        const hr = Math.floor(H*ca - W*sa);
+        c = applyStraighten(c, straightenAngle);
+        if (wr > 20 && hr > 20) {
+            const ix = Math.floor((c.width  - wr) / 2);
+            const iy = Math.floor((c.height - hr) / 2);
+            const nc = mkCanvas(wr, hr);
+            nc.getContext('2d').drawImage(c, ix, iy, wr, hr, 0, 0, wr, hr);
+            c = nc;
+        }
+    }
+    if (keystoneV !== 0 || keystoneH !== 0) {
+        c = applyKeystone(c, keystoneV, keystoneH);
+        // Auto-crop black corners: trim inward by the max scale shift
+        const trimV = Math.abs(keystoneV) / 200;
+        const trimH = Math.abs(keystoneH) / 200;
+        const trimX = Math.round(c.width  * trimV / 2);
+        const trimY = Math.round(c.height * trimH / 2);
+        if (trimX > 0 || trimY > 0) {
+            const nw = c.width  - trimX * 2;
+            const nh = c.height - trimY * 2;
+            const nc = mkCanvas(nw, nh);
+            nc.getContext('2d').drawImage(c, trimX, trimY, nw, nh, 0, 0, nw, nh);
+            c = nc;
+        }
+    }
+    workCanvas = c;
     straightenAngle = 0;
+    keystoneV = 0; keystoneH = 0;
     document.getElementById('sl-straighten').value = 0;
     document.getElementById('v-straighten').value = 0;
+    document.getElementById('sl-kv').value = 0;
+    document.getElementById('v-kv').value = 0;
+    document.getElementById('sl-kh').value = 0;
+    document.getElementById('v-kh').value = 0;
     render();
 }
+
+function commitStraighten() { commitTransform(); }
 
 function applyVignette(canvas, strength) {
     if (strength <= 0) return;
@@ -1296,8 +1374,50 @@ function renderOverlay() {
     const ctx = ov.getContext('2d');
     ctx.clearRect(0, 0, ov.width, ov.height);
     if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
+    if (straightenAngle !== 0) drawStraightenGrid(ctx, ov.width, ov.height);
+    if (keystoneV !== 0) drawKeystoneGuides(ctx, ov.width, ov.height, 'v');
+    if (keystoneH !== 0) drawKeystoneGuides(ctx, ov.width, ov.height, 'h');
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
     if (activeTool && brushCursorPos) drawBrushCursor(ctx);
+}
+
+function drawStraightenGrid(ctx, W, H) {
+    const ov = document.getElementById('overlay-canvas');
+    const rect = ov.getBoundingClientRect();
+    const scale = rect.width > 0 ? W / rect.width : 1;
+    const lw = Math.max(1, scale);
+    const dash = Math.round(6 * scale);
+    const ln = (x1,y1,x2,y2) => {
+        ctx.lineWidth = lw;
+        ctx.setLineDash([dash, dash]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineDashOffset = 0;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineDashOffset = dash;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    };
+    [1/4,1/2,3/4].forEach(t => { ln(t*W,0,t*W,H); ln(0,t*H,W,t*H); });
+    ctx.setLineDash([]); ctx.lineDashOffset = 0;
+}
+
+function drawKeystoneGuides(ctx, W, H, axis) {
+    const ov = document.getElementById('overlay-canvas');
+    const rect = ov.getBoundingClientRect();
+    const scale = rect.width > 0 ? W / rect.width : 1;
+    const lw = Math.max(1, scale);
+    const ln = (x1,y1,x2,y2,alpha) => {
+        ctx.lineWidth = lw * 1.5;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    };
+    // Draw reference lines showing where parallels should be
+    if (axis === 'v') {
+        [1/4, 1/2, 3/4].forEach(t => ln(t*W, 0, t*W, H, 0.6));
+    } else {
+        [1/4, 1/2, 3/4].forEach(t => ln(0, t*H, W, t*H, 0.6));
+    }
 }
 
 function drawGrid(ctx, W, H) {
@@ -1642,6 +1762,19 @@ function resetAdjust() {
 function onStraighten() {
     straightenAngle=parseFloat(document.getElementById('sl-straighten').value);
     document.getElementById('v-straighten').value=straightenAngle;
+    renderOverlay();
+    beginAdjust();
+}
+function onKeystoneV() {
+    keystoneV=parseFloat(document.getElementById('sl-kv').value);
+    document.getElementById('v-kv').value=keystoneV;
+    renderOverlay();
+    beginAdjust();
+}
+function onKeystoneH() {
+    keystoneH=parseFloat(document.getElementById('sl-kh').value);
+    document.getElementById('v-kh').value=keystoneH;
+    renderOverlay();
     beginAdjust();
 }
 function onVignette() {
@@ -2132,7 +2265,7 @@ renderPresetList();
             </div>
             <div class="info-item">
                 <span class="info-item-key">transform</span>
-                <span class="info-item-desc">rotate 90° cw/ccw, flip horizontal or vertical, or use the straighten slider to correct a tilted horizon.</span>
+                <span class="info-item-desc">rotate 90° cw/ccw, flip horizontal or vertical. straighten corrects a tilted horizon — a grid overlay appears to guide alignment. keystone v/h corrects converging verticals or horizontals (e.g. buildings shot at an angle). commit bakes the transform in and auto-crops black corners.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">composition grid</span>
@@ -2195,7 +2328,7 @@ renderPresetList();
                 <span class="info-item-desc">png (lossless) or jpeg. for jpeg, a quality slider appears (60–100).</span>
             </div>
             <div class="info-item">
-                <span class="info-item-key">max px</span>
+                <span class="info-item-key">resize to … px</span>
                 <span class="info-item-desc">cap the longest edge on export. leave blank to download at full resolution.</span>
             </div>
             <div class="info-item">
