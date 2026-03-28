@@ -1524,25 +1524,55 @@ function drawPerspHandles(ctx, W, H) {
     const pts = perspCorners.map(p => ({x: p.x*scaleX, y: p.y*scaleY}));
     const r = Math.max(6, Math.min(12, W * 0.012));
 
-    // Draw quadrilateral
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i=1;i<4;i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = Math.max(1, W*0.001);
-    ctx.setLineDash([]);
-    ctx.stroke();
+    const ov = document.getElementById('overlay-canvas');
+    const rect = ov.getBoundingClientRect();
+    const scale = rect.width > 0 ? W / rect.width : 1;
+    const lw = Math.max(1, scale);
+    const dash = Math.round(8 * scale);
+
+    // Helper: draw a line with alternating white/black dashes (same as grid)
+    function dashLine(x1, y1, x2, y2, alpha) {
+        ctx.lineWidth = lw * 1.5;
+        ctx.setLineDash([dash, dash]);
+        ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+        ctx.lineDashOffset = 0;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.strokeStyle = `rgba(0,0,0,${alpha * 0.75})`;
+        ctx.lineDashOffset = dash;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    }
+
+    // Helper: lerp between two points
+    function lerp(a, b, t) { return {x: a.x + (b.x - a.x)*t, y: a.y + (b.y - a.y)*t}; }
+
+    // Draw outer quad edges
+    const [tl, tr, br, bl] = pts; // top-left, top-right, bottom-right, bottom-left
+    dashLine(tl.x, tl.y, tr.x, tr.y, 0.92);
+    dashLine(tr.x, tr.y, br.x, br.y, 0.92);
+    dashLine(br.x, br.y, bl.x, bl.y, 0.92);
+    dashLine(bl.x, bl.y, tl.x, tl.y, 0.92);
+
+    // Draw interior grid lines (3×3 subdivisions)
+    for (let i = 1; i <= 2; i++) {
+        const t = i / 3;
+        const top = lerp(tl, tr, t);
+        const bot = lerp(bl, br, t);
+        dashLine(top.x, top.y, bot.x, bot.y, 0.55);
+        const left = lerp(tl, bl, t);
+        const right = lerp(tr, br, t);
+        dashLine(left.x, left.y, right.x, right.y, 0.55);
+    }
 
     // Draw corner handles
     pts.forEach((p, i) => {
         const isActive = perspDragging === i || perspHover === i;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI*2);
-        ctx.fillStyle = isActive ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.85)';
+        ctx.arc(p.x, p.y, r * (isActive ? 1.25 : 1), 0, Math.PI*2);
+        ctx.fillStyle = isActive ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.9)';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-        ctx.lineWidth = Math.max(1, r*0.15);
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = Math.max(1.5, r * 0.2);
         ctx.stroke();
     });
 }
