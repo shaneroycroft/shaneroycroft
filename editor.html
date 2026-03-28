@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
     <script>(function(){try{var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
     <style>
         html, body { height: 100%; overflow: hidden; }
@@ -100,6 +100,15 @@
         /* Size warning */
         .size-warn { font-size: 0.65rem; letter-spacing: 0.5px; color: #c0392b; padding: 0.45rem 1.2rem; border-bottom: 1px solid var(--border); }
 
+        /* Presets */
+        .preset-group-label { font-size: 0.6rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin: 0.65rem 0 0.35rem; }
+        .preset-grid { display: flex; flex-direction: column; gap: 0.3rem; }
+        .preset-row { display: flex; align-items: center; gap: 0.35rem; }
+        .preset-btn { flex: 1; text-align: left; background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; font-size: 0.68rem; color: var(--secondary); padding: 0.25rem 0.5rem; transition: 0.15s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .preset-btn:hover { border-color: var(--text); color: var(--text); }
+        .preset-del { background: none; border: none; cursor: pointer; color: var(--secondary); font-size: 0.8rem; line-height: 1; padding: 0.2rem 0.15rem; transition: color 0.15s; flex-shrink: 0; }
+        .preset-del:hover { color: #c0392b; }
+
         /* HSL tabs */
         .hsl-tabs { display: flex; margin-bottom: 0.75rem; }
         .hsl-tab { flex: 1; padding: 0.3rem; font-size: 0.68rem; text-transform: lowercase; letter-spacing: 1px; cursor: pointer; text-align: center; border: 1px solid var(--border); background: none; font-family: inherit; color: var(--secondary); transition: 0.15s; }
@@ -164,6 +173,7 @@
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="jpeg quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
+        <input type="number" id="dl-maxdim" placeholder="max px" min="100" max="20000" title="max output dimension in pixels (leave blank for original size)" style="width:62px;font-family:inherit;font-size:0.68rem;color:var(--secondary);background:none;border:1px solid var(--border);padding:0.2rem 0.35rem;text-align:right;">
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
         <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
@@ -181,6 +191,20 @@
                 <canvas id="hist-canvas" width="222" height="66"></canvas>
             </div>
 
+            <details class="e-sec">
+                <summary>presets</summary>
+                <div class="e-body">
+                    <div class="preset-group-label">built-in</div>
+                    <div class="preset-grid" id="preset-builtin"></div>
+                    <div class="preset-group-label" id="saved-label" style="display:none">saved</div>
+                    <div class="preset-grid" id="preset-saved"></div>
+                    <div class="s-row-btns" style="margin-top:0.85rem;">
+                        <button class="s-btn" onclick="savePreset()">save current</button>
+                        <button class="s-link" onclick="resetAllAdjustments()">reset all</button>
+                    </div>
+                </div>
+            </details>
+
             <details class="e-sec" open>
                 <summary>adjust</summary>
                 <div class="e-body">
@@ -195,6 +219,7 @@
                     <div class="s-row"><label>tint <input type="number" class="val-input" id="v-tint" value="0" min="-100" max="100" step="1" data-key="tint" oninput="syncVal(this)"></label><input type="range" id="sl-tint" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>clarity <input type="number" class="val-input" id="v-clarity" value="0" min="0" max="100" step="1" data-key="clarity" oninput="syncVal(this)"></label><input type="range" id="sl-clarity" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>noise reduction <input type="number" class="val-input" id="v-noise" value="0" min="0" max="100" step="1" data-key="noise" oninput="syncVal(this)"></label><input type="range" id="sl-noise" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row-btns"><button class="s-link" onclick="resetAdjust()">reset</button></div>
                 </div>
@@ -320,10 +345,6 @@
                         <label for="label-on">show label on image</label>
                     </div>
                     <input type="text" class="s-input" id="label-text" placeholder="write something..." oninput="scheduleRender()">
-                    <select class="font-select" id="label-font" onchange="scheduleRender()">
-                        <option value="marker">sharpie (permanent marker)</option>
-                        <option value="caveat">cursive (caveat)</option>
-                    </select>
                     <div class="s-row"><label>size <input type="number" class="val-input" id="v-labelsize" value="32" min="10" max="120" step="1" data-key="labelsize" oninput="syncVal(this)"></label><input type="range" id="sl-labelsize" min="10" max="120" value="32" data-default="32" oninput="onLabelSlider('labelsize','v-labelsize')" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>position <input type="number" class="val-input" id="v-labelx" value="50" min="5" max="95" step="1" data-key="labelx" oninput="syncVal(this)"></label><input type="range" id="sl-labelx" min="5" max="95" value="50" data-default="50" oninput="onLabelSlider('labelx','v-labelx')" ondblclick="resetSlider(this)"></div>
                     <div class="c-row"><label>colour</label><input type="color" id="label-color" value="#1a1a1a" oninput="scheduleRender()"></div>
@@ -877,6 +898,7 @@ function applyEdits(src) {
     const tint        = parseFloat(document.getElementById('sl-tint').value);
     const clarity     = parseFloat(document.getElementById('sl-clarity').value);
     const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
+    const noise       = parseFloat(document.getElementById('sl-noise').value);
 
     const lut = buildCurveLUT();
     const params = {
@@ -905,6 +927,7 @@ function applyEdits(src) {
     if (glOut) {
         if (!isAdjusting) {
             const ctx = glOut.getContext('2d');
+            if (noise   > 0) applyNoiseReduction(ctx, glOut.width, glOut.height, noise);
             if (clarity > 0) applyClarity(ctx, glOut.width, glOut.height, clarity);
             if (sharpen > 0) applySharpening(ctx, glOut.width, glOut.height, sharpen);
         }
@@ -1005,10 +1028,32 @@ function applyEdits(src) {
     }
     ctx.putImageData(id, 0, 0);
     if (!isAdjusting) {
+        if (noise   > 0) applyNoiseReduction(ctx, out.width, out.height, noise);
         if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
         if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
     }
     return out;
+}
+
+function applyNoiseReduction(ctx, w, h, amount) {
+    if (amount <= 0) return;
+    const id  = ctx.getImageData(0, 0, w, h);
+    const orig = new Uint8ClampedArray(id.data);
+    const blurred = new Uint8ClampedArray(orig);
+    const radius = Math.round(1 + amount / 100 * 2); // 1–3px
+    boxBlur(blurred, w, h, radius);
+    const str = amount / 100;
+    const thresh = 25; // lum diff threshold — protect edges
+    for (let i = 0; i < orig.length; i += 4) {
+        const lumO = 0.2126*orig[i] + 0.7152*orig[i+1] + 0.0722*orig[i+2];
+        const lumB = 0.2126*blurred[i] + 0.7152*blurred[i+1] + 0.0722*blurred[i+2];
+        const edge  = Math.min(1, Math.abs(lumO - lumB) / thresh);
+        const blend = str * (1 - edge);
+        id.data[i]   = Math.round(orig[i]   + blend * (blurred[i]   - orig[i]));
+        id.data[i+1] = Math.round(orig[i+1] + blend * (blurred[i+1] - orig[i+1]));
+        id.data[i+2] = Math.round(orig[i+2] + blend * (blurred[i+2] - orig[i+2]));
+    }
+    ctx.putImageData(id, 0, 0);
 }
 
 function applySharpening(ctx, w, h, amount) {
@@ -1150,14 +1195,13 @@ function applyTextOverlay(ctx, outW, outH, bx, by) {
     if (!document.getElementById('label-on').checked) return;
     const text = document.getElementById('label-text').value.trim();
     if (!text) return;
-    const font  = document.getElementById('label-font').value;
-    const size  = parseInt(document.getElementById('sl-labelsize').value);
+    // Size is expressed relative to a 1000px-wide canvas so it scales with image resolution
+    const size  = parseInt(document.getElementById('sl-labelsize').value) * outW / 1000;
     const color = document.getElementById('label-color').value;
     const px    = outW * (parseInt(document.getElementById('sl-labelx').value) / 100);
     const py    = outH - by * 0.45;
-    const fontName = font === 'marker' ? "'Permanent Marker', cursive" : "'Caveat', cursive";
     ctx.save();
-    ctx.font = `${size}px ${fontName}`;
+    ctx.font = `${size}px 'Permanent Marker', cursive`;
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1568,14 +1612,15 @@ eMain.addEventListener('touchmove', e => {
 eMain.addEventListener('touchend', e => { if (e.touches.length < 2) touchStartState = null; }, { passive: false });
 
 // ── Sliders ───────────────────────────────────────────────────
+const ADJUST_KEYS = ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain'];
 function onAdjust() {
-    ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','grain'].forEach(k => {
+    ADJUST_KEYS.forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
     });
     beginAdjust();
 }
 function resetAdjust() {
-    ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','grain'].forEach(k => {
+    ADJUST_KEYS.forEach(k => {
         document.getElementById('sl-'+k).value=0;
         const el=document.getElementById('v-'+k); if(el) el.value='0';
     });
@@ -1611,12 +1656,20 @@ function downloadImage() {
         out.style.width = ''; out.style.height = '';
         render();
     }
-    const fmt = document.getElementById('dl-format').value;
+    const fmt     = document.getElementById('dl-format').value;
     const quality = parseInt(document.getElementById('dl-quality').value) / 100;
-    const ext = fmt === 'jpeg' ? 'jpg' : 'png';
+    const ext     = fmt === 'jpeg' ? 'jpg' : 'png';
+    const maxDim  = parseInt(document.getElementById('dl-maxdim').value) || 0;
+    let src = document.getElementById('output-canvas');
+    if (maxDim > 0 && (src.width > maxDim || src.height > maxDim)) {
+        const scale   = maxDim / Math.max(src.width, src.height);
+        const resized = mkCanvas(Math.round(src.width * scale), Math.round(src.height * scale));
+        resized.getContext('2d').drawImage(src, 0, 0, resized.width, resized.height);
+        src = resized;
+    }
     const a = document.createElement('a');
     a.download = origName + '_edited.' + ext;
-    a.href = document.getElementById('output-canvas').toDataURL('image/' + fmt, quality);
+    a.href = src.toDataURL('image/' + fmt, quality);
     a.click();
 }
 function onFormatChange() {
@@ -1904,6 +1957,149 @@ function applyCurvePreset(name) {
     curvePoints=presets[name]||curvePoints; drawCurve(); scheduleRender();
 }
 function resetCurve() { curvePoints=[{x:0,y:0},{x:255,y:255}]; drawCurve(); scheduleRender(); }
+
+// ── Presets ───────────────────────────────────────────────────
+const _BUILT_IN_PRESETS = [
+    { name: 'kodak portra',
+      s: { exposure:5, contrast:-10, highlights:-15, shadows:20, fade:12, vibrance:8, saturation:-8, temperature:10, tint:-4, clarity:0, sharpen:0, noise:0, grain:8, vignette:18 },
+      curve: [{x:0,y:8},{x:90,y:100},{x:190,y:200},{x:255,y:252}] },
+    { name: 'fuji velvia',
+      s: { exposure:0, contrast:22, highlights:-12, shadows:-12, fade:0, vibrance:28, saturation:18, temperature:5, tint:0, clarity:5, sharpen:10, noise:0, grain:3, vignette:18 },
+      curve: [{x:0,y:0},{x:64,y:42},{x:192,y:213},{x:255,y:255}] },
+    { name: 'tri-x b&w',
+      s: { exposure:5, contrast:28, highlights:-18, shadows:12, fade:0, vibrance:0, saturation:-100, temperature:0, tint:0, clarity:8, sharpen:15, noise:0, grain:28, vignette:28 },
+      curve: [{x:0,y:0},{x:50,y:22},{x:192,y:218},{x:255,y:255}] },
+    { name: 'cinematic',
+      s: { exposure:0, contrast:12, highlights:-18, shadows:-8, fade:22, vibrance:0, saturation:-18, temperature:8, tint:0, clarity:0, sharpen:0, noise:0, grain:5, vignette:22 },
+      st: { sc:'#0a2535', ss:30, hc:'#3d1f00', hs:25, bal:-15 },
+      curve: [{x:0,y:18},{x:128,y:128},{x:255,y:245}] },
+    { name: 'golden hour',
+      s: { exposure:8, contrast:5, highlights:-28, shadows:28, fade:8, vibrance:12, saturation:18, temperature:28, tint:-5, clarity:5, sharpen:0, noise:0, grain:5, vignette:22 },
+      curve: [{x:0,y:0},{x:128,y:138},{x:255,y:255}] },
+    { name: 'matte fade',
+      s: { exposure:0, contrast:-18, highlights:-8, shadows:8, fade:38, vibrance:0, saturation:-22, temperature:-5, tint:0, clarity:0, sharpen:0, noise:0, grain:5, vignette:12 },
+      curve: [{x:0,y:28},{x:80,y:92},{x:176,y:168},{x:255,y:228}] },
+];
+
+function _applyPreset(preset) {
+    const KEYS = ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain'];
+    KEYS.forEach(k => {
+        const sl = document.getElementById('sl-'+k); if (!sl) return;
+        const v = (preset.s && preset.s[k] !== undefined) ? preset.s[k] : 0;
+        sl.value = v;
+        const vi = document.getElementById('v-'+k); if (vi) vi.value = v;
+    });
+    // Vignette
+    const vigSl = document.getElementById('sl-vignette');
+    if (vigSl) { vigSl.value = (preset.s && preset.s.vignette !== undefined) ? preset.s.vignette : 0; document.getElementById('v-vignette').value = vigSl.value; }
+    // HSL — reset unless preset specifies
+    if (preset.hslData) {
+        for (let i = 0; i < 8; i++) {
+            hslH[i] = preset.hslData.h[i] || 0;
+            hslS[i] = preset.hslData.s[i] || 0;
+            hslL[i] = preset.hslData.l[i] || 0;
+            ['h','s','l'].forEach(t => {
+                const arr = t==='h'?hslH:t==='s'?hslS:hslL;
+                const sl = document.getElementById(`sl-hsl-${t}-${i}`);
+                const vi = document.getElementById(`v-hsl-${t}-${i}`);
+                if (sl) { sl.value = arr[i]; if (vi) vi.value = arr[i]; }
+            });
+        }
+        hslActive = hslH.some(v=>v!==0)||hslS.some(v=>v!==0)||hslL.some(v=>v!==0);
+    } else { resetHSL(); }
+    // Split tone
+    if (preset.st) {
+        document.getElementById('sl-st-sc').value = preset.st.sc || '#1a1a6e';
+        document.getElementById('sl-st-hc').value = preset.st.hc || '#6e4a1a';
+        ['ss','hs','bal'].forEach(k => {
+            const v = preset.st[k] !== undefined ? preset.st[k] : 0;
+            document.getElementById(`sl-st-${k}`).value = v;
+            const vi = document.getElementById(`v-st-${k}`); if (vi) vi.value = v;
+        });
+        onSplitTone();
+    } else { resetSplitTone(); }
+    // Curve
+    curvePoints = preset.curve ? JSON.parse(JSON.stringify(preset.curve)) : [{x:0,y:0},{x:255,y:255}];
+    drawCurve();
+    scheduleRender();
+}
+
+function _loadSavedPresets() {
+    try { return JSON.parse(localStorage.getItem('sr_presets') || '[]'); } catch(e) { return []; }
+}
+function _saveSavedPresets(arr) { localStorage.setItem('sr_presets', JSON.stringify(arr)); }
+
+function savePreset() {
+    const name = prompt('preset name:');
+    if (!name || !name.trim()) return;
+    const KEYS = ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain','vignette'];
+    const s = {};
+    KEYS.forEach(k => { const sl = document.getElementById('sl-'+k); if(sl) s[k] = parseFloat(sl.value); });
+    const hslData = { h: Array.from(hslH), s: Array.from(hslS), l: Array.from(hslL) };
+    const st = {
+        sc: document.getElementById('sl-st-sc').value,
+        ss: parseFloat(document.getElementById('sl-st-ss').value),
+        hc: document.getElementById('sl-st-hc').value,
+        hs: parseFloat(document.getElementById('sl-st-hs').value),
+        bal: parseFloat(document.getElementById('sl-st-bal').value)
+    };
+    const saved = _loadSavedPresets();
+    saved.push({ name: name.trim(), s, hslData, st, curve: JSON.parse(JSON.stringify(curvePoints)) });
+    _saveSavedPresets(saved);
+    renderPresetList();
+}
+
+function deletePreset(idx) {
+    const saved = _loadSavedPresets();
+    saved.splice(idx, 1);
+    _saveSavedPresets(saved);
+    renderPresetList();
+}
+
+function resetAllAdjustments() {
+    resetAdjust(); resetHSL(); resetSplitTone(); resetCurve();
+    document.getElementById('sl-vignette').value = 0;
+    document.getElementById('v-vignette').value = 0;
+}
+
+function renderPresetList() {
+    // Built-in
+    const bEl = document.getElementById('preset-builtin');
+    bEl.innerHTML = '';
+    _BUILT_IN_PRESETS.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn';
+        btn.textContent = p.name;
+        btn.onclick = () => _applyPreset(p);
+        const row = document.createElement('div');
+        row.className = 'preset-row';
+        row.appendChild(btn);
+        bEl.appendChild(row);
+    });
+    // Saved
+    const saved = _loadSavedPresets();
+    const sEl = document.getElementById('preset-saved');
+    sEl.innerHTML = '';
+    document.getElementById('saved-label').style.display = saved.length ? '' : 'none';
+    saved.forEach((p, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn';
+        btn.textContent = p.name;
+        btn.onclick = () => _applyPreset(p);
+        const del = document.createElement('button');
+        del.className = 'preset-del';
+        del.textContent = '×';
+        del.title = 'delete';
+        del.onclick = () => deletePreset(i);
+        const row = document.createElement('div');
+        row.className = 'preset-row';
+        row.appendChild(btn);
+        row.appendChild(del);
+        sEl.appendChild(row);
+    });
+}
+
+renderPresetList();
 </script>
 <script src="theme.js"></script>
 </body>
