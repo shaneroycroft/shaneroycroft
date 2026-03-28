@@ -151,7 +151,7 @@
         <span class="e-bar-spacer"></span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadPNG()" disabled>download png</button>
         <span class="e-bar-sep">|</span>
-        <a href="admin.html" class="e-bar-btn" onclick="return confirmLeave(event)">← admin</a>
+        <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
     </div>
 
     <div class="e-layout">
@@ -417,6 +417,15 @@ function resetSlider(el) {
     el.value = el.dataset.default ?? 0;
     el.dispatchEvent(new Event('input'));
 }
+
+// ── Back link: show admin link only for authenticated users ───
+(function() {
+    if (localStorage.getItem('sr_gh_pat')) {
+        const link = document.getElementById('back-link');
+        link.href = '_manage.html';
+        link.textContent = '← admin';
+    }
+})();
 
 // ── Navigation guard ──────────────────────────────────────────
 function confirmLeave(e) {
