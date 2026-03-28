@@ -97,6 +97,17 @@
         .s-btn-ghost { background: none; color: var(--text); border: 1px solid var(--border); padding: 0.35rem 0.75rem; cursor: pointer; font-family: inherit; font-size: 0.7rem; text-transform: lowercase; letter-spacing: 1px; }
         .s-note { font-size: 0.68rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.65rem; }
 
+        /* Size warning */
+        .size-warn { font-size: 0.65rem; letter-spacing: 0.5px; color: #c0392b; padding: 0.45rem 1.2rem; border-bottom: 1px solid var(--border); }
+
+        /* HSL tabs */
+        .hsl-tabs { display: flex; margin-bottom: 0.75rem; }
+        .hsl-tab { flex: 1; padding: 0.3rem; font-size: 0.68rem; text-transform: lowercase; letter-spacing: 1px; cursor: pointer; text-align: center; border: 1px solid var(--border); background: none; font-family: inherit; color: var(--secondary); transition: 0.15s; }
+        .hsl-tab:not(:first-child) { border-left: none; }
+        .hsl-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+        .hsl-panel { display: none; }
+        .hsl-panel.active { display: block; }
+
         /* Transform */
         .transform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
         .transform-grid button { font-size: 0.7rem; padding: 0.4rem 0.5rem; text-align: center; background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; color: var(--text); transition: border-color 0.2s; }
@@ -149,13 +160,19 @@
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
         <span class="e-bar-spacer"></span>
-        <button class="e-bar-btn primary" id="dl-btn" onclick="downloadPNG()" disabled>download png</button>
+        <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
+        <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="jpeg quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
+        <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
+        <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
         <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
     </div>
 
     <div class="e-layout">
         <div class="e-sidebar">
+
+            <!-- Size warning -->
+            <div id="size-warn" class="size-warn" style="display:none">large image · adjustments may be slow</div>
 
             <!-- Histogram -->
             <div class="e-hist">
@@ -170,11 +187,14 @@
                     <div class="s-row"><label>contrast <input type="number" class="val-input" id="v-contrast" value="0" min="-100" max="100" step="1" data-key="contrast" oninput="syncVal(this)"></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>highlights <input type="number" class="val-input" id="v-highlights" value="0" min="-100" max="100" step="1" data-key="highlights" oninput="syncVal(this)"></label><input type="range" id="sl-highlights" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>shadows <input type="number" class="val-input" id="v-shadows" value="0" min="-100" max="100" step="1" data-key="shadows" oninput="syncVal(this)"></label><input type="range" id="sl-shadows" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>fade <input type="number" class="val-input" id="v-fade" value="0" min="0" max="100" step="1" data-key="fade" oninput="syncVal(this)"></label><input type="range" id="sl-fade" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>vibrance <input type="number" class="val-input" id="v-vibrance" value="0" min="-100" max="100" step="1" data-key="vibrance" oninput="syncVal(this)"></label><input type="range" id="sl-vibrance" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>saturation <input type="number" class="val-input" id="v-saturation" value="0" min="-100" max="100" step="1" data-key="saturation" oninput="syncVal(this)"></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>temperature <input type="number" class="val-input" id="v-temperature" value="0" min="-100" max="100" step="1" data-key="temperature" oninput="syncVal(this)"></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>tint <input type="number" class="val-input" id="v-tint" value="0" min="-100" max="100" step="1" data-key="tint" oninput="syncVal(this)"></label><input type="range" id="sl-tint" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>clarity <input type="number" class="val-input" id="v-clarity" value="0" min="0" max="100" step="1" data-key="clarity" oninput="syncVal(this)"></label><input type="range" id="sl-clarity" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row-btns"><button class="s-link" onclick="resetAdjust()">reset</button></div>
                 </div>
             </details>
@@ -192,6 +212,62 @@
                         <button class="s-link" onclick="applyCurvePreset('matte')">matte</button>
                         <button class="s-link" onclick="resetCurve()">reset</button>
                     </div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>hsl</summary>
+                <div class="e-body">
+                    <div class="hsl-tabs">
+                        <button class="hsl-tab active" id="hsl-tab-h" onclick="setHSLTab('h')">H</button>
+                        <button class="hsl-tab" id="hsl-tab-s" onclick="setHSLTab('s')">S</button>
+                        <button class="hsl-tab" id="hsl-tab-l" onclick="setHSLTab('l')">L</button>
+                    </div>
+                    <div class="hsl-panel active" id="hsl-panel-h">
+                        <div class="s-row"><label>red <input type="number" class="val-input" id="v-hsl-h-0" value="0" min="-30" max="30" step="1" data-key="hsl-h-0" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-0" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>orange <input type="number" class="val-input" id="v-hsl-h-1" value="0" min="-30" max="30" step="1" data-key="hsl-h-1" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-1" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>yellow <input type="number" class="val-input" id="v-hsl-h-2" value="0" min="-30" max="30" step="1" data-key="hsl-h-2" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-2" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>green <input type="number" class="val-input" id="v-hsl-h-3" value="0" min="-30" max="30" step="1" data-key="hsl-h-3" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-3" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>aqua <input type="number" class="val-input" id="v-hsl-h-4" value="0" min="-30" max="30" step="1" data-key="hsl-h-4" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-4" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>blue <input type="number" class="val-input" id="v-hsl-h-5" value="0" min="-30" max="30" step="1" data-key="hsl-h-5" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-5" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>purple <input type="number" class="val-input" id="v-hsl-h-6" value="0" min="-30" max="30" step="1" data-key="hsl-h-6" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-6" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>magenta <input type="number" class="val-input" id="v-hsl-h-7" value="0" min="-30" max="30" step="1" data-key="hsl-h-7" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-h-7" min="-30" max="30" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                    </div>
+                    <div class="hsl-panel" id="hsl-panel-s">
+                        <div class="s-row"><label>red <input type="number" class="val-input" id="v-hsl-s-0" value="0" min="-100" max="100" step="1" data-key="hsl-s-0" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-0" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>orange <input type="number" class="val-input" id="v-hsl-s-1" value="0" min="-100" max="100" step="1" data-key="hsl-s-1" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-1" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>yellow <input type="number" class="val-input" id="v-hsl-s-2" value="0" min="-100" max="100" step="1" data-key="hsl-s-2" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-2" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>green <input type="number" class="val-input" id="v-hsl-s-3" value="0" min="-100" max="100" step="1" data-key="hsl-s-3" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-3" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>aqua <input type="number" class="val-input" id="v-hsl-s-4" value="0" min="-100" max="100" step="1" data-key="hsl-s-4" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-4" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>blue <input type="number" class="val-input" id="v-hsl-s-5" value="0" min="-100" max="100" step="1" data-key="hsl-s-5" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-5" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>purple <input type="number" class="val-input" id="v-hsl-s-6" value="0" min="-100" max="100" step="1" data-key="hsl-s-6" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-6" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>magenta <input type="number" class="val-input" id="v-hsl-s-7" value="0" min="-100" max="100" step="1" data-key="hsl-s-7" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-s-7" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                    </div>
+                    <div class="hsl-panel" id="hsl-panel-l">
+                        <div class="s-row"><label>red <input type="number" class="val-input" id="v-hsl-l-0" value="0" min="-100" max="100" step="1" data-key="hsl-l-0" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-0" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>orange <input type="number" class="val-input" id="v-hsl-l-1" value="0" min="-100" max="100" step="1" data-key="hsl-l-1" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-1" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>yellow <input type="number" class="val-input" id="v-hsl-l-2" value="0" min="-100" max="100" step="1" data-key="hsl-l-2" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-2" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>green <input type="number" class="val-input" id="v-hsl-l-3" value="0" min="-100" max="100" step="1" data-key="hsl-l-3" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-3" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>aqua <input type="number" class="val-input" id="v-hsl-l-4" value="0" min="-100" max="100" step="1" data-key="hsl-l-4" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-4" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>blue <input type="number" class="val-input" id="v-hsl-l-5" value="0" min="-100" max="100" step="1" data-key="hsl-l-5" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-5" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>purple <input type="number" class="val-input" id="v-hsl-l-6" value="0" min="-100" max="100" step="1" data-key="hsl-l-6" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-6" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>magenta <input type="number" class="val-input" id="v-hsl-l-7" value="0" min="-100" max="100" step="1" data-key="hsl-l-7" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-7" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
+                    </div>
+                    <div class="s-row-btns"><button class="s-link" onclick="resetHSL()">reset</button></div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>split tone</summary>
+                <div class="e-body">
+                    <p class="s-note" style="margin-bottom:0.3rem">shadows</p>
+                    <div class="c-row"><label>colour</label><input type="color" id="sl-st-sc" value="#1a1a6e" oninput="onSplitTone()"></div>
+                    <div class="s-row" style="margin-top:0.6rem"><label>strength <input type="number" class="val-input" id="v-st-ss" value="0" min="0" max="100" step="1" data-key="st-ss" oninput="syncVal(this)"></label><input type="range" id="sl-st-ss" min="0" max="100" value="0" data-default="0" oninput="onSplitTone()" ondblclick="resetSlider(this)"></div>
+                    <p class="s-note" style="margin:0.75rem 0 0.3rem">highlights</p>
+                    <div class="c-row"><label>colour</label><input type="color" id="sl-st-hc" value="#6e4a1a" oninput="onSplitTone()"></div>
+                    <div class="s-row" style="margin-top:0.6rem"><label>strength <input type="number" class="val-input" id="v-st-hs" value="0" min="0" max="100" step="1" data-key="st-hs" oninput="syncVal(this)"></label><input type="range" id="sl-st-hs" min="0" max="100" value="0" data-default="0" oninput="onSplitTone()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row" style="margin-top:0.75rem"><label>balance <input type="number" class="val-input" id="v-st-bal" value="0" min="-100" max="100" step="1" data-key="st-bal" oninput="syncVal(this)"></label><input type="range" id="sl-st-bal" min="-100" max="100" value="0" data-default="0" oninput="onSplitTone()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row-btns"><button class="s-link" onclick="resetSplitTone()">reset</button></div>
                 </div>
             </details>
 
@@ -302,6 +378,7 @@
             <div id="drop-hint" onclick="document.getElementById('open-input').click()">
                 <p>open an image to start editing</p>
                 <p>or drop it here</p>
+                <p style="margin-top:1.2rem;font-size:0.65rem;color:#aaa;">large files (&gt;20mp) may be slow to process</p>
             </div>
             <div id="canvas-wrap" style="display:none;">
                 <canvas id="output-canvas"></canvas>
@@ -366,6 +443,32 @@ let dragOrigin = null;
 // Transform
 let straightenAngle = 0;
 let showingOriginal = false;
+
+// HSL
+const HSL_CENTERS = [0, 30, 60, 120, 180, 240, 270, 300];
+const hslH = new Float32Array(8);
+const hslS = new Float32Array(8);
+const hslL = new Float32Array(8);
+let hslActive = false;
+
+// Split tone
+let shadowHue = 0, shadowStr = 0, highlightHue = 0, highlightStr = 0, splitBalance = 0;
+let splitActive = false;
+
+function hueMask(h, center) {
+    let diff = Math.abs(h - center);
+    if (diff > 180) diff = 360 - diff;
+    return diff >= 60 ? 0 : 1 - diff / 60;
+}
+function hexToHue(hex) {
+    const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+    const mx=Math.max(r,g,b), mn=Math.min(r,g,b); if(mx===mn) return 0;
+    const d=mx-mn; let h=0;
+    if(mx===r) h=((g-b)/d+(g<b?6:0))/6;
+    else if(mx===g) h=((b-r)/d+2)/6;
+    else h=((r-g)/d+4)/6;
+    return h*360;
+}
 
 // rAF debounce
 let renderRAF = null;
@@ -498,6 +601,8 @@ function loadFile(file) {
         origCanvas = mkCanvas(img.naturalWidth, img.naturalHeight);
         origCanvas.getContext('2d').drawImage(img, 0, 0);
         workCanvas = cloneCanvas(origCanvas);
+        const warn = document.getElementById('size-warn');
+        if (warn) warn.style.display = img.naturalWidth * img.naturalHeight > 20e6 ? '' : 'none';
         history = [cloneCanvas(workCanvas)]; historyIdx = 0; updateUndoUI();
         cancelCrop(); resetZoom();
         document.getElementById('drop-hint').style.display = 'none';
@@ -552,9 +657,12 @@ function render() {
         out.style.height = '';
     }
 
+    const grainAmt = parseInt(document.getElementById('sl-grain').value);
+
     let adj = applyEdits(src);
     adj = applyStraighten(adj, straightenAngle);
     applyVignette(adj, vigStr);
+    if (!isAdjusting && grainAmt > 0) applyGrain(adj, grainAmt);
 
     out.width  = adj.width  + bxR * 2;
     out.height = adj.height + byR * 2;
@@ -580,21 +688,36 @@ function applyEdits(src) {
     const contrast    = parseFloat(document.getElementById('sl-contrast').value);
     const highlights  = parseFloat(document.getElementById('sl-highlights').value);
     const shadows     = parseFloat(document.getElementById('sl-shadows').value);
+    const fade        = parseFloat(document.getElementById('sl-fade').value);
     const vibrance    = parseFloat(document.getElementById('sl-vibrance').value);
     const saturation  = parseFloat(document.getElementById('sl-saturation').value);
     const temperature = parseFloat(document.getElementById('sl-temperature').value);
+    const tint        = parseFloat(document.getElementById('sl-tint').value);
     const clarity     = parseFloat(document.getElementById('sl-clarity').value);
     const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
-    // Exposure: multiplicative in EV stops (-3 to +3), more accurate than additive brightness
-    const expF   = Math.pow(2, exposure * 3 / 100);
-    const cF     = (259 * (contrast + 255)) / (255 * (259 - contrast));
-    const satF   = 1 + saturation / 100;
-    const vibF   = vibrance / 100;
-    const tempR  = temperature * 0.4;
-    const tempB  = temperature * 0.4;
-    const hStr   = highlights / 100 * 80;
-    const sStr   = shadows    / 100 * 80;
-    const lut    = buildCurveLUT();
+
+    const expF      = Math.pow(2, exposure * 3 / 100);
+    const cF        = (259 * (contrast + 255)) / (255 * (259 - contrast));
+    const satF      = 1 + saturation / 100;
+    const vibF      = vibrance / 100;
+    const tempR     = temperature * 0.4;
+    const tempB     = temperature * 0.4;
+    const tintG     = tint * 0.45;   // green-magenta axis: positive = magenta (G-)
+    const tintRB    = tint * 0.12;   // slight warm/cool shift in R and B
+    const fadeFloor = fade / 100 * 38; // max 38px black lift
+    const hStr      = highlights / 100 * 80;
+    const sStr      = shadows    / 100 * 80;
+    const lut       = buildCurveLUT();
+    const doHSL     = hslActive || splitActive;
+
+    // Inline hue2rgb for HSL→RGB conversion (called in inner loop)
+    const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1; if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 0.5) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+    };
 
     const out = mkCanvas(src.width, src.height);
     const ctx = out.getContext('2d');
@@ -604,35 +727,93 @@ function applyEdits(src) {
 
     for (let i = 0; i < d.length; i += 4) {
         let r=d[i], g=d[i+1], b=d[i+2];
-        // Exposure: multiplicative (EV stops) — preserves tonal relationships
+        // Exposure (EV stops)
         r*=expF; g*=expF; b*=expF;
         // Contrast
         r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
         // Highlights / Shadows via luminance mask
         const lum = 0.2126*r + 0.7152*g + 0.0722*b;
-        const hMask = Math.pow(Math.max(0, lum/255), 1.8);
-        const sMask = Math.pow(Math.max(0, 1-lum/255), 1.8);
-        const hlAdj = hStr*hMask + sStr*sMask;
+        const hlMask = Math.pow(Math.max(0, lum/255), 1.8);
+        const shMask = Math.pow(Math.max(0, 1-lum/255), 1.8);
+        const hlAdj = hStr*hlMask + sStr*shMask;
         r+=hlAdj; g+=hlAdj; b+=hlAdj;
+        // Fade: lift blacks (shadow floor)
+        if (fadeFloor > 0) {
+            r = fadeFloor + r*(255-fadeFloor)/255;
+            g = fadeFloor + g*(255-fadeFloor)/255;
+            b = fadeFloor + b*(255-fadeFloor)/255;
+        }
         // Saturation (linear)
         const gr = 0.2126*r + 0.7152*g + 0.0722*b;
         r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
-        // Vibrance: selectively boosts less-saturated pixels, leaving already-vivid ones alone
+        // Vibrance
         if (vibF !== 0) {
             const gr2 = 0.2126*r + 0.7152*g + 0.0722*b;
             const sat = Math.max(Math.abs(r-gr2), Math.abs(g-gr2), Math.abs(b-gr2)) / 255;
             const vb = 1 + vibF * (1 - Math.min(1, sat * 2));
             r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
         }
-        // Temperature
+        // Temperature + Tint (white balance)
         r+=tempR; b-=tempB;
+        g-=tintG; r+=tintRB; b+=tintRB;
+        // HSL + Split tone (RGB→HSL→RGB, only if active)
+        if (doHSL) {
+            r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+            const rn=r/255, gn=g/255, bn=b/255;
+            const mx=Math.max(rn,gn,bn), mn=Math.min(rn,gn,bn);
+            let lh=(mx+mn)/2, hh=0, sh=0;
+            if (mx!==mn) {
+                const dd=mx-mn;
+                sh=lh>0.5?dd/(2-mx-mn):dd/(mx+mn);
+                if(mx===rn)      hh=((gn-bn)/dd+(gn<bn?6:0));
+                else if(mx===gn) hh=((bn-rn)/dd+2);
+                else             hh=((rn-gn)/dd+4);
+                hh=hh/6*360; // 0–360
+            }
+            // Per-band HSL adjustments
+            if (hslActive) {
+                let dH=0, dS=0, dL=0;
+                for (let bi=0; bi<8; bi++) {
+                    const w=hueMask(hh,HSL_CENTERS[bi]);
+                    if(w>0){dH+=hslH[bi]*w; dS+=hslS[bi]*w; dL+=hslL[bi]*w;}
+                }
+                hh=((hh+dH)%360+360)%360;
+                sh=Math.max(0,Math.min(1,sh*(1+dS/100)));
+                lh=Math.max(0,Math.min(1,lh+dL/100*0.5));
+            }
+            // Split tone
+            if (splitActive) {
+                const mid = 0.5 - splitBalance/200;
+                const sW = Math.max(0, mid>0?(mid-lh)/mid:0) * shadowStr;
+                const hW = Math.max(0, mid<1?(lh-mid)/(1-mid):0) * highlightStr;
+                if (sW > 0) {
+                    const hd=((shadowHue-hh+540)%360)-180;
+                    hh=((hh+hd*sW*0.5)%360+360)%360;
+                    sh=Math.min(1,sh+sW*0.45);
+                }
+                if (hW > 0) {
+                    const hd=((highlightHue-hh+540)%360)-180;
+                    hh=((hh+hd*hW*0.5)%360+360)%360;
+                    sh=Math.min(1,sh+hW*0.45);
+                }
+            }
+            // HSL → RGB
+            const hh01=hh/360;
+            if (sh===0) { r=lh*255; g=lh*255; b=lh*255; }
+            else {
+                const q2=lh<0.5?lh*(1+sh):lh+sh-lh*sh, p2=2*lh-q2;
+                r=hue2rgb(p2,q2,hh01+1/3)*255;
+                g=hue2rgb(p2,q2,hh01)*255;
+                b=hue2rgb(p2,q2,hh01-1/3)*255;
+            }
+        }
+        // Tone curve LUT
         d[i]  =lut[Math.max(0,Math.min(255,r|0))];
         d[i+1]=lut[Math.max(0,Math.min(255,g|0))];
         d[i+2]=lut[Math.max(0,Math.min(255,b|0))];
     }
     ctx.putImageData(id, 0, 0);
-    // Clarity and sharpening are convolution passes — skip during live preview (isAdjusting)
-    // to avoid blocking the thread; they apply at full resolution when dragging stops.
+    // Convolution passes — skip during live preview
     if (!isAdjusting) {
         if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
         if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
@@ -756,6 +937,23 @@ function applyVignette(canvas, strength) {
     tctx.fillStyle = grad;
     tctx.fillRect(0, 0, S, S);
     ctx.drawImage(tmp, 0, 0, W, H); // stretch square → image aspect = elliptical vignette
+}
+
+function applyGrain(canvas, amount) {
+    if (amount <= 0) return;
+    const ctx = canvas.getContext('2d');
+    const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = id.data;
+    const gStr = amount / 100 * 55;
+    for (let i = 0; i < d.length; i += 4) {
+        const lum = (0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2]) / 255;
+        const midW = 0.25 + 0.75 * (1 - Math.abs(2*lum - 1)); // peaks in midtones
+        const n = (Math.random() - 0.5) * 2 * gStr * midW;
+        d[i]   = Math.max(0, Math.min(255, d[i]   + n));
+        d[i+1] = Math.max(0, Math.min(255, d[i+1] + n));
+        d[i+2] = Math.max(0, Math.min(255, d[i+2] + n));
+    }
+    ctx.putImageData(id, 0, 0);
 }
 
 function applyTextOverlay(ctx, outW, outH, bx, by) {
@@ -1125,13 +1323,13 @@ eMain.addEventListener('touchend', e => { if (e.touches.length < 2) touchStartSt
 
 // ── Sliders ───────────────────────────────────────────────────
 function onAdjust() {
-    ['exposure','contrast','highlights','shadows','vibrance','saturation','temperature','clarity','sharpen'].forEach(k => {
+    ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','grain'].forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
     });
     beginAdjust();
 }
 function resetAdjust() {
-    ['exposure','contrast','highlights','shadows','vibrance','saturation','temperature','clarity','sharpen'].forEach(k => {
+    ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','grain'].forEach(k => {
         document.getElementById('sl-'+k).value=0;
         const el=document.getElementById('v-'+k); if(el) el.value='0';
     });
@@ -1160,19 +1358,80 @@ function onLabelSlider(id, vid) {
 }
 
 // ── Download ──────────────────────────────────────────────────
-function downloadPNG() {
-    // Ensure we download full-res, not a preview-mode render
+function downloadImage() {
     if (isAdjusting) {
-        clearTimeout(fullResTimer);
-        isAdjusting = false;
+        clearTimeout(fullResTimer); isAdjusting = false;
         const out = document.getElementById('output-canvas');
         out.style.width = ''; out.style.height = '';
         render();
     }
-    const a=document.createElement('a');
-    a.download=origName+'_edited.png';
-    a.href=document.getElementById('output-canvas').toDataURL('image/png');
+    const fmt = document.getElementById('dl-format').value;
+    const quality = parseInt(document.getElementById('dl-quality').value) / 100;
+    const ext = fmt === 'jpeg' ? 'jpg' : 'png';
+    const a = document.createElement('a');
+    a.download = origName + '_edited.' + ext;
+    a.href = document.getElementById('output-canvas').toDataURL('image/' + fmt, quality);
     a.click();
+}
+function onFormatChange() {
+    const isJpeg = document.getElementById('dl-format').value === 'jpeg';
+    document.getElementById('dl-quality').style.display = isJpeg ? '' : 'none';
+    document.getElementById('dl-quality-val').style.display = isJpeg ? '' : 'none';
+}
+
+// ── HSL ───────────────────────────────────────────────────────
+function setHSLTab(tab) {
+    ['h','s','l'].forEach(t => {
+        document.getElementById('hsl-panel-'+t).classList.toggle('active', t===tab);
+        document.getElementById('hsl-tab-'+t).classList.toggle('active', t===tab);
+    });
+}
+function onHSL() {
+    for (let i = 0; i < 8; i++) {
+        hslH[i] = parseFloat(document.getElementById('sl-hsl-h-'+i).value);
+        hslS[i] = parseFloat(document.getElementById('sl-hsl-s-'+i).value);
+        hslL[i] = parseFloat(document.getElementById('sl-hsl-l-'+i).value);
+        const vh=document.getElementById('v-hsl-h-'+i); if(vh) vh.value=hslH[i];
+        const vs=document.getElementById('v-hsl-s-'+i); if(vs) vs.value=hslS[i];
+        const vl=document.getElementById('v-hsl-l-'+i); if(vl) vl.value=hslL[i];
+    }
+    hslActive = hslH.some(v=>v!==0) || hslS.some(v=>v!==0) || hslL.some(v=>v!==0);
+    beginAdjust();
+}
+function resetHSL() {
+    for (let i = 0; i < 8; i++) {
+        ['h','s','l'].forEach(t => {
+            const sl=document.getElementById('sl-hsl-'+t+'-'+i); if(sl) sl.value=0;
+            const vl=document.getElementById('v-hsl-'+t+'-'+i);  if(vl) vl.value=0;
+            if(t==='h') hslH[i]=0; else if(t==='s') hslS[i]=0; else hslL[i]=0;
+        });
+    }
+    hslActive = false; scheduleRender();
+}
+
+// ── Split tone ────────────────────────────────────────────────
+function onSplitTone() {
+    shadowHue      = hexToHue(document.getElementById('sl-st-sc').value);
+    shadowStr      = parseFloat(document.getElementById('sl-st-ss').value) / 100;
+    highlightHue   = hexToHue(document.getElementById('sl-st-hc').value);
+    highlightStr   = parseFloat(document.getElementById('sl-st-hs').value) / 100;
+    splitBalance   = parseFloat(document.getElementById('sl-st-bal').value);
+    ['st-ss','st-hs','st-bal'].forEach(k => {
+        const v=document.getElementById('v-'+k); if(v) v.value=document.getElementById('sl-'+k).value;
+    });
+    splitActive = shadowStr > 0 || highlightStr > 0;
+    beginAdjust();
+}
+function resetSplitTone() {
+    document.getElementById('sl-st-sc').value  = '#1a1a6e';
+    document.getElementById('sl-st-hc').value  = '#6e4a1a';
+    document.getElementById('sl-st-ss').value  = 0;
+    document.getElementById('sl-st-hs').value  = 0;
+    document.getElementById('sl-st-bal').value = 0;
+    ['st-ss','st-hs','st-bal'].forEach(k => {
+        const v=document.getElementById('v-'+k); if(v) v.value=document.getElementById('sl-'+k).value;
+    });
+    shadowStr = highlightStr = 0; splitActive = false; scheduleRender();
 }
 
 // ── Monotone cubic spline ─────────────────────────────────────
