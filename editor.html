@@ -260,14 +260,13 @@
                         <label>straighten <input type="number" class="val-input" id="v-straighten" value="0" min="-15" max="15" step="0.5" data-key="straighten" oninput="syncVal(this)"></label>
                         <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" data-default="0" oninput="onStraighten()" ondblclick="resetSlider(this)">
                     </div>
-                    <div class="s-row" style="margin-bottom:0.5rem;">
+                    <div style="margin-bottom:0.5rem;">
                         <button class="s-link" id="persp-btn" onclick="togglePerspective()">perspective</button>
-                        <button class="s-link" onclick="resetPerspective()" style="margin-left:1rem;">reset</button>
                     </div>
-                    <p class="s-note">drag the corner handles to correct converging lines. commit bakes the transform.</p>
+                    <p class="s-note">drag the 4 corner handles to correct converging lines — pull corners outside the image to fix buildings. commit bakes the transform.</p>
                     <div class="s-row-btns">
                         <button class="s-btn" onclick="commitTransform()">commit + auto-crop</button>
-                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;straightenAngle=0;resetPerspective();renderOverlay();scheduleRender()">reset</button>
+                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;straightenAngle=0;resetPerspective();renderOverlay();scheduleRender()">reset all</button>
                     </div>
                 </div>
             </details>
@@ -1781,9 +1780,10 @@ ovEl.addEventListener('mousemove', e => {
         const rect = ovEl.getBoundingClientRect();
         const scaleX = workCanvas.width / rect.width;
         const scaleY = workCanvas.height / rect.height;
+        const pad = 0.5;
         perspCorners[perspDragging] = {
-            x: Math.max(0, Math.min(workCanvas.width,  (e.clientX - rect.left) * scaleX)),
-            y: Math.max(0, Math.min(workCanvas.height, (e.clientY - rect.top)  * scaleY))
+            x: Math.max(-workCanvas.width * pad, Math.min(workCanvas.width  * (1 + pad), (e.clientX - rect.left) * scaleX)),
+            y: Math.max(-workCanvas.height * pad, Math.min(workCanvas.height * (1 + pad), (e.clientY - rect.top)  * scaleY))
         };
         renderOverlay();
         return;
@@ -1866,9 +1866,10 @@ ovEl.addEventListener('touchmove', e => {
         const rect = ovEl.getBoundingClientRect();
         const scaleX = workCanvas.width / rect.width;
         const scaleY = workCanvas.height / rect.height;
+        const pad = 0.5;
         perspCorners[perspDragging] = {
-            x: Math.max(0, Math.min(workCanvas.width,  (t.clientX - rect.left) * scaleX)),
-            y: Math.max(0, Math.min(workCanvas.height, (t.clientY - rect.top)  * scaleY))
+            x: Math.max(-workCanvas.width * pad, Math.min(workCanvas.width  * (1 + pad), (t.clientX - rect.left) * scaleX)),
+            y: Math.max(-workCanvas.height * pad, Math.min(workCanvas.height * (1 + pad), (t.clientY - rect.top)  * scaleY))
         };
         renderOverlay();
         return;
