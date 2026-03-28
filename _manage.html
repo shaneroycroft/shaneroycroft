@@ -176,9 +176,6 @@
         }
         .cat-new-input:focus { border-color: var(--text); }
 
-        /* ── Stats bar ───────────────────────────────────── */
-        .stats-bar { font-size: 0.72rem; color: var(--secondary); padding: 0 0 1.25rem; margin-bottom: 2rem; display: none; }
-
         /* ── Homepage preview ────────────────────────────── */
         .hp-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-width: 360px; }
         .hp-preview-item { position: relative; aspect-ratio: 1; overflow: hidden; }
@@ -223,9 +220,6 @@
             <button class="btn-sm" onclick="savePAT()">save</button>
             <button class="btn-ghost" onclick="clearPAT()">clear</button>
         </div>
-
-        <!-- Stats bar — hidden until PAT verified -->
-        <div class="stats-bar" id="stats-bar"></div>
 
         <!-- Tab bar — hidden until PAT verified -->
         <div class="admin-tabs" id="admin-tabs" style="display:none;">
@@ -358,7 +352,6 @@
 
         function setAdminVisible(visible) {
             document.getElementById('admin-tabs').style.display = visible ? 'flex' : 'none';
-            document.getElementById('stats-bar').style.display = visible ? 'block' : 'none';
             document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
             if (visible) {
                 const active = document.querySelector('.tab-panel.active') || document.getElementById('tab-upload');
@@ -376,7 +369,7 @@
                     uploadCat = cats[0] || 'japan';
                     manageCat = cats[0] || 'japan';
                     renderAllCategoryTabs();
-                    renderStats();
+                    
                     setAdminVisible(true);
                 } else {
                     setPatStatus('token invalid or no repo access', 'err');
@@ -528,7 +521,7 @@
                 await saveManifest();
                 hideCatForm(context);
                 renderAllCategoryTabs();
-                renderStats();
+                
                 if (context === 'upload') selectUploadCat(name);
                 else selectManageCat(name);
                 log('category created.', 'ok');
@@ -692,7 +685,7 @@
                     await saveManifest();
                     log(`done. ${success} photo${success > 1 ? 's' : ''} uploaded.`, 'ok');
                     renderManageGrid();
-                    renderStats();
+                    
                     renderHomepagePreview();
                 } catch (e) {
                     log('photos uploaded but manifest save failed: ' + e.message, 'err');
@@ -839,25 +832,11 @@
             if (!confirm('delete this photo from the manifest? (the file will remain in the repo)')) return;
             if (!manifest) { alert('manifest not loaded.'); return; }
             manifest[cat].splice(index, 1);
-            try { await saveManifest(); renderManageGrid(); renderStats(); renderHomepagePreview(); }
+            try { await saveManifest(); renderManageGrid();  renderHomepagePreview(); }
             catch (e) { alert('failed to save: ' + e.message); }
         }
 
 
-
-        // ─── Stats ─────────────────────────────────────────
-        function renderStats() {
-            const bar = document.getElementById('stats-bar');
-            if (!manifest) { bar.textContent = ''; return; }
-            const cats = Object.keys(manifest);
-            let total = 0, pinned = 0;
-            cats.forEach(cat => {
-                const list = manifest[cat] || [];
-                total += list.length;
-                pinned += list.filter(e => typeof e === 'object' && e.pinned).length;
-            });
-            bar.textContent = `${total} photo${total !== 1 ? 's' : ''} · ${cats.length} categor${cats.length !== 1 ? 'ies' : 'y'}${pinned ? ` · ${pinned} pinned` : ''}`;
-        }
 
         // ─── Homepage Preview ───────────────────────────────
         function computeFeatured() {
@@ -878,18 +857,33 @@
                     }
                 });
             });
-            let photos = [...explicit, ...pinned].slice(0, 3);
-            if (photos.length === 0) {
+            let photos;
+            if (explicit.length) {
+                const anchor = explicit[Math.floor(Math.random() * explicit.length)];
+                const rest = adminShuffle(explicit.filter(p => p.src !== anchor.src).concat(pinned));
+                photos = [anchor, ...rest].slice(0, 3);
+            } else {
+                photos = adminShuffle([...pinned]).slice(0, 3);
+            }
+            if (!photos.length) {
                 const firstCat = Object.keys(manifest).find(cat => (manifest[cat] || []).length > 0);
                 if (firstCat) {
-                    photos = (manifest[firstCat] || []).slice(0, 3).map(e => ({
+                    photos = adminShuffle((manifest[firstCat] || []).map(e => ({
                         src: typeof e === 'string' ? e : e.src,
                         cap: (typeof e === 'object' && e.caption) ? e.caption : '',
                         from: firstCat
-                    }));
+                    }))).slice(0, 3);
                 }
             }
             return photos;
+        }
+
+        function adminShuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
         }
 
         function renderHomepagePreview() {
@@ -955,7 +949,7 @@
                 renderAllCategoryTabs();
                 renderManageGrid();
                 renderCatActions();
-                renderStats();
+                
             } catch(e) {
                 const rb = {};
                 Object.keys(manifest).forEach(k => { rb[k === newName ? prev : k] = manifest[k]; });
@@ -978,7 +972,7 @@
                 await saveManifest();
                 renderAllCategoryTabs();
                 if (manageCat) { renderManageGrid(); renderCatActions(); }
-                renderStats();
+                
                 renderHomepagePreview();
             } catch(e) {
                 alert('failed to save: ' + e.message);
