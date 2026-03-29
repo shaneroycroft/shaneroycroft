@@ -129,6 +129,10 @@
         .hsl-panel { display: none; }
         .hsl-panel.active { display: block; }
 
+        /* Adjust sub-group labels */
+        .adj-group { font-size: 0.58rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin: 0.85rem 0 0.45rem; border-top: 1px solid var(--border); padding-top: 0.65rem; }
+        .adj-group:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+
         /* Transform */
         .transform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
         .transform-grid button { font-size: 0.7rem; padding: 0.4rem 0.5rem; text-align: center; background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; color: var(--text); transition: border-color 0.2s; }
@@ -288,17 +292,26 @@
             <details class="e-sec" open>
                 <summary>adjust</summary>
                 <div class="e-body">
+                    <div class="adj-group">light</div>
                     <div class="s-row"><label>exposure <input type="number" class="val-input" id="v-exposure" value="0" min="-100" max="100" step="1" data-key="exposure" oninput="syncVal(this)"></label><input type="range" id="sl-exposure" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>contrast <input type="number" class="val-input" id="v-contrast" value="0" min="-100" max="100" step="1" data-key="contrast" oninput="syncVal(this)"></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>highlights <input type="number" class="val-input" id="v-highlights" value="0" min="-100" max="100" step="1" data-key="highlights" oninput="syncVal(this)"></label><input type="range" id="sl-highlights" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>shadows <input type="number" class="val-input" id="v-shadows" value="0" min="-100" max="100" step="1" data-key="shadows" oninput="syncVal(this)"></label><input type="range" id="sl-shadows" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>fade <input type="number" class="val-input" id="v-fade" value="0" min="0" max="100" step="1" data-key="fade" oninput="syncVal(this)"></label><input type="range" id="sl-fade" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>vibrance <input type="number" class="val-input" id="v-vibrance" value="0" min="-100" max="100" step="1" data-key="vibrance" oninput="syncVal(this)"></label><input type="range" id="sl-vibrance" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>saturation <input type="number" class="val-input" id="v-saturation" value="0" min="-100" max="100" step="1" data-key="saturation" oninput="syncVal(this)"></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>whites <input type="number" class="val-input" id="v-whites" value="0" min="-100" max="100" step="1" data-key="whites" oninput="syncVal(this)"></label><input type="range" id="sl-whites" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>blacks <input type="number" class="val-input" id="v-blacks" value="0" min="-100" max="100" step="1" data-key="blacks" oninput="syncVal(this)"></label><input type="range" id="sl-blacks" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+
+                    <div class="adj-group">color</div>
                     <div class="s-row"><label>temperature <input type="number" class="val-input" id="v-temperature" value="0" min="-100" max="100" step="1" data-key="temperature" oninput="syncVal(this)"></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>tint <input type="number" class="val-input" id="v-tint" value="0" min="-100" max="100" step="1" data-key="tint" oninput="syncVal(this)"></label><input type="range" id="sl-tint" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row-btns" style="margin-top:-0.3rem;margin-bottom:0.6rem;"><button id="wb-pick-btn" class="ar-btn" onclick="toggleWBEyedropper()" title="click a neutral area to set white balance">✛ pick neutral</button></div>
+                    <div class="s-row"><label>vibrance <input type="number" class="val-input" id="v-vibrance" value="0" min="-100" max="100" step="1" data-key="vibrance" oninput="syncVal(this)"></label><input type="range" id="sl-vibrance" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>saturation <input type="number" class="val-input" id="v-saturation" value="0" min="-100" max="100" step="1" data-key="saturation" oninput="syncVal(this)"></label><input type="range" id="sl-saturation" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+
+                    <div class="adj-group">presence</div>
                     <div class="s-row"><label>clarity <input type="number" class="val-input" id="v-clarity" value="0" min="0" max="100" step="1" data-key="clarity" oninput="syncVal(this)"></label><input type="range" id="sl-clarity" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>fade <input type="number" class="val-input" id="v-fade" value="0" min="0" max="100" step="1" data-key="fade" oninput="syncVal(this)"></label><input type="range" id="sl-fade" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+
+                    <div class="adj-group">detail</div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>noise reduction <input type="number" class="val-input" id="v-noise" value="0" min="0" max="100" step="1" data-key="noise" oninput="syncVal(this)"></label><input type="range" id="sl-noise" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -781,6 +794,7 @@ void main(){ vUV=aPos*0.5+0.5; gl_Position=vec4(aPos,0.0,1.0); }`;
 const _FRAG = `precision highp float;
 uniform sampler2D uImg,uLUT; varying vec2 vUV;
 uniform float uExpF,uCF,uHlStr,uShStr,uFadeFloor,uSatF,uVibF,uTempR,uTempB,uTintG,uTintRB;
+uniform float uWhitesStr,uBlacksStr;
 uniform float uDoHSL,uHslH[8],uHslS[8],uHslL[8];
 uniform float uDoSplit,uShadowHue,uShadowStr,uHighlightHue,uHighlightStr,uSplitBalance;
 
@@ -815,6 +829,8 @@ void main(){
     cL=uCF*(cL-128.0)+128.0;
     float lm=dot(cL,vec3(0.2126,0.7152,0.0722));
     cL+=uHlStr*pow(clamp(lm/255.0,0.0,1.0),1.8)+uShStr*pow(clamp(1.0-lm/255.0,0.0,1.0),1.8);
+    float lm2=dot(cL,vec3(0.2126,0.7152,0.0722));
+    cL+=uWhitesStr*pow(clamp(lm2/255.0,0.0,1.0),3.5)+uBlacksStr*pow(clamp(1.0-lm2/255.0,0.0,1.0),3.5);
     if(uFadeFloor>0.0)cL=uFadeFloor+cL*(255.0-uFadeFloor)/255.0;
     float gr=dot(cL,vec3(0.2126,0.7152,0.0722));cL=gr+uSatF*(cL-gr);
     if(uVibF!=0.0){
@@ -887,7 +903,7 @@ function _initGL() {
         const imgTex = mkTex(), lutTex = mkTex();
         gl.useProgram(prog);
         const L = {};
-        ['uImg','uLUT','uExpF','uCF','uHlStr','uShStr','uFadeFloor','uSatF','uVibF',
+        ['uImg','uLUT','uExpF','uCF','uHlStr','uShStr','uWhitesStr','uBlacksStr','uFadeFloor','uSatF','uVibF',
          'uTempR','uTempB','uTintG','uTintRB','uDoHSL','uHslH','uHslS','uHslL',
          'uDoSplit','uShadowHue','uShadowStr','uHighlightHue','uHighlightStr','uSplitBalance'
         ].forEach(n => L[n] = gl.getUniformLocation(prog, n));
@@ -911,6 +927,7 @@ function _applyEditsGL(src, p) {
     gl.uniform1i(L.uImg,0); gl.uniform1i(L.uLUT,1);
     gl.uniform1f(L.uExpF,p.expF); gl.uniform1f(L.uCF,p.cF);
     gl.uniform1f(L.uHlStr,p.hlStr); gl.uniform1f(L.uShStr,p.shStr);
+    gl.uniform1f(L.uWhitesStr,p.whitesStr); gl.uniform1f(L.uBlacksStr,p.blacksStr);
     gl.uniform1f(L.uFadeFloor,p.fadeFloor); gl.uniform1f(L.uSatF,p.satF);
     gl.uniform1f(L.uVibF,p.vibF); gl.uniform1f(L.uTempR,p.tempR);
     gl.uniform1f(L.uTempB,p.tempB); gl.uniform1f(L.uTintG,p.tintG);
@@ -934,6 +951,8 @@ function applyEdits(src) {
     const contrast    = parseFloat(document.getElementById('sl-contrast').value);
     const highlights  = parseFloat(document.getElementById('sl-highlights').value);
     const shadows     = parseFloat(document.getElementById('sl-shadows').value);
+    const whites      = parseFloat(document.getElementById('sl-whites').value);
+    const blacks      = parseFloat(document.getElementById('sl-blacks').value);
     const fade        = parseFloat(document.getElementById('sl-fade').value);
     const vibrance    = parseFloat(document.getElementById('sl-vibrance').value);
     const saturation  = parseFloat(document.getElementById('sl-saturation').value);
@@ -950,6 +969,8 @@ function applyEdits(src) {
         cF:        (259 * (contrast + 255)) / (255 * (259 - contrast)),
         hlStr:     highlights / 100 * 80,
         shStr:     shadows    / 100 * 80,
+        whitesStr: whites / 100 * 80,
+        blacksStr: blacks / 100 * 80,
         fadeFloor: fade / 100 * 38,
         satF:      1 + saturation / 100,
         vibF:      vibrance / 100,
@@ -978,7 +999,11 @@ function applyEdits(src) {
     }
 
     // CPU fallback ────────────────────────────────────────────────
-    const { expF, cF, hlStr: hStr, shStr: sStr, fadeFloor, satF, vibF, tempR, tempB, tintG, tintRB, doHSL } = params;
+    const { expF, cF, hlStr: hStr, shStr: sStr, whitesStr, blacksStr, fadeFloor, satF, vibF, tempR, tempB, tintG, tintRB, doHSL } = params;
+
+    // sRGB linearisation helpers (matches GPU shader gamma 2.2 path)
+    const toLinear = v => Math.pow(Math.max(0, v) / 255, 2.2) * 255;
+    const toSRGB   = v => Math.pow(Math.max(0, Math.min(255, v)) / 255, 1 / 2.2) * 255;
 
     const hue2rgb = (p, q, t) => {
         if (t < 0) t += 1; if (t > 1) t -= 1;
@@ -995,7 +1020,8 @@ function applyEdits(src) {
     const d  = id.data;
 
     for (let i = 0; i < d.length; i += 4) {
-        let r=d[i], g=d[i+1], b=d[i+2];
+        // Linearise from sRGB before tone ops (matches GPU shader)
+        let r=toLinear(d[i]), g=toLinear(d[i+1]), b=toLinear(d[i+2]);
         r*=expF; g*=expF; b*=expF;
         r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
         const lum = 0.2126*r + 0.7152*g + 0.0722*b;
@@ -1003,6 +1029,12 @@ function applyEdits(src) {
         const shMask = Math.pow(Math.max(0, 1-lum/255), 1.8);
         const hlAdj = hStr*hlMask + sStr*shMask;
         r+=hlAdj; g+=hlAdj; b+=hlAdj;
+        // Whites/Blacks — steep power mask targets near-white / near-black tones only
+        const lum2 = 0.2126*r + 0.7152*g + 0.0722*b;
+        const wMask = Math.pow(Math.max(0, lum2/255), 3.5);
+        const bMask = Math.pow(Math.max(0, 1-lum2/255), 3.5);
+        const wbAdj = whitesStr*wMask + blacksStr*bMask;
+        r+=wbAdj; g+=wbAdj; b+=wbAdj;
         if (fadeFloor > 0) {
             r = fadeFloor + r*(255-fadeFloor)/255;
             g = fadeFloor + g*(255-fadeFloor)/255;
@@ -1016,6 +1048,8 @@ function applyEdits(src) {
             const vb = 1 + vibF * (1 - Math.min(1, sat * 2));
             r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
         }
+        // Re-encode to sRGB before colour ops (matches GPU shader)
+        r=toSRGB(r); g=toSRGB(g); b=toSRGB(b);
         r+=tempR; b-=tempB;
         g-=tintG; r+=tintRB; b+=tintRB;
         if (doHSL) {
@@ -1104,12 +1138,14 @@ function applySharpening(ctx, w, h, amount) {
     const id = ctx.getImageData(0, 0, w, h);
     const src = new Uint8ClampedArray(id.data);
     const d = id.data;
+    const lum = i => 0.2126*src[i] + 0.7152*src[i+1] + 0.0722*src[i+2];
     for (let y = 1; y < h-1; y++) {
         for (let x = 1; x < w-1; x++) {
             const i = (y*w + x) * 4;
+            // Compute sharpening delta on luminance only to avoid colour fringing
+            const delta = a * (4*lum(i) - lum(i-4) - lum(i+4) - lum(i-w*4) - lum(i+w*4));
             for (let c = 0; c < 3; c++) {
-                d[i+c] = Math.max(0, Math.min(255,
-                    (1+4*a)*src[i+c] - a*src[i-4+c] - a*src[i+4+c] - a*src[i-w*4+c] - a*src[i+w*4+c]));
+                d[i+c] = Math.max(0, Math.min(255, src[i+c] + delta));
             }
         }
     }
@@ -1122,10 +1158,11 @@ function applyClarity(ctx, w, h, amount) {
     const id = ctx.getImageData(0, 0, w, h);
     const orig = new Uint8ClampedArray(id.data);
     const blurred = new Uint8ClampedArray(id.data);
-    // Box blur 3 passes with radius ~9 approximates a large Gaussian — fast sliding-window O(n)
-    boxBlur(blurred, w, h, 9);
-    boxBlur(blurred, w, h, 9);
-    boxBlur(blurred, w, h, 9);
+    // Radius scales with image width (~2% of width) so clarity looks consistent across resolutions
+    const r = Math.max(4, Math.round(w * 0.022));
+    boxBlur(blurred, w, h, r);
+    boxBlur(blurred, w, h, r);
+    boxBlur(blurred, w, h, r);
     const str = amount / 100 * 0.65;
     for (let i = 0; i < orig.length; i += 4) {
         for (let c = 0; c < 3; c++) {
@@ -1481,6 +1518,13 @@ function drawHistogram() {
     const draw=(data,col)=>{ ctx.fillStyle=col; data.forEach((v,i)=>{ const bh=Math.round((v/maxV)*H); ctx.fillRect(i,H-bh,1,bh); }); };
     draw(rl,'rgba(220,60,60,0.6)'); draw(gl,'rgba(40,160,40,0.6)');
     draw(bl2,'rgba(60,80,220,0.6)'); draw(ll,'rgba(30,30,30,0.45)');
+    // Clipping indicators: red stripe on right if highlights blown, blue on left if blacks clipped
+    if (r[BINS-1]>0 || g[BINS-1]>0 || b[BINS-1]>0) {
+        ctx.fillStyle='rgba(220,40,40,0.9)'; ctx.fillRect(W-3,0,3,H);
+    }
+    if (r[0]>0 || g[0]>0 || b[0]>0) {
+        ctx.fillStyle='rgba(50,100,230,0.9)'; ctx.fillRect(0,0,3,H);
+    }
     ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.lineWidth=1; ctx.strokeRect(0.5,0.5,W-1,H-1);
 }
 
@@ -1989,7 +2033,7 @@ eMain.addEventListener('touchmove', e => {
 eMain.addEventListener('touchend', e => { if (e.touches.length < 2) touchStartState = null; }, { passive: false });
 
 // ── Sliders ───────────────────────────────────────────────────
-const ADJUST_KEYS = ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain'];
+const ADJUST_KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain'];
 function onAdjust() {
     ADJUST_KEYS.forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
@@ -2415,7 +2459,7 @@ const _BUILT_IN_PRESETS = [
 ];
 
 function _applyPreset(preset) {
-    const KEYS = ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain'];
+    const KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain'];
     KEYS.forEach(k => {
         const sl = document.getElementById('sl-'+k); if (!sl) return;
         const v = (preset.s && preset.s[k] !== undefined) ? preset.s[k] : 0;
@@ -2465,7 +2509,7 @@ function _saveSavedPresets(arr) { localStorage.setItem('sr_presets', JSON.string
 function savePreset() {
     const name = prompt('preset name:');
     if (!name || !name.trim()) return;
-    const KEYS = ['exposure','contrast','highlights','shadows','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain','vignette'];
+    const KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','clarity','sharpen','noise','grain','vignette'];
     const s = {};
     KEYS.forEach(k => { const sl = document.getElementById('sl-'+k); if(sl) s[k] = parseFloat(sl.value); });
     const hslData = { h: Array.from(hslH), s: Array.from(hslS), l: Array.from(hslL) };
