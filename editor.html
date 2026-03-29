@@ -198,6 +198,12 @@
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="jpeg quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
+        <select id="dl-scale" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" title="export size">
+            <option value="1">100%</option>
+            <option value="0.75">75%</option>
+            <option value="0.5">50%</option>
+            <option value="0.25">25%</option>
+        </select>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
         <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
@@ -213,7 +219,10 @@
             <div class="e-hist">
                 <div class="e-hist-label">histogram</div>
                 <canvas id="hist-canvas" width="222" height="66"></canvas>
-                <div style="margin-top:0.4rem;"><button class="s-link" onclick="autoEnhance()">auto enhance</button></div>
+                <div style="margin-top:0.4rem;display:flex;justify-content:space-between;align-items:center;">
+                    <button class="s-link" onclick="autoEnhance()">auto enhance</button>
+                    <span id="img-dims" style="font-size:0.62rem;color:var(--secondary);"></span>
+                </div>
             </div>
 
             <details class="e-sec">
@@ -277,7 +286,7 @@
                     <p class="s-note">drag the 4 corner handles to correct converging lines — pull corners outside the image to fix buildings. commit bakes the transform.</p>
                     <div class="s-row-btns">
                         <button class="s-btn" onclick="commitTransform()">commit + auto-crop</button>
-                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;straightenAngle=0;resetPerspective();renderOverlay();scheduleRender()">reset all</button>
+                        <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;straightenAngle=0;resetPerspective();renderOverlay();scheduleRender()">reset transform</button>
                     </div>
                 </div>
             </details>
@@ -291,7 +300,6 @@
                     <div class="preset-grid" id="preset-saved"></div>
                     <div class="s-row-btns" style="margin-top:0.85rem;">
                         <button class="s-btn" onclick="savePreset()">save current</button>
-                        <button class="s-link" onclick="resetAllAdjustments()">reset all</button>
                     </div>
                 </div>
             </details>
@@ -471,6 +479,11 @@
                     </div>
                 </div>
             </details>
+
+            <!-- Global reset — bottom of sidebar -->
+            <div style="padding:0.75rem 1rem 1rem;border-top:1px solid var(--border);margin-top:0.5rem;">
+                <button class="s-link red" onclick="if(confirm('Reset all adjustments to defaults?'))resetAllAdjustments()">reset all adjustments</button>
+            </div>
 
         </div>
 
@@ -741,6 +754,7 @@ function loadFile(file) {
         document.getElementById('canvas-wrap').style.display = 'inline-block';
         document.getElementById('dl-btn').disabled = false;
         render();
+        updateDimsDisplay();
     };
     img.src = url;
 }
@@ -827,6 +841,7 @@ function render() {
     ov.height = out.height;
     renderOverlay();
     drawHistogram();
+    if (!isAdjusting) updateDimsDisplay();
 }
 
 // ── WebGL pipeline ─────────────────────────────────────────────
@@ -2227,6 +2242,13 @@ function onLabelSlider(id, vid) {
     beginAdjust();
 }
 
+// ── Dimensions display ────────────────────────────────────────
+function updateDimsDisplay() {
+    const out = document.getElementById('output-canvas');
+    const el  = document.getElementById('img-dims');
+    if (el && out && out.width) el.textContent = out.width + ' × ' + out.height + ' px';
+}
+
 // ── Download ──────────────────────────────────────────────────
 function downloadImage() {
     if (isAdjusting) {
@@ -2237,11 +2259,23 @@ function downloadImage() {
     }
     const fmt     = document.getElementById('dl-format').value;
     const quality = parseInt(document.getElementById('dl-quality').value) / 100;
+    const scale   = parseFloat(document.getElementById('dl-scale').value);
     const ext     = fmt === 'jpeg' ? 'jpg' : 'png';
     const src = document.getElementById('output-canvas');
+    let dataURL;
+    if (scale === 1) {
+        dataURL = src.toDataURL('image/' + fmt, quality);
+    } else {
+        const scaled = document.createElement('canvas');
+        scaled.width  = Math.round(src.width  * scale);
+        scaled.height = Math.round(src.height * scale);
+        const sCtx = scaled.getContext('2d');
+        sCtx.drawImage(src, 0, 0, scaled.width, scaled.height);
+        dataURL = scaled.toDataURL('image/' + fmt, quality);
+    }
     const a = document.createElement('a');
     a.download = origName + '_edited.' + ext;
-    a.href = src.toDataURL('image/' + fmt, quality);
+    a.href = dataURL;
     a.click();
 }
 function onFormatChange() {
