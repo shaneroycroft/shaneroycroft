@@ -584,8 +584,51 @@ let brushPainting   = false;
 let brushLastPos    = null;
 let brushCursorPos  = null;
 
-// HSL
-const HSL_CENTERS = [0, 30, 60, 120, 180, 240, 270, 300];
+// HSL — centers and widths match ACR/Lightroom hue bands
+// Red, Orange, Yellow, Green, Aqua, Blue, Purple, Magenta
+const HSL_CENTERS = [0, 30, 60, 120, 195, 248, 285, 323];
+const HSL_WIDTHS  = [60, 60, 60, 75, 60, 55, 45, 55]; // half-widths in degrees
+
+// Bradford chromatic adaptation — sRGB linear (D65) ↔ LMS cone space
+// M_SRGB2LMS = Bradford_matrix × sRGB_to_XYZ_D65
+const M_SRGB2LMS = [
+    0.42275, 0.49129, 0.02733,
+    0.05550, 0.96113, 0.02320,
+    0.02137, 0.08763, 0.98044
+];
+// M_LMS2SRGB = XYZ_D65_to_sRGB × Bradford_matrix_inverse
+const M_LMS2SRGB = [
+     2.53825, -1.29326, -0.04020,
+    -0.14604,  1.11661, -0.02232,
+    -0.04231, -0.07161,  1.02274
+];
+
+// Compute the 3×3 white-balance adaptation matrix from temp+tint slider values.
+// Scale factors derived from the D65→Illuminant-A LMS ratio in Bradford space.
+function computeWBMatrix(temp, tint) {
+    const t = temp / 100; // −1 to +1
+    const g = tint  / 100;
+    const Ls = Math.max(0.05, 1.0 + t * 0.266);
+    const Ms = Math.max(0.05, 1.0 - t * 0.127 - g * 0.20);
+    const Ss = Math.max(0.05, 1.0 - t * 0.687);
+    // D = diag(Ls,Ms,Ss) × M_SRGB2LMS  (scale each row of M_SRGB2LMS)
+    const D = [
+        M_SRGB2LMS[0]*Ls, M_SRGB2LMS[1]*Ls, M_SRGB2LMS[2]*Ls,
+        M_SRGB2LMS[3]*Ms, M_SRGB2LMS[4]*Ms, M_SRGB2LMS[5]*Ms,
+        M_SRGB2LMS[6]*Ss, M_SRGB2LMS[7]*Ss, M_SRGB2LMS[8]*Ss,
+    ];
+    // R = M_LMS2SRGB × D  (3×3 multiply, row-major result)
+    const R = new Float32Array(9);
+    for (let r = 0; r < 3; r++)
+        for (let c = 0; c < 3; c++)
+            R[r*3+c] = M_LMS2SRGB[r*3+0]*D[c] + M_LMS2SRGB[r*3+1]*D[3+c] + M_LMS2SRGB[r*3+2]*D[6+c];
+    return R;
+}
+
+// Transpose row-major R into column-major layout required by WebGL1 uniformMatrix3fv
+function mat3ToGL(R) {
+    return new Float32Array([R[0],R[3],R[6], R[1],R[4],R[7], R[2],R[5],R[8]]);
+}
 const hslH = new Float32Array(8);
 const hslS = new Float32Array(8);
 const hslL = new Float32Array(8);
@@ -596,10 +639,10 @@ let shadowHue = 0, shadowStr = 0, highlightHue = 0, highlightStr = 0, splitBalan
 let midHue = 0, midStr = 0;
 let splitActive = false;
 
-function hueMask(h, center) {
+function hueMask(h, center, width) {
     let diff = Math.abs(h - center);
     if (diff > 180) diff = 360 - diff;
-    return diff >= 60 ? 0 : 1 - diff / 60;
+    return diff >= width ? 0 : 1 - diff / width;
 }
 function hexToHue(hex) {
     const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
@@ -861,13 +904,14 @@ void main(){ vUV=aPos*0.5+0.5; gl_Position=vec4(aPos,0.0,1.0); }`;
 
 const _FRAG = `precision highp float;
 uniform sampler2D uImg,uLUT; varying vec2 vUV;
-uniform float uExpF,uCF,uHlStr,uShStr,uFadeFloor,uSatF,uVibF,uTempR,uTempB,uTintG,uTintRB;
+uniform float uExpF,uCF,uHlStr,uShStr,uFadeFloor,uSatF,uVibF;
+uniform mat3 uWBMat;
 uniform float uWhitesStr,uBlacksStr;
-uniform float uDoHSL,uHslH[8],uHslS[8],uHslL[8];
+uniform float uDoHSL,uHslH[8],uHslS[8],uHslL[8],uHslW[8];
 uniform float uDoSplit,uShadowHue,uShadowStr,uHighlightHue,uHighlightStr,uSplitBalance,uMidHue,uMidStr;
 uniform float uDehazeF;
 
-float hmask(float h,float c){float d=abs(h-c);if(d>180.0)d=360.0-d;return d>=60.0?0.0:1.0-d/60.0;}
+float hmask(float h,float c,float w){float d=abs(h-c);if(d>180.0)d=360.0-d;return d>=w?0.0:1.0-d/w;}
 
 vec3 rgb2hsl(vec3 c){
     float mx=max(c.r,max(c.g,c.b)),mn=min(c.r,min(c.g,c.b)),l=(mx+mn)*0.5;
@@ -908,20 +952,21 @@ void main(){
         float sat=max(max(abs(cL.r-gr2),abs(cL.g-gr2)),abs(cL.b-gr2))/255.0;
         cL=gr2+(1.0+uVibF*(1.0-min(1.0,sat*2.0)))*(cL-gr2);
     }
+    // White balance: Bradford chromatic adaptation in linear light
+    cL = uWBMat * cL;
     // Re-encode back to sRGB before colour/HSL ops
     c=pow(clamp(cL/255.0,0.0,1.0),vec3(1.0/2.2))*255.0;
-    c.r+=uTempR;c.b-=uTempB;c.g-=uTintG;c.r+=uTintRB;c.b+=uTintRB;
     if(uDoHSL>0.5){
         c=clamp(c,0.0,255.0);
         vec3 hsl=rgb2hsl(c/255.0);float h=hsl.x,s=hsl.y,l=hsl.z,dH=0.0,dS=0.0,dL=0.0;
-        dH+=hmask(h,  0.0)*uHslH[0];dS+=hmask(h,  0.0)*uHslS[0];dL+=hmask(h,  0.0)*uHslL[0];
-        dH+=hmask(h, 30.0)*uHslH[1];dS+=hmask(h, 30.0)*uHslS[1];dL+=hmask(h, 30.0)*uHslL[1];
-        dH+=hmask(h, 60.0)*uHslH[2];dS+=hmask(h, 60.0)*uHslS[2];dL+=hmask(h, 60.0)*uHslL[2];
-        dH+=hmask(h,120.0)*uHslH[3];dS+=hmask(h,120.0)*uHslS[3];dL+=hmask(h,120.0)*uHslL[3];
-        dH+=hmask(h,180.0)*uHslH[4];dS+=hmask(h,180.0)*uHslS[4];dL+=hmask(h,180.0)*uHslL[4];
-        dH+=hmask(h,240.0)*uHslH[5];dS+=hmask(h,240.0)*uHslS[5];dL+=hmask(h,240.0)*uHslL[5];
-        dH+=hmask(h,270.0)*uHslH[6];dS+=hmask(h,270.0)*uHslS[6];dL+=hmask(h,270.0)*uHslL[6];
-        dH+=hmask(h,300.0)*uHslH[7];dS+=hmask(h,300.0)*uHslS[7];dL+=hmask(h,300.0)*uHslL[7];
+        dH+=hmask(h,  0.0,uHslW[0])*uHslH[0];dS+=hmask(h,  0.0,uHslW[0])*uHslS[0];dL+=hmask(h,  0.0,uHslW[0])*uHslL[0];
+        dH+=hmask(h, 30.0,uHslW[1])*uHslH[1];dS+=hmask(h, 30.0,uHslW[1])*uHslS[1];dL+=hmask(h, 30.0,uHslW[1])*uHslL[1];
+        dH+=hmask(h, 60.0,uHslW[2])*uHslH[2];dS+=hmask(h, 60.0,uHslW[2])*uHslS[2];dL+=hmask(h, 60.0,uHslW[2])*uHslL[2];
+        dH+=hmask(h,120.0,uHslW[3])*uHslH[3];dS+=hmask(h,120.0,uHslW[3])*uHslS[3];dL+=hmask(h,120.0,uHslW[3])*uHslL[3];
+        dH+=hmask(h,195.0,uHslW[4])*uHslH[4];dS+=hmask(h,195.0,uHslW[4])*uHslS[4];dL+=hmask(h,195.0,uHslW[4])*uHslL[4];
+        dH+=hmask(h,248.0,uHslW[5])*uHslH[5];dS+=hmask(h,248.0,uHslW[5])*uHslS[5];dL+=hmask(h,248.0,uHslW[5])*uHslL[5];
+        dH+=hmask(h,285.0,uHslW[6])*uHslH[6];dS+=hmask(h,285.0,uHslW[6])*uHslS[6];dL+=hmask(h,285.0,uHslW[6])*uHslL[6];
+        dH+=hmask(h,323.0,uHslW[7])*uHslH[7];dS+=hmask(h,323.0,uHslW[7])*uHslS[7];dL+=hmask(h,323.0,uHslW[7])*uHslL[7];
         h=mod(mod(h+dH,360.0)+360.0,360.0);
         s=clamp(s*(1.0+dS/100.0),0.0,1.0);
         l=clamp(l+dL/100.0*0.5,0.0,1.0);
@@ -976,7 +1021,7 @@ function _initGL() {
         gl.useProgram(prog);
         const L = {};
         ['uImg','uLUT','uExpF','uCF','uHlStr','uShStr','uWhitesStr','uBlacksStr','uFadeFloor','uSatF','uVibF',
-         'uTempR','uTempB','uTintG','uTintRB','uDoHSL','uHslH','uHslS','uHslL',
+         'uWBMat','uDoHSL','uHslH','uHslS','uHslL','uHslW',
          'uDoSplit','uShadowHue','uShadowStr','uHighlightHue','uHighlightStr','uSplitBalance',
          'uMidHue','uMidStr','uDehazeF'
         ].forEach(n => L[n] = gl.getUniformLocation(prog, n));
@@ -1002,10 +1047,12 @@ function _applyEditsGL(src, p) {
     gl.uniform1f(L.uHlStr,p.hlStr); gl.uniform1f(L.uShStr,p.shStr);
     gl.uniform1f(L.uWhitesStr,p.whitesStr); gl.uniform1f(L.uBlacksStr,p.blacksStr);
     gl.uniform1f(L.uFadeFloor,p.fadeFloor); gl.uniform1f(L.uSatF,p.satF);
-    gl.uniform1f(L.uVibF,p.vibF); gl.uniform1f(L.uTempR,p.tempR);
-    gl.uniform1f(L.uTempB,p.tempB); gl.uniform1f(L.uTintG,p.tintG);
-    gl.uniform1f(L.uTintRB,p.tintRB); gl.uniform1f(L.uDoHSL,p.doHSL?1:0);
+    gl.uniform1f(L.uVibF,p.vibF);
+    // WebGL1 requires transpose=false; pass row-major matrix transposed (column-major)
+    gl.uniformMatrix3fv(L.uWBMat,false,p.wbMatGL);
+    gl.uniform1f(L.uDoHSL,p.doHSL?1:0);
     gl.uniform1fv(L.uHslH,p.hslH); gl.uniform1fv(L.uHslS,p.hslS); gl.uniform1fv(L.uHslL,p.hslL);
+    gl.uniform1fv(L.uHslW,p.hslW);
     gl.uniform1f(L.uDoSplit,p.doSplit?1:0); gl.uniform1f(L.uShadowHue,p.shadowHue);
     gl.uniform1f(L.uShadowStr,p.shadowStr); gl.uniform1f(L.uHighlightHue,p.highlightHue);
     gl.uniform1f(L.uHighlightStr,p.highlightStr); gl.uniform1f(L.uSplitBalance,p.splitBalance);
@@ -1041,6 +1088,7 @@ function applyEdits(src) {
     const dehaze      = parseFloat(document.getElementById('sl-dehaze').value);
 
     const lut = buildCurveLUT();
+    const wbMat = computeWBMatrix(temperature, tint);
     const params = {
         lut,
         expF:      Math.pow(2, exposure * 3 / 100),
@@ -1052,14 +1100,13 @@ function applyEdits(src) {
         fadeFloor: fade / 100 * 38,
         satF:      1 + saturation / 100,
         vibF:      vibrance / 100,
-        tempR:     temperature * 0.4,
-        tempB:     temperature * 0.4,
-        tintG:     tint * 0.45,
-        tintRB:    tint * 0.12,
+        wbMat,                          // row-major 3×3 for CPU path
+        wbMatGL:   mat3ToGL(wbMat),     // column-major for WebGL
         doHSL:     hslActive || splitActive || midStr > 0,
         hslH:      Array.from(hslH),
         hslS:      Array.from(hslS),
         hslL:      Array.from(hslL),
+        hslW:      Float32Array.from(HSL_WIDTHS),
         doSplit:   splitActive || midStr > 0,
         shadowHue, shadowStr, highlightHue, highlightStr, splitBalance,
         midHue, midStr,
@@ -1081,7 +1128,7 @@ function applyEdits(src) {
     }
 
     // CPU fallback ────────────────────────────────────────────────
-    const { expF, cF, hlStr: hStr, shStr: sStr, whitesStr, blacksStr, fadeFloor, satF, vibF, tempR, tempB, tintG, tintRB, doHSL, dehazeF } = params;
+    const { expF, cF, hlStr: hStr, shStr: sStr, whitesStr, blacksStr, fadeFloor, satF, vibF, wbMat, doHSL, dehazeF } = params;
 
     // sRGB linearisation helpers (matches GPU shader gamma 2.2 path)
     const toLinear = v => Math.pow(Math.max(0, v) / 255, 2.2) * 255;
@@ -1143,10 +1190,13 @@ function applyEdits(src) {
             const vb = 1 + vibF * (1 - Math.min(1, sat * 2));
             r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
         }
+        // White balance: Bradford chromatic adaptation in linear light (matches GPU shader)
+        const wr = wbMat[0]*r + wbMat[1]*g + wbMat[2]*b;
+        const wg = wbMat[3]*r + wbMat[4]*g + wbMat[5]*b;
+        const wb = wbMat[6]*r + wbMat[7]*g + wbMat[8]*b;
+        r = wr; g = wg; b = wb;
         // Re-encode to sRGB before colour ops (matches GPU shader)
         r=toSRGB(r); g=toSRGB(g); b=toSRGB(b);
-        r+=tempR; b-=tempB;
-        g-=tintG; r+=tintRB; b+=tintRB;
         if (doHSL) {
             r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
             const rn=r/255, gn=g/255, bn=b/255;
@@ -1163,7 +1213,7 @@ function applyEdits(src) {
             if (hslActive) {
                 let dH=0, dS=0, dL=0;
                 for (let bi=0; bi<8; bi++) {
-                    const w=hueMask(hh,HSL_CENTERS[bi]);
+                    const w=hueMask(hh,HSL_CENTERS[bi],HSL_WIDTHS[bi]);
                     if(w>0){dH+=hslH[bi]*w; dS+=hslS[bi]*w; dL+=hslL[bi]*w;}
                 }
                 hh=((hh+dH)%360+360)%360;
@@ -1255,23 +1305,64 @@ function applyColorNR(ctx, w, h, amount) {
     ctx.putImageData(id, 0, 0);
 }
 
+// Gaussian Unsharp Mask — resolution-aware radius, luminance-only to prevent colour fringing
 function applySharpening(ctx, w, h, amount) {
-    const a = amount / 100 * 1.5;
-    const id = ctx.getImageData(0, 0, w, h);
-    const src = new Uint8ClampedArray(id.data);
-    const d = id.data;
-    const lum = i => 0.2126*src[i] + 0.7152*src[i+1] + 0.0722*src[i+2];
-    for (let y = 1; y < h-1; y++) {
-        for (let x = 1; x < w-1; x++) {
-            const i = (y*w + x) * 4;
-            // Compute sharpening delta on luminance only to avoid colour fringing
-            const delta = a * (4*lum(i) - lum(i-4) - lum(i+4) - lum(i-w*4) - lum(i+w*4));
-            for (let c = 0; c < 3; c++) {
-                d[i+c] = Math.max(0, Math.min(255, src[i+c] + delta));
-            }
+    if (amount <= 0) return;
+    const id  = ctx.getImageData(0, 0, w, h);
+    const orig = new Uint8ClampedArray(id.data);
+    const d    = id.data;
+
+    // Extract luminance channel into a float array
+    const lumData = new Float32Array(w * h);
+    for (let i = 0; i < orig.length; i += 4) {
+        lumData[i >> 2] = 0.2126*orig[i] + 0.7152*orig[i+1] + 0.0722*orig[i+2];
+    }
+
+    // Gaussian radius scales with the longer edge so sharpening is resolution-independent
+    const radius = Math.max(1, Math.round(Math.max(w, h) * 0.005));
+    const blurred = new Float32Array(lumData);
+    // Three box-blur passes approximate a Gaussian (central limit theorem)
+    boxBlurFloat(blurred, w, h, radius);
+    boxBlurFloat(blurred, w, h, radius);
+    boxBlurFloat(blurred, w, h, radius);
+
+    const strength = amount / 100 * 1.5;
+    for (let i = 0; i < orig.length; i += 4) {
+        const idx   = i >> 2;
+        const delta = strength * (lumData[idx] - blurred[idx]); // high-pass
+        for (let c = 0; c < 3; c++) {
+            d[i+c] = Math.max(0, Math.min(255, orig[i+c] + delta));
         }
     }
     ctx.putImageData(id, 0, 0);
+}
+
+// Separable box blur for a Float32 single-channel array — O(W×H) per pass
+function boxBlurFloat(data, w, h, r) {
+    const tmp = new Float32Array(data.length);
+    // Horizontal pass
+    for (let y = 0; y < h; y++) {
+        let sum = 0;
+        const row = y * w;
+        for (let x = 0; x <= r && x < w; x++) sum += data[row + x];
+        for (let x = 0; x < w; x++) {
+            const cnt = Math.min(x+r, w-1) - Math.max(x-r, 0) + 1;
+            tmp[row+x] = sum / cnt;
+            if (x+r+1 < w) sum += data[row + x+r+1];
+            if (x-r   >= 0) sum -= data[row + x-r];
+        }
+    }
+    // Vertical pass
+    for (let x = 0; x < w; x++) {
+        let sum = 0;
+        for (let y = 0; y <= r && y < h; y++) sum += tmp[y*w + x];
+        for (let y = 0; y < h; y++) {
+            const cnt = Math.min(y+r, h-1) - Math.max(y-r, 0) + 1;
+            data[y*w+x] = sum / cnt;
+            if (y+r+1 < h) sum += tmp[(y+r+1)*w + x];
+            if (y-r   >= 0) sum -= tmp[(y-r  )*w + x];
+        }
+    }
 }
 
 // Clarity: local contrast via high-pass blend (large-radius unsharp mask)
