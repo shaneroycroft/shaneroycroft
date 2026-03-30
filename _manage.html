@@ -176,6 +176,11 @@
         }
         .cat-new-input:focus { border-color: var(--text); }
 
+        /* ── Admin quick links ───────────────────────────── */
+        .admin-quick-links { font-size: 0.72rem; letter-spacing: 0.5px; margin-bottom: 2rem; }
+        .admin-quick-links a { color: var(--secondary); text-decoration: none; transition: color 0.2s; }
+        .admin-quick-links a:hover { color: var(--text); }
+
         /* ── Homepage preview ────────────────────────────── */
         .hp-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-width: 360px; }
         .hp-preview-item { position: relative; aspect-ratio: 1; overflow: hidden; }
@@ -204,7 +209,12 @@
     </nav>
 
     <div class="container fade-in" style="max-width: 800px;">
-        <h2 class="serif" style="margin-bottom: 2rem;">photo admin.</h2>
+        <h2 class="serif" style="margin-bottom: 1rem;">photo admin.</h2>
+        <p class="admin-quick-links">
+            <a href="photography.html">view gallery →</a>
+            &nbsp;&nbsp;·&nbsp;&nbsp;
+            <a href="editor.html">open editor →</a>
+        </p>
 
         <!-- PAT strip (always visible, compact) -->
         <div class="pat-strip" id="pat-strip">
@@ -271,7 +281,8 @@
                     <button class="btn-sm" onclick="confirmRename()">rename</button>
                     <button class="btn-ghost" onclick="hideCatRename()">cancel</button>
                 </div>
-                <p class="text-muted" style="font-size:0.75rem; margin-bottom: 1rem;" id="manage-hint"></p>
+                <p class="text-muted" style="font-size:0.75rem; margin-bottom: 0.5rem;" id="manage-hint"></p>
+                <span class="log" id="manage-log" style="display:block; margin-bottom:0.75rem; min-height:0;"></span>
                 <div class="existing-grid" id="existing-grid"></div>
             </div>
         </div>
@@ -308,9 +319,11 @@
         // ─── Tabs ───────────────────────────────────────────
         function switchTab(name) {
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+            document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'none'; p.classList.remove('active'); });
             document.querySelector(`.admin-tab[onclick="switchTab('${name}')"]`).classList.add('active');
-            document.getElementById('tab-' + name).style.display = 'block';
+            const panel = document.getElementById('tab-' + name);
+            panel.style.display = 'block';
+            panel.classList.add('active');
             if (name === 'manage') { renderManageGrid(); renderCatActions(); }
             if (name === 'homepage') renderHomepagePreview();
         }
@@ -432,6 +445,11 @@
                 body: JSON.stringify(body)
             });
             if (!res.ok) throw new Error('failed to save manifest');
+        }
+
+        // ─── Helpers ───────────────────────────────────────
+        function catSlug(cat) {
+            return cat.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         }
 
         // ─── Compression ───────────────────────────────────
@@ -639,7 +657,7 @@
             let success = 0;
             for (let i = 0; i < queue.length; i++) {
                 const item = queue[i];
-                const path = `images/${uploadCat === 'the desert' ? 'desert' : uploadCat}/${Date.now()}_${item.name}`;
+                const path = `images/${catSlug(uploadCat)}/${Date.now()}_${item.name}`;
                 log(`uploading ${item.name}...`, '');
                 setBar(i, 40);
 
@@ -719,6 +737,13 @@
             el.innerHTML = `<span class="${cls}">${msg}</span>`;
         }
 
+        function manageLog(msg, cls) {
+            const el = document.getElementById('manage-log');
+            if (!el) return;
+            el.innerHTML = msg ? `<span class="${cls}">${msg}</span>` : '';
+            if (msg) setTimeout(() => { if (el) el.innerHTML = ''; }, 3000);
+        }
+
         // ─── Manage Existing ───────────────────────────────
         function selectManageCat(cat) {
             manageCat = cat;
@@ -752,6 +777,7 @@
                     <div class="item-actions">
                         <button onclick="openInEditor('${escHtml(src)}')">edit ↗</button>
                         <button onclick="togglePin('${manageCat}', ${i})">${isPinned ? 'unpin' : 'pin'}</button>
+                        <button onclick="moveToCategoryPrompt('${manageCat}', ${i})">move</button>
                         <button class="btn-delete" onclick="deletePhoto('${manageCat}', ${i})">delete</button>
                     </div>`;
 
@@ -780,8 +806,8 @@
                     arr.splice(i, 0, moved);
                     dragSrcIdx = null;
                     renderManageGrid();
-                    try { await saveManifest(); }
-                    catch (e) { alert('save failed: ' + e.message); }
+                    try { await saveManifest(); manageLog('order saved.', 'ok'); }
+                    catch (e) { manageLog('save failed: ' + e.message, 'err'); }
                 });
 
                 grid.appendChild(div);
@@ -814,6 +840,29 @@
             window.open('editor.html?url=' + encodeURIComponent(src), '_blank');
         }
 
+        async function moveToCategoryPrompt(cat, index) {
+            const cats = Object.keys(manifest).filter(c => c !== cat);
+            if (!cats.length) { manageLog('no other categories to move to.', 'err'); return; }
+            const chosen = prompt('move to category:\n' + cats.join(', '));
+            if (!chosen) return;
+            const target = cats.find(c => c.toLowerCase() === chosen.trim().toLowerCase());
+            if (!target) { alert('category not found. options: ' + cats.join(', ')); return; }
+            const [entry] = manifest[cat].splice(index, 1);
+            if (!manifest[target]) manifest[target] = [];
+            manifest[target].push(entry);
+            try {
+                await saveManifest();
+                renderManageGrid();
+                renderHomepagePreview();
+                manageLog(`moved to ${target}.`, 'ok');
+            } catch(e) {
+                // rollback
+                manifest[target].pop();
+                manifest[cat].splice(index, 0, entry);
+                alert('save failed: ' + e.message);
+            }
+        }
+
         async function togglePin(cat, index) {
             const entry = manifest[cat][index];
             const asObj = typeof entry === 'string' ? { src: entry } : { ...entry };
@@ -828,12 +877,46 @@
             catch (e) { alert('failed to save: ' + e.message); }
         }
 
+        function rawUrlToPath(url) {
+            const m = url.match(/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[^/]+\/(.+)/);
+            return m ? m[1] : null;
+        }
+
+        async function deleteFileFromGitHub(rawUrl) {
+            const path = rawUrlToPath(rawUrl);
+            if (!path) return;
+            const infoRes = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${path}`);
+            if (!infoRes.ok) return;
+            const info = await infoRes.json();
+            await ghFetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `remove: ${path.split('/').pop()}`, sha: info.sha, branch: BRANCH })
+            });
+        }
+
         async function deletePhoto(cat, index) {
-            if (!confirm('delete this photo from the manifest? (the file will remain in the repo)')) return;
+            if (!confirm('remove this photo from the gallery?')) return;
             if (!manifest) { alert('manifest not loaded.'); return; }
+            const entry = manifest[cat][index];
+            const src = typeof entry === 'string' ? entry : entry.src;
+            const alsoDelete = rawUrlToPath(src) && confirm('also delete the image file from github? this cannot be undone.');
             manifest[cat].splice(index, 1);
-            try { await saveManifest(); renderManageGrid();  renderHomepagePreview(); }
-            catch (e) { alert('failed to save: ' + e.message); }
+            try {
+                await saveManifest();
+                if (alsoDelete) {
+                    try {
+                        await deleteFileFromGitHub(src);
+                        manageLog('photo and file deleted.', 'ok');
+                    } catch(e) {
+                        manageLog('removed from gallery — file delete failed.', 'err');
+                    }
+                } else {
+                    manageLog('removed from gallery.', 'ok');
+                }
+                renderManageGrid();
+                renderHomepagePreview();
+            } catch (e) { alert('failed to save: ' + e.message); }
         }
 
 
