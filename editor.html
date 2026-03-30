@@ -8,6 +8,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/full.umd.js"></script>
     <script>(function(){try{var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
     <style>
         html, body { height: 100%; overflow: hidden; }
@@ -152,6 +153,15 @@
         .cg-wheel { display: block; cursor: crosshair; border-radius: 50%; border: 1px solid var(--border); }
         .cg-wheel-label { font-size: 0.58rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
 
+        /* EXIF strip */
+        .exif-strip { padding: 0.5rem 1.2rem 0.65rem; border-bottom: 1px solid var(--border); display:none; }
+        .exif-strip-label { font-size: 0.62rem; letter-spacing: 1px; text-transform: lowercase; color: var(--secondary); margin-bottom: 0.3rem; }
+        .exif-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.18rem 0.5rem; }
+        .exif-item { font-size: 0.62rem; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .exif-item span { color: var(--text); }
+        .exif-row-full { grid-column: 1 / -1; font-size: 0.62rem; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .exif-row-full span { color: var(--text); }
+
         /* Canvas area */
         .e-main { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; background: #efefef; }
         #drop-hint { text-align: center; padding: 3.5rem 3rem; border: 1px dashed #ccc; cursor: pointer; background: var(--bg); min-width: 260px; }
@@ -186,6 +196,10 @@
         </select>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onmousedown="showOriginal(true)" onmouseup="showOriginal(false)" ontouchstart="showOriginal(true)" ontouchend="showOriginal(false)">before/after</button>
+        <span class="e-bar-sep">|</span>
+        <label class="grid-label" title="highlight clipping: red=blown, blue=crushed">
+            <input type="checkbox" id="clip-toggle" onchange="renderOverlay()"> clipping
+        </label>
         <span class="e-bar-sep">|</span>
         <span id="zoom-ind"></span>
         <button class="e-bar-btn" id="zoom-reset-btn" onclick="resetZoom()" style="display:none">fit</button>
@@ -225,6 +239,12 @@
                     <button class="s-link" onclick="autoEnhance()">auto enhance</button>
                     <span id="img-dims" style="font-size:0.62rem;color:var(--secondary);"></span>
                 </div>
+            </div>
+
+            <!-- EXIF strip -->
+            <div class="exif-strip" id="exif-strip">
+                <div class="exif-strip-label">camera info</div>
+                <div class="exif-grid" id="exif-grid"></div>
             </div>
 
             <details class="e-sec">
@@ -575,6 +595,12 @@ let perspCorners = null; // null = inactive, array of 4 {x,y} in image coords
 let perspDragging = -1;  // index of corner being dragged
 let perspHover = -1;     // index of corner being hovered
 
+// Histogram channel data (256 bins, populated by drawHistogram, consumed by drawCurve)
+let histDataR = new Float32Array(256);
+let histDataG = new Float32Array(256);
+let histDataB = new Float32Array(256);
+let histDataL = new Float32Array(256);
+
 // Brush tools (dodge / burn)
 let activeTool      = null;
 let brushSize       = 60;
@@ -807,10 +833,51 @@ function loadFile(file) {
         document.getElementById('drop-hint').style.display = 'none';
         document.getElementById('canvas-wrap').style.display = 'inline-block';
         document.getElementById('dl-btn').disabled = false;
+        document.getElementById('exif-strip').style.display = 'none';
         render();
         updateDimsDisplay();
     };
     img.src = url;
+    // Parse EXIF asynchronously
+    if (typeof exifr !== 'undefined') {
+        exifr.parse(file, {
+            tiff: true, exif: true, gps: false, interop: false,
+            translateKeys: true, translateValues: true, reviveValues: true
+        }).then(exif => renderExifStrip(exif)).catch(() => {});
+    }
+}
+
+function renderExifStrip(exif) {
+    const strip = document.getElementById('exif-strip');
+    const grid  = document.getElementById('exif-grid');
+    if (!exif || !strip || !grid) return;
+    grid.innerHTML = '';
+    const add = (label, val, full) => {
+        if (!val) return;
+        const el = document.createElement('div');
+        el.className = full ? 'exif-row-full' : 'exif-item';
+        el.innerHTML = label + ' <span>' + val + '</span>';
+        grid.appendChild(el);
+    };
+    const make  = exif.Make  ? exif.Make.trim()  : '';
+    const model = exif.Model ? exif.Model.trim() : '';
+    // Avoid duplicating make prefix that's already in model
+    const camera = (make && !model.toLowerCase().startsWith(make.toLowerCase())) ? make + ' ' + model : model;
+    add('', camera || null, true);
+    const lens = exif.LensModel || exif.Lens || null;
+    if (lens) add('', lens, true);
+    const fnum = exif.FNumber ? 'f/' + exif.FNumber.toFixed(1) : null;
+    const ss   = exif.ExposureTime ? (exif.ExposureTime >= 1 ? exif.ExposureTime + 's' : '1/' + Math.round(1/exif.ExposureTime) + 's') : null;
+    const iso  = exif.ISO ? 'ISO ' + exif.ISO : null;
+    const fl   = exif.FocalLength ? exif.FocalLength + 'mm' : null;
+    add('f', fnum, false);
+    add('ss', ss, false);
+    add('', iso, false);
+    add('fl', fl, false);
+    // Fujifilm-specific extras
+    const film = exif.FilmMode || exif.Saturation || null;
+    if (film && typeof film === 'string' && film.toLowerCase() !== 'normal') add('sim', film, true);
+    strip.style.display = grid.children.length ? '' : 'none';
 }
 
 function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width=w; c.height=h; return c; }
@@ -895,6 +962,7 @@ function render() {
     ov.height = out.height;
     renderOverlay();
     drawHistogram();
+    drawCurve();
     if (!isAdjusting) updateDimsDisplay();
 }
 
@@ -1736,10 +1804,14 @@ function drawHistogram() {
     const id = sc.getContext('2d').getImageData(0, 0, sw, sh).data;
     const BINS = W, sz = 256/BINS;
     const r=new Float32Array(BINS), g=new Float32Array(BINS), b=new Float32Array(BINS), lm=new Float32Array(BINS);
+    // Also fill 256-bin arrays for curve overlay (independent of display BINS)
+    histDataR.fill(0); histDataG.fill(0); histDataB.fill(0); histDataL.fill(0);
     for (let i=0; i<id.length; i+=4) {
         const ri=id[i],gi=id[i+1],bi=id[i+2];
         r[Math.min(BINS-1,ri/sz|0)]++; g[Math.min(BINS-1,gi/sz|0)]++;
         b[Math.min(BINS-1,bi/sz|0)]++; lm[Math.min(BINS-1,(0.2126*ri+0.7152*gi+0.0722*bi)/sz|0)]++;
+        histDataR[ri]++; histDataG[gi]++; histDataB[bi]++;
+        histDataL[Math.min(255, 0.2126*ri+0.7152*gi+0.0722*bi|0)]++;
     }
     const toLog = a => a.map(v => v>0 ? Math.log(v+1) : 0);
     const rl=toLog(r),gl=toLog(g),bl2=toLog(b),ll=toLog(lm);
@@ -1765,11 +1837,42 @@ function renderOverlay() {
     if (!ov.width) return;
     const ctx = ov.getContext('2d');
     ctx.clearRect(0, 0, ov.width, ov.height);
+    if (document.getElementById('clip-toggle').checked) drawClippingZebra(ctx, ov.width, ov.height);
     if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
     if (straightenAngle !== 0) drawStraightenGrid(ctx, ov.width, ov.height);
     if (perspCorners) drawPerspHandles(ctx, ov.width, ov.height);
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
     if (activeTool && brushCursorPos) drawBrushCursor(ctx);
+}
+
+function drawClippingZebra(ctx, W, H) {
+    const out = document.getElementById('output-canvas');
+    if (!out.width) return;
+    // Sample output at overlay resolution (1:1 since overlay matches output dims)
+    const src = out.getContext('2d').getImageData(0, 0, out.width, out.height);
+    const d = src.data;
+    // Build a small ImageData for the overlay: mark clipped pixels
+    const od = ctx.createImageData(W, H);
+    const od32 = od.data;
+    for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        // Blown highlight: any channel >= 253
+        if (r >= 253 || g >= 253 || b >= 253) {
+            // Zebra stripe: alternate based on pixel position
+            const px = (i/4) % W, py = (i/4) / W | 0;
+            if (((px + py) >> 2) & 1) {
+                od32[i]=255; od32[i+1]=0; od32[i+2]=0; od32[i+3]=200;
+            }
+        }
+        // Crushed shadow: luminance <= 2
+        else if ((0.2126*r + 0.7152*g + 0.0722*b) <= 2) {
+            const px = (i/4) % W, py = (i/4) / W | 0;
+            if (((px + py) >> 2) & 1) {
+                od32[i]=0; od32[i+1]=80; od32[i+2]=255; od32[i+3]=200;
+            }
+        }
+    }
+    ctx.putImageData(od, 0, 0);
 }
 
 function drawStraightenGrid(ctx, W, H) {
@@ -2746,10 +2849,27 @@ function buildCurveLUT() {
 }
 
 // ── Curve canvas ──────────────────────────────────────────────
+function drawCurveHistogram(ctx) {
+    // Pick the histogram channel matching the active curve channel
+    const raw = curveChannel==='r' ? histDataR : curveChannel==='g' ? histDataG : curveChannel==='b' ? histDataB : histDataL;
+    const col = curveChannel==='r' ? 'rgba(192,57,43,0.18)' : curveChannel==='g' ? 'rgba(39,174,96,0.18)' : curveChannel==='b' ? 'rgba(41,128,185,0.18)' : 'rgba(0,0,0,0.13)';
+    const maxV = Math.max(...raw, 1);
+    const toLog = v => v > 0 ? Math.log(v+1) / Math.log(maxV+1) : 0;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(0, CS);
+    for (let i=0; i<256; i++) {
+        const x = (i/255)*CS, y = CS - toLog(raw[i])*CS;
+        i===0 ? ctx.lineTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.lineTo(CS, CS); ctx.closePath(); ctx.fill();
+}
+
 function drawCurve() {
     const cv=document.getElementById('curve-canvas'), ctx=cv.getContext('2d');
     ctx.clearRect(0,0,CS,CS);
     ctx.fillStyle='#fff'; ctx.fillRect(0,0,CS,CS);
+    // Histogram behind the curve
+    drawCurveHistogram(ctx);
     ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=1;
     [0.25,0.5,0.75].forEach(t=>{ ctx.beginPath();ctx.moveTo(t*CS,0);ctx.lineTo(t*CS,CS);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,t*CS);ctx.lineTo(CS,t*CS);ctx.stroke(); });
     ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.beginPath();ctx.moveTo(0,CS);ctx.lineTo(CS,0);ctx.stroke();
