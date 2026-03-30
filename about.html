@@ -32,8 +32,8 @@
     <div class="container fade-in">
         <div class="about-split">
             <div>
-                <h1 class="serif">observing the in-between.</h1>
-                <p class="about-bio">
+                <h1 class="serif" id="about-tagline">observing the in-between.</h1>
+                <p class="about-bio" id="about-bio">
                     a collection of projects and cinematic moments captured in my travels.
                     i shoot with fujifilm, focusing on the intersection of people and their environments.
                     based in toronto.
@@ -72,18 +72,36 @@
 
     <script src="theme.js"></script>
     <script>
-        fetch('photos.json?t=' + Date.now())
-            .then(r => r.json())
-            .then(data => {
-                const first = (data.portfolio || [])[0];
-                if (!first) return;
-                const src = typeof first === 'string' ? first : first.src;
-                const img = document.getElementById('about-photo');
-                img.src = src;
-                img.onload = () => img.classList.add('loaded');
-                if (img.complete) img.classList.add('loaded');
-            })
-            .catch(() => {});
+        // Load content.json first, fall back to photos.json for the photo
+        Promise.all([
+            fetch('content.json?t=' + Date.now()).then(r => r.json()).catch(() => null),
+            fetch('photos.json?t=' + Date.now()).then(r => r.json()).catch(() => null)
+        ]).then(([content, photos]) => {
+            if (content) {
+                if (content.tagline) {
+                    document.getElementById('about-tagline').textContent = content.tagline;
+                }
+                if (content.bio) {
+                    document.getElementById('about-bio').textContent = content.bio;
+                }
+                if (content.about_photo) {
+                    setPhoto(content.about_photo);
+                    return;
+                }
+            }
+            // Fall back to first portfolio photo
+            if (photos) {
+                const first = (photos.portfolio || [])[0];
+                if (first) setPhoto(typeof first === 'string' ? first : first.src);
+            }
+        });
+
+        function setPhoto(src) {
+            const img = document.getElementById('about-photo');
+            img.src = src;
+            img.onload = () => img.classList.add('loaded');
+            if (img.complete) img.classList.add('loaded');
+        }
     </script>
 </body>
 </html>

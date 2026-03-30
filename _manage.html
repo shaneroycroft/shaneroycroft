@@ -188,6 +188,77 @@
         .hp-preview-label { position: absolute; bottom: 0; left: 0; right: 0; font-size: 0.58rem; color: #fff; background: rgba(0,0,0,0.6); padding: 3px 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .hp-empty { font-size: 0.8rem; color: var(--secondary); }
 
+        /* ── Cover dot ───────────────────────────────────── */
+        .existing-item .cover-dot {
+            position: absolute; bottom: 4px; right: 4px;
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #e67e22; display: none;
+        }
+        .existing-item.cover .cover-dot { display: block; }
+
+        /* ── Manage controls bar ─────────────────────────── */
+        .manage-controls { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+        .sort-select {
+            font-family: inherit; font-size: 0.72rem; background: var(--bg);
+            color: var(--secondary); border: 1px solid var(--border);
+            padding: 0.25rem 0.4rem; outline: none; cursor: pointer;
+        }
+        .sort-select:focus { border-color: var(--text); }
+
+        /* ── Admin lightbox ──────────────────────────────── */
+        #admin-lb {
+            position: fixed; inset: 0; background: var(--lightbox-bg);
+            display: none; justify-content: center; align-items: center;
+            flex-direction: column; gap: 0.75rem; z-index: 200; cursor: zoom-out;
+        }
+        #admin-lb img { max-width: 85%; max-height: 78vh; object-fit: contain; }
+        #admin-lb-info { font-size: 0.72rem; color: var(--secondary); letter-spacing: 0.5px; text-align: center; pointer-events: none; }
+        .admin-lb-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            background: none; border: none; font-size: 1.5rem; color: var(--secondary);
+            cursor: pointer; padding: 1rem; transition: color 0.2s;
+        }
+        .admin-lb-nav:hover { color: var(--text); }
+        #admin-lb-prev { left: 1.5rem; }
+        #admin-lb-next { right: 1.5rem; }
+        .admin-lb-close {
+            position: absolute; top: 1.5rem; right: 1.5rem; background: none; border: none;
+            font-size: 1.5rem; color: var(--secondary); cursor: pointer; line-height: 1;
+            transition: color 0.2s;
+        }
+        .admin-lb-close:hover { color: var(--text); }
+
+        /* ── Projects editor ─────────────────────────────── */
+        .proj-item { border-top: 1px solid var(--border); padding: 1.25rem 0; }
+        .proj-item:first-child { border-top: none; }
+        .proj-item.dragging { opacity: 0.35; }
+        .proj-item.drag-over { outline: 2px solid var(--text); outline-offset: 4px; }
+        .proj-header { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
+        .proj-drag { color: var(--secondary); cursor: grab; font-size: 1rem; user-select: none; flex-shrink: 0; }
+        .proj-field {
+            font-family: inherit; font-size: 0.8rem; background: var(--bg); color: var(--text);
+            border: 1px solid var(--border); padding: 0.35rem 0.5rem; outline: none;
+            transition: border-color 0.2s; display: block; width: 100%;
+        }
+        .proj-field:focus { border-color: var(--text); }
+        .proj-field-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .proj-desc { resize: vertical; line-height: 1.6; margin-bottom: 0.5rem; }
+        .proj-status-sel {
+            font-family: inherit; font-size: 0.75rem; background: var(--bg); color: var(--text);
+            border: 1px solid var(--border); padding: 0.35rem 0.5rem; outline: none; cursor: pointer;
+        }
+        .proj-delete-btn { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--secondary); transition: color 0.2s; flex-shrink: 0; }
+        .proj-delete-btn:hover { color: #c0392b; }
+        .proj-link-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
+        .proj-link-remove { background: none; border: none; cursor: pointer; font-size: 0.85rem; color: var(--secondary); transition: color 0.2s; flex-shrink: 0; }
+        .proj-link-remove:hover { color: #c0392b; }
+
+        /* ── Deploy status ───────────────────────────────── */
+        .deploy-status { font-size: 0.72rem; letter-spacing: 0.5px; }
+        .deploy-status.deploying { color: #e67e22; }
+        .deploy-status.live { color: #27ae60; }
+        .deploy-status.error { color: #c0392b; }
+
         /* ── Category actions ────────────────────────────── */
         .cat-actions { display: flex; gap: 1.25rem; margin-bottom: 1.5rem; }
         .cat-action-btn { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.72rem; color: var(--secondary); letter-spacing: 0.5px; text-decoration: underline; padding: 0; transition: color 0.2s; }
@@ -214,6 +285,8 @@
             <a href="photography.html">view gallery →</a>
             &nbsp;&nbsp;·&nbsp;&nbsp;
             <a href="editor.html">open editor →</a>
+            &nbsp;&nbsp;·&nbsp;&nbsp;
+            <span id="deploy-status" class="deploy-status"></span>
         </p>
 
         <!-- PAT strip (always visible, compact) -->
@@ -236,6 +309,8 @@
             <span class="admin-tab active" onclick="switchTab('upload')">upload</span>
             <span class="admin-tab" onclick="switchTab('manage')">manage</span>
             <span class="admin-tab" onclick="switchTab('homepage')">homepage</span>
+            <span class="admin-tab" onclick="switchTab('projects')">projects</span>
+            <span class="admin-tab" onclick="switchTab('about')">about</span>
         </div>
 
         <!-- Upload tab -->
@@ -281,8 +356,18 @@
                     <button class="btn-sm" onclick="confirmRename()">rename</button>
                     <button class="btn-ghost" onclick="hideCatRename()">cancel</button>
                 </div>
-                <p class="text-muted" style="font-size:0.75rem; margin-bottom: 0.5rem;" id="manage-hint"></p>
-                <span class="log" id="manage-log" style="display:block; margin-bottom:0.75rem; min-height:0;"></span>
+                <div class="manage-controls">
+                    <p class="text-muted" style="font-size:0.75rem; flex:1;" id="manage-hint"></p>
+                    <select class="sort-select" id="sort-select" onchange="sortCategory(this.value)">
+                        <option value="manual">manual order</option>
+                        <option value="date-desc">newest first</option>
+                        <option value="caption-asc">caption a–z</option>
+                    </select>
+                </div>
+                <div style="display:flex; gap:1rem; align-items:center; margin-bottom:0.75rem; min-height:1.4rem;">
+                    <span class="log" id="manage-log" style="flex:1;"></span>
+                    <button class="btn-sm" id="save-captions-btn" onclick="savePendingCaptions()" style="display:none; padding:0.45rem 1rem; font-size:0.7rem;">save captions</button>
+                </div>
                 <div class="existing-grid" id="existing-grid"></div>
             </div>
         </div>
@@ -295,6 +380,54 @@
             </div>
         </div>
 
+        <!-- Projects editor tab -->
+        <div class="tab-panel" id="tab-projects">
+            <div class="admin-section">
+                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit project cards. drag to reorder.</p>
+                <div id="projects-list"></div>
+                <div style="display:flex; gap:1rem; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
+                    <button class="btn-ghost" onclick="addProject()">+ add project</button>
+                    <button class="btn-sm" onclick="saveProjectsTab()">save projects</button>
+                    <span class="log" id="projects-log" style="display:inline-block;"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- About editor tab -->
+        <div class="tab-panel" id="tab-about">
+            <div class="admin-section" style="max-width:600px;">
+                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit the about page. leave photo url blank to use the first portfolio photo.</p>
+                <div class="contact-form">
+                    <div class="form-field">
+                        <label>tagline</label>
+                        <input type="text" id="about-tagline-input" placeholder="observing the in-between.">
+                    </div>
+                    <div class="form-field">
+                        <label>bio</label>
+                        <textarea id="about-bio-input" rows="5" placeholder="bio text..."></textarea>
+                    </div>
+                    <div class="form-field">
+                        <label>about photo url (optional)</label>
+                        <input type="text" id="about-photo-input" placeholder="https://raw.githubusercontent.com/...">
+                    </div>
+                    <div id="about-photo-preview" style="margin-top:0.5rem; margin-bottom:0.5rem;"></div>
+                </div>
+                <div style="display:flex; gap:1rem; align-items:center; margin-top:2rem;">
+                    <button class="btn-sm" onclick="saveAboutTab()">save about</button>
+                    <span class="log" id="about-log" style="display:inline-block;"></span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Admin lightbox -->
+    <div id="admin-lb" onclick="closeAdminLb()">
+        <button class="admin-lb-close" onclick="event.stopPropagation(); closeAdminLb()">×</button>
+        <img id="admin-lb-img" alt="" onclick="event.stopPropagation()">
+        <div id="admin-lb-info"></div>
+        <button id="admin-lb-prev" class="admin-lb-nav" onclick="event.stopPropagation(); shiftAdminLb(-1)">&#8592;</button>
+        <button id="admin-lb-next" class="admin-lb-nav" onclick="event.stopPropagation(); shiftAdminLb(1)">&#8594;</button>
     </div>
 
     <footer>
@@ -315,6 +448,13 @@
         let queue = []; // { file, objectUrl, name, caption }
         let manifest = null;
         let dragSrcIdx = null;
+        let captionsDirty = false;
+        let projectsData = null;
+        let projectsDragIdx = null;
+        let aboutData = null;
+        let adminLbList = [];
+        let adminLbIdx = 0;
+        let deployPollTimer = null;
 
         // ─── Tabs ───────────────────────────────────────────
         function switchTab(name) {
@@ -326,6 +466,14 @@
             panel.classList.add('active');
             if (name === 'manage') { renderManageGrid(); renderCatActions(); }
             if (name === 'homepage') renderHomepagePreview();
+            if (name === 'projects') {
+                if (!projectsData) loadProjects().then(renderProjectsTab);
+                else renderProjectsTab();
+            }
+            if (name === 'about') {
+                if (!aboutData) loadAbout().then(renderAboutTab);
+                else renderAboutTab();
+            }
         }
 
         // ─── PAT ───────────────────────────────────────────
@@ -382,8 +530,10 @@
                     uploadCat = cats[0] || 'japan';
                     manageCat = cats[0] || 'japan';
                     renderAllCategoryTabs();
-                    
                     setAdminVisible(true);
+                    // Preload projects + about in background
+                    loadProjects();
+                    loadAbout();
                 } else {
                     setPatStatus('token invalid or no repo access', 'err');
                     setAdminVisible(false);
@@ -445,6 +595,8 @@
                 body: JSON.stringify(body)
             });
             if (!res.ok) throw new Error('failed to save manifest');
+            clearDirty();
+            startDeployPoll();
         }
 
         // ─── Helpers ───────────────────────────────────────
@@ -766,17 +918,20 @@
                 const src     = typeof entry === 'string' ? entry : entry.src;
                 const caption = typeof entry === 'object' && entry.caption ? entry.caption : '';
                 const isPinned = typeof entry === 'object' && !!entry.pinned;
+                const isCover = typeof entry === 'object' && !!entry.cover;
                 const div = document.createElement('div');
-                div.className = 'existing-item' + (isPinned ? ' pinned' : '');
+                div.className = 'existing-item' + (isPinned ? ' pinned' : '') + (isCover ? ' cover' : '');
                 div.draggable = true;
                 div.dataset.idx = i;
                 div.innerHTML = `
-                    <img src="${src}" loading="lazy" alt="" draggable="false">
+                    <img src="${src}" loading="lazy" alt="" draggable="false" onclick="openAdminLb(${i})" style="cursor:zoom-in;">
                     <div class="pin-dot"></div>
+                    <div class="cover-dot" title="cover photo"></div>
                     <div class="item-caption" onclick="editCaption(this, '${manageCat}', ${i})">${caption ? escHtml(caption) : '<span class="no-cap">caption</span>'}</div>
                     <div class="item-actions">
                         <button onclick="openInEditor('${escHtml(src)}')">edit ↗</button>
                         <button onclick="togglePin('${manageCat}', ${i})">${isPinned ? 'unpin' : 'pin'}</button>
+                        <button onclick="setCover('${manageCat}', ${i})">${isCover ? 'uncover' : 'cover'}</button>
                         <button onclick="moveToCategoryPrompt('${manageCat}', ${i})">move</button>
                         <button class="btn-delete" onclick="deletePhoto('${manageCat}', ${i})">delete</button>
                     </div>`;
@@ -818,22 +973,25 @@
 
         function editCaption(el, cat, index) {
             if (el.querySelector('input')) return; // already editing
-            const entry  = manifest[cat][index];
+            const entry = manifest[cat][index];
             const current = typeof entry === 'object' && entry.caption ? entry.caption : '';
             const input = document.createElement('input');
             input.type = 'text'; input.value = current; input.placeholder = 'add caption…';
             el.innerHTML = ''; el.appendChild(input);
             input.focus(); input.select();
-            const save = async () => {
+            const commit = () => {
                 const val = input.value.trim();
                 const asObj = typeof entry === 'string' ? { src: entry } : { ...entry };
                 if (val) asObj.caption = val; else delete asObj.caption;
                 manifest[cat][index] = (Object.keys(asObj).length === 1 && asObj.src) ? asObj.src : asObj;
-                try { await saveManifest(); } catch(e) { alert('save failed: ' + e.message); }
+                setDirty();
                 renderManageGrid();
             };
-            input.addEventListener('blur', save);
-            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } if (e.key === 'Escape') { renderManageGrid(); } });
+            input.addEventListener('blur', commit);
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+                if (e.key === 'Escape') { renderManageGrid(); }
+            });
         }
 
         function openInEditor(src) {
@@ -1062,6 +1220,366 @@
             }
         }
 
+        // ─── Deploy status ─────────────────────────────────
+        function setDeployStatus(msg, cls) {
+            const el = document.getElementById('deploy-status');
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'deploy-status' + (cls ? ' ' + cls : '');
+        }
+
+        function stopDeployPoll() {
+            if (deployPollTimer) { clearInterval(deployPollTimer); deployPollTimer = null; }
+        }
+
+        function startDeployPoll() {
+            stopDeployPoll();
+            setDeployStatus('deploying…', 'deploying');
+            let attempts = 0;
+            deployPollTimer = setInterval(async () => {
+                attempts++;
+                try {
+                    const res = await ghFetch(`https://api.github.com/repos/${REPO}/pages`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.status === 'built') {
+                            setDeployStatus('live ✓', 'live');
+                            stopDeployPoll();
+                            setTimeout(() => setDeployStatus('', ''), 8000);
+                            return;
+                        } else if (data.status === 'errored') {
+                            setDeployStatus('deploy error', 'error');
+                            stopDeployPoll();
+                            return;
+                        }
+                    }
+                } catch {}
+                if (attempts >= 30) { stopDeployPoll(); setDeployStatus('', ''); }
+            }, 10000);
+        }
+
+        // ─── Dirty / unsaved captions ──────────────────────
+        function setDirty() {
+            captionsDirty = true;
+            const btn = document.getElementById('save-captions-btn');
+            if (btn) btn.style.display = 'inline-block';
+        }
+
+        function clearDirty() {
+            captionsDirty = false;
+            const btn = document.getElementById('save-captions-btn');
+            if (btn) btn.style.display = 'none';
+        }
+
+        async function savePendingCaptions() {
+            try {
+                await saveManifest();
+                renderManageGrid();
+                manageLog('captions saved.', 'ok');
+            } catch(e) {
+                manageLog('save failed: ' + e.message, 'err');
+            }
+        }
+
+        // ─── Sort ──────────────────────────────────────────
+        async function sortCategory(mode) {
+            if (!manifest || !manageCat || mode === 'manual') return;
+            const list = [...(manifest[manageCat] || [])];
+            const fname = e => (typeof e === 'string' ? e : e.src).split('/').pop();
+            if (mode === 'date-desc') {
+                list.sort((a, b) => (parseInt(fname(b).split('_')[0]) || 0) - (parseInt(fname(a).split('_')[0]) || 0));
+            } else if (mode === 'caption-asc') {
+                list.sort((a, b) => {
+                    const ca = (typeof a === 'object' && a.caption ? a.caption : '').toLowerCase();
+                    const cb = (typeof b === 'object' && b.caption ? b.caption : '').toLowerCase();
+                    return ca.localeCompare(cb);
+                });
+            }
+            manifest[manageCat] = list;
+            renderManageGrid();
+            const sel = document.getElementById('sort-select');
+            if (sel) sel.value = 'manual';
+            try { await saveManifest(); manageLog('sorted and saved.', 'ok'); }
+            catch(e) { manageLog('sorted locally — save failed: ' + e.message, 'err'); }
+        }
+
+        // ─── Cover photo ───────────────────────────────────
+        async function setCover(cat, index) {
+            const list = manifest[cat] || [];
+            list.forEach((e, i) => {
+                if (typeof e !== 'object') {
+                    if (i === index) manifest[cat][i] = { src: e, cover: true };
+                } else {
+                    if (i === index) e.cover = true; else delete e.cover;
+                }
+            });
+            try { await saveManifest(); renderManageGrid(); manageLog('cover photo set.', 'ok'); }
+            catch(e) { manageLog('save failed: ' + e.message, 'err'); }
+        }
+
+        // ─── Admin lightbox ────────────────────────────────
+        function openAdminLb(index) {
+            const list = manifest[manageCat] || [];
+            adminLbList = list.map((e, i) => ({
+                src: typeof e === 'string' ? e : e.src,
+                caption: typeof e === 'object' && e.caption ? e.caption : '',
+                pinned: typeof e === 'object' && !!e.pinned,
+                cover: typeof e === 'object' && !!e.cover,
+                index: i
+            }));
+            adminLbIdx = index;
+            renderAdminLb();
+            const lb = document.getElementById('admin-lb');
+            if (lb) lb.style.display = 'flex';
+        }
+
+        function renderAdminLb() {
+            const item = adminLbList[adminLbIdx];
+            if (!item) return;
+            document.getElementById('admin-lb-img').src = item.src;
+            const tags = [];
+            if (item.caption) tags.push(item.caption);
+            const flags = [item.pinned && 'pinned', item.cover && 'cover'].filter(Boolean);
+            if (flags.length) tags.push(flags.join(' · '));
+            tags.push(`${adminLbIdx + 1} / ${adminLbList.length}`);
+            document.getElementById('admin-lb-info').textContent = tags.join('  ·  ');
+            document.getElementById('admin-lb-prev').style.display = adminLbList.length > 1 ? 'block' : 'none';
+            document.getElementById('admin-lb-next').style.display = adminLbList.length > 1 ? 'block' : 'none';
+        }
+
+        function shiftAdminLb(dir) {
+            adminLbIdx = (adminLbIdx + dir + adminLbList.length) % adminLbList.length;
+            renderAdminLb();
+        }
+
+        function closeAdminLb() {
+            const lb = document.getElementById('admin-lb');
+            if (lb) lb.style.display = 'none';
+        }
+
+        // ─── Projects ──────────────────────────────────────
+        async function loadProjects() {
+            try {
+                if (getPAT()) {
+                    const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/projects.json`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        projectsData = JSON.parse(atob(data.content.replace(/\n/g, '')));
+                        return;
+                    }
+                }
+                const res = await fetch('projects.json?t=' + Date.now());
+                projectsData = await res.json();
+            } catch { projectsData = []; }
+        }
+
+        async function saveProjects() {
+            const content = btoa(unescape(encodeURIComponent(JSON.stringify(projectsData, null, 2) + '\n')));
+            const shaRes = await ghFetch(`https://api.github.com/repos/${REPO}/contents/projects.json`);
+            let sha;
+            if (shaRes.ok) { const d = await shaRes.json(); sha = d.sha; }
+            const body = { message: 'update projects.json', content, branch: BRANCH };
+            if (sha) body.sha = sha;
+            const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/projects.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error('failed to save projects');
+            startDeployPoll();
+        }
+
+        function readProjectsFromDOM() {
+            document.querySelectorAll('.proj-item').forEach((item, idx) => {
+                if (!projectsData[idx]) return;
+                projectsData[idx].title = item.querySelector('.proj-title').value.trim();
+                projectsData[idx].year = parseInt(item.querySelector('.proj-year').value) || null;
+                projectsData[idx].description = item.querySelector('.proj-desc').value.trim();
+                const tech = item.querySelector('.proj-tech').value.trim();
+                projectsData[idx].tech = tech || null;
+                projectsData[idx].status = item.querySelector('.proj-status-sel').value;
+                projectsData[idx].links = [];
+                item.querySelectorAll('.proj-link-row').forEach(row => {
+                    const inputs = row.querySelectorAll('input');
+                    const url = inputs[1].value.trim();
+                    if (url) projectsData[idx].links.push({ label: inputs[0].value.trim(), url });
+                });
+            });
+        }
+
+        function renderProjectsTab() {
+            const container = document.getElementById('projects-list');
+            if (!container || !projectsData) return;
+            container.innerHTML = '';
+            projectsData.forEach((proj, idx) => {
+                const div = document.createElement('div');
+                div.className = 'proj-item';
+                div.draggable = true;
+                div.dataset.idx = idx;
+                div.innerHTML = `
+                    <div class="proj-header">
+                        <span class="proj-drag" title="drag to reorder">≡</span>
+                        <input class="proj-field proj-year" type="number" value="${proj.year || ''}" placeholder="year" style="width:5.5rem; text-align:center;">
+                        <input class="proj-field proj-title" type="text" value="${escHtml(proj.title || '')}" placeholder="title" style="flex:1;">
+                        <select class="proj-status-sel">
+                            <option value="live"${proj.status === 'live' ? ' selected' : ''}>live</option>
+                            <option value="building"${proj.status === 'building' ? ' selected' : ''}>building</option>
+                        </select>
+                        <button class="proj-delete-btn" onclick="deleteProject(${idx})" title="delete">×</button>
+                    </div>
+                    <textarea class="proj-field proj-desc" rows="3" placeholder="description" style="margin-bottom:0.5rem;">${escHtml(proj.description || '')}</textarea>
+                    <input class="proj-field proj-tech" type="text" value="${escHtml(proj.tech || '')}" placeholder="tech stack (optional)" style="margin-bottom:0.75rem;">
+                    <div class="proj-links-wrap" id="proj-links-${idx}"></div>
+                    <button class="cat-action-btn" style="margin-top:0.35rem;" onclick="addProjLink(${idx})">+ add link</button>`;
+                // Render links
+                const linksWrap = div.querySelector(`#proj-links-${idx}`);
+                (proj.links || []).forEach((link, li) => {
+                    const row = document.createElement('div');
+                    row.className = 'proj-link-row';
+                    row.innerHTML = `
+                        <input class="proj-field" type="text" value="${escHtml(link.label || '')}" placeholder="label" style="flex:1;">
+                        <input class="proj-field" type="text" value="${escHtml(link.url || '')}" placeholder="url" style="flex:2;">
+                        <button class="proj-link-remove" onclick="removeProjLink(${idx},${li})">×</button>`;
+                    linksWrap.appendChild(row);
+                });
+                // Drag to reorder
+                div.addEventListener('dragstart', e => {
+                    projectsDragIdx = idx;
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => div.classList.add('dragging'), 0);
+                });
+                div.addEventListener('dragend', () => {
+                    div.classList.remove('dragging');
+                    document.querySelectorAll('.proj-item').forEach(el => el.classList.remove('drag-over'));
+                });
+                div.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    document.querySelectorAll('.proj-item').forEach(el => el.classList.remove('drag-over'));
+                    if (projectsDragIdx !== idx) div.classList.add('drag-over');
+                });
+                div.addEventListener('drop', e => {
+                    e.preventDefault();
+                    div.classList.remove('drag-over');
+                    if (projectsDragIdx === null || projectsDragIdx === idx) return;
+                    readProjectsFromDOM();
+                    const [moved] = projectsData.splice(projectsDragIdx, 1);
+                    projectsData.splice(idx, 0, moved);
+                    projectsDragIdx = null;
+                    renderProjectsTab();
+                });
+                container.appendChild(div);
+            });
+        }
+
+        function addProject() {
+            readProjectsFromDOM();
+            projectsData.push({ title: '', year: new Date().getFullYear(), description: '', tech: null, links: [], status: 'live' });
+            renderProjectsTab();
+            setTimeout(() => {
+                const items = document.querySelectorAll('.proj-item');
+                const last = items[items.length - 1];
+                if (last) last.querySelector('.proj-title').focus();
+            }, 40);
+        }
+
+        function deleteProject(idx) {
+            if (!confirm('delete this project?')) return;
+            readProjectsFromDOM();
+            projectsData.splice(idx, 1);
+            renderProjectsTab();
+        }
+
+        function addProjLink(projIdx) {
+            readProjectsFromDOM();
+            if (!projectsData[projIdx].links) projectsData[projIdx].links = [];
+            projectsData[projIdx].links.push({ label: '', url: '' });
+            renderProjectsTab();
+        }
+
+        function removeProjLink(projIdx, linkIdx) {
+            readProjectsFromDOM();
+            projectsData[projIdx].links.splice(linkIdx, 1);
+            renderProjectsTab();
+        }
+
+        function projectsLog(msg, cls) {
+            const el = document.getElementById('projects-log');
+            if (!el) return;
+            el.innerHTML = msg ? `<span class="${cls}">${msg}</span>` : '';
+            if (cls === 'ok') setTimeout(() => { if (el) el.innerHTML = ''; }, 3000);
+        }
+
+        async function saveProjectsTab() {
+            readProjectsFromDOM();
+            projectsLog('saving…', '');
+            try { await saveProjects(); projectsLog('saved.', 'ok'); }
+            catch(e) { projectsLog('failed: ' + e.message, 'err'); }
+        }
+
+        // ─── About ─────────────────────────────────────────
+        async function loadAbout() {
+            try {
+                if (getPAT()) {
+                    const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/content.json`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        aboutData = JSON.parse(atob(data.content.replace(/\n/g, '')));
+                        return;
+                    }
+                }
+                const res = await fetch('content.json?t=' + Date.now());
+                aboutData = await res.json();
+            } catch { aboutData = { tagline: '', bio: '', about_photo: null }; }
+        }
+
+        function renderAboutTab() {
+            if (!aboutData) return;
+            const t = document.getElementById('about-tagline-input');
+            const b = document.getElementById('about-bio-input');
+            const p = document.getElementById('about-photo-input');
+            if (t) t.value = aboutData.tagline || '';
+            if (b) b.value = aboutData.bio || '';
+            if (p) p.value = aboutData.about_photo || '';
+            updateAboutPhotoPreview();
+        }
+
+        function updateAboutPhotoPreview() {
+            const preview = document.getElementById('about-photo-preview');
+            const url = (document.getElementById('about-photo-input') || {}).value || '';
+            if (!preview) return;
+            preview.innerHTML = url
+                ? `<img src="${escHtml(url)}" style="max-width:140px; filter:grayscale(100%); opacity:0.8;">`
+                : '<span style="font-size:0.72rem; color:var(--secondary);">will use first portfolio photo</span>';
+        }
+
+        function aboutLog(msg, cls) {
+            const el = document.getElementById('about-log');
+            if (!el) return;
+            el.innerHTML = msg ? `<span class="${cls}">${msg}</span>` : '';
+            if (cls === 'ok') setTimeout(() => { if (el) el.innerHTML = ''; }, 3000);
+        }
+
+        async function saveAboutTab() {
+            aboutData = {
+                tagline: (document.getElementById('about-tagline-input') || {}).value.trim() || '',
+                bio: (document.getElementById('about-bio-input') || {}).value.trim() || '',
+                about_photo: (document.getElementById('about-photo-input') || {}).value.trim() || null
+            };
+            const content = btoa(unescape(encodeURIComponent(JSON.stringify(aboutData, null, 2) + '\n')));
+            const shaRes = await ghFetch(`https://api.github.com/repos/${REPO}/contents/content.json`);
+            let sha;
+            if (shaRes.ok) { const d = await shaRes.json(); sha = d.sha; }
+            const body = { message: 'update content.json', content, branch: BRANCH };
+            if (sha) body.sha = sha;
+            aboutLog('saving…', '');
+            try {
+                const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/content.json`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                if (!res.ok) throw new Error('failed to save');
+                startDeployPoll();
+                aboutLog('saved.', 'ok');
+            } catch(e) { aboutLog('failed: ' + e.message, 'err'); }
+        }
+
         // ─── Init ──────────────────────────────────────────
         window.addEventListener('load', () => {
             setAdminVisible(false);
@@ -1071,6 +1589,21 @@
             } else {
                 document.getElementById('pat-form').classList.add('visible');
             }
+        });
+
+        // Admin lightbox keyboard nav
+        document.addEventListener('keydown', e => {
+            const lb = document.getElementById('admin-lb');
+            if (lb && lb.style.display === 'flex') {
+                if (e.key === 'Escape') closeAdminLb();
+                if (e.key === 'ArrowLeft') shiftAdminLb(-1);
+                if (e.key === 'ArrowRight') shiftAdminLb(1);
+            }
+        });
+
+        // About photo url live preview
+        document.addEventListener('input', e => {
+            if (e.target.id === 'about-photo-input') updateAboutPhotoPreview();
         });
     </script>
 </body>
