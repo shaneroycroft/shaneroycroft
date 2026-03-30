@@ -287,6 +287,7 @@ body::before {
     line-height: 1.9;
     color: var(--secondary);
     margin-bottom: 3rem;
+    white-space: pre-line;
 }
 
 .about-bio strong {

@@ -1306,14 +1306,18 @@
         // ─── Cover photo ───────────────────────────────────
         async function setCover(cat, index) {
             const list = manifest[cat] || [];
+            const entry = list[index];
+            const wasCover = typeof entry === 'object' && !!entry.cover;
             list.forEach((e, i) => {
-                if (typeof e !== 'object') {
-                    if (i === index) manifest[cat][i] = { src: e, cover: true };
+                if (typeof e === 'string') {
+                    if (i === index && !wasCover) manifest[cat][i] = { src: e, cover: true };
                 } else {
-                    if (i === index) e.cover = true; else delete e.cover;
+                    if (i === index && !wasCover) { e.cover = true; }
+                    else { delete e.cover; }
                 }
             });
-            try { await saveManifest(); renderManageGrid(); manageLog('cover photo set.', 'ok'); }
+            const msg = wasCover ? 'cover removed.' : 'cover photo set.';
+            try { await saveManifest(); renderManageGrid(); manageLog(msg, 'ok'); }
             catch(e) { manageLog('save failed: ' + e.message, 'err'); }
         }
 
