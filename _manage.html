@@ -259,6 +259,25 @@
         .deploy-status.live { color: #27ae60; }
         .deploy-status.error { color: #c0392b; }
 
+        /* ── Category reorder list ───────────────────────── */
+        .cat-reorder-wrap {
+            display: none; margin-bottom: 1.5rem;
+            border: 1px solid var(--border); padding: 0.75rem 1rem;
+        }
+        .cat-reorder-wrap.visible { display: block; }
+        .cat-reorder-label { font-size: 0.7rem; color: var(--secondary); letter-spacing: 1px; margin-bottom: 0.6rem; }
+        .cat-reorder-list { display: flex; flex-direction: column; gap: 0.3rem; }
+        .cat-reorder-item {
+            display: flex; align-items: center; gap: 0.75rem;
+            font-size: 0.8rem; padding: 0.4rem 0.5rem;
+            border: 1px solid transparent; cursor: grab; user-select: none;
+            transition: background 0.15s;
+        }
+        .cat-reorder-item:hover { border-color: var(--border); }
+        .cat-reorder-item.dragging { opacity: 0.35; }
+        .cat-reorder-item.drag-over { border-color: var(--text); }
+        .cat-reorder-handle { color: var(--secondary); font-size: 0.9rem; flex-shrink: 0; }
+
         /* ── Category actions ────────────────────────────── */
         .cat-actions { display: flex; gap: 1.25rem; margin-bottom: 1.5rem; }
         .cat-action-btn { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.72rem; color: var(--secondary); letter-spacing: 0.5px; text-decoration: underline; padding: 0; transition: color 0.2s; }
@@ -351,6 +370,14 @@
                     <button class="btn-ghost" onclick="hideCatForm('manage')">cancel</button>
                 </div>
                 <div class="cat-actions" id="cat-actions"></div>
+                <div class="cat-reorder-wrap" id="cat-reorder-wrap">
+                    <div class="cat-reorder-label">drag to reorder categories</div>
+                    <div class="cat-reorder-list" id="cat-reorder-list"></div>
+                    <div style="display:flex; gap:0.75rem; margin-top:0.75rem;">
+                        <button class="btn-sm" onclick="saveCatOrder()" style="padding:0.4rem 1rem; font-size:0.7rem;">save order</button>
+                        <button class="btn-ghost" onclick="hideCatReorder()" style="padding:0.4rem 1rem; font-size:0.7rem;">cancel</button>
+                    </div>
+                </div>
                 <div class="cat-rename-form" id="cat-rename-form">
                     <input class="cat-new-input" id="cat-rename-input" maxlength="40">
                     <button class="btn-sm" onclick="confirmRename()">rename</button>
@@ -383,7 +410,7 @@
         <!-- Projects editor tab -->
         <div class="tab-panel" id="tab-projects">
             <div class="admin-section">
-                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit project cards. drag to reorder.</p>
+                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit project cards. drag to reorder. <a href="projects.html" target="_blank" style="color:var(--secondary);">view projects page →</a></p>
                 <div id="projects-list"></div>
                 <div style="display:flex; gap:1rem; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
                     <button class="btn-ghost" onclick="addProject()">+ add project</button>
@@ -396,7 +423,7 @@
         <!-- About editor tab -->
         <div class="tab-panel" id="tab-about">
             <div class="admin-section" style="max-width:600px;">
-                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit the about page. leave photo url blank to use the first portfolio photo.</p>
+                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit the about page. leave photo url blank to use the first portfolio photo. <a href="about.html" target="_blank" style="color:var(--secondary);">view about page →</a></p>
                 <div class="contact-form">
                     <div class="form-field">
                         <label>tagline</label>
@@ -1144,7 +1171,7 @@
             });
         }
 
-        // ─── Category Rename / Delete ───────────────────────
+        // ─── Category Rename / Delete / Reorder ────────────
         function renderCatActions() {
             const el = document.getElementById('cat-actions');
             if (!el || !manageCat) return;
@@ -1153,12 +1180,81 @@
             renameBtn.className = 'cat-action-btn';
             renameBtn.textContent = 'rename';
             renameBtn.onclick = showCatRename;
+            const reorderBtn = document.createElement('button');
+            reorderBtn.className = 'cat-action-btn';
+            reorderBtn.textContent = 'reorder categories';
+            reorderBtn.onclick = showCatReorder;
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'cat-action-btn danger';
             deleteBtn.textContent = 'delete';
             deleteBtn.onclick = () => deleteCategoryAction(manageCat);
             el.appendChild(renameBtn);
+            el.appendChild(reorderBtn);
             el.appendChild(deleteBtn);
+        }
+
+        let catReorderDragIdx = null;
+
+        function showCatReorder() {
+            hideCatForm('manage');
+            hideCatRename();
+            const wrap = document.getElementById('cat-reorder-wrap');
+            const list = document.getElementById('cat-reorder-list');
+            if (!wrap || !list) return;
+            list.innerHTML = '';
+            Object.keys(manifest).forEach((cat, i) => {
+                const item = document.createElement('div');
+                item.className = 'cat-reorder-item';
+                item.draggable = true;
+                item.dataset.idx = i;
+                item.innerHTML = `<span class="cat-reorder-handle">≡</span><span>${cat}</span>`;
+                item.addEventListener('dragstart', () => {
+                    catReorderDragIdx = i;
+                    setTimeout(() => item.classList.add('dragging'), 0);
+                });
+                item.addEventListener('dragend', () => {
+                    item.classList.remove('dragging');
+                    list.querySelectorAll('.cat-reorder-item').forEach(el => el.classList.remove('drag-over'));
+                });
+                item.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    list.querySelectorAll('.cat-reorder-item').forEach(el => el.classList.remove('drag-over'));
+                    if (catReorderDragIdx !== i) item.classList.add('drag-over');
+                });
+                item.addEventListener('drop', e => {
+                    e.preventDefault();
+                    item.classList.remove('drag-over');
+                    if (catReorderDragIdx === null || catReorderDragIdx === i) return;
+                    const keys = Object.keys(manifest);
+                    const [moved] = keys.splice(catReorderDragIdx, 1);
+                    keys.splice(i, 0, moved);
+                    catReorderDragIdx = null;
+                    const reordered = {};
+                    keys.forEach(k => { reordered[k] = manifest[k]; });
+                    manifest = reordered;
+                    showCatReorder(); // re-render list with new order
+                });
+                list.appendChild(item);
+            });
+            wrap.classList.add('visible');
+        }
+
+        function hideCatReorder() {
+            const wrap = document.getElementById('cat-reorder-wrap');
+            if (wrap) wrap.classList.remove('visible');
+        }
+
+        async function saveCatOrder() {
+            try {
+                await saveManifest();
+                hideCatReorder();
+                renderAllCategoryTabs();
+                renderManageGrid();
+                renderCatActions();
+                manageLog('category order saved.', 'ok');
+            } catch(e) {
+                manageLog('save failed: ' + e.message, 'err');
+            }
         }
 
         function showCatRename() {

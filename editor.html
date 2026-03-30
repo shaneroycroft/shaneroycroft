@@ -205,6 +205,8 @@
             <option value="0.25">25%</option>
         </select>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
+        <button class="e-bar-btn" id="push-btn" onclick="pushToRepo()" disabled style="display:none;">push to repo</button>
+        <span id="push-status" style="font-size:0.65rem; color:var(--secondary); display:none;"></span>
         <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
     </div>
@@ -505,6 +507,7 @@
 let origCanvas = null;
 let workCanvas = null;
 let origName   = 'photo';
+let sourceUrl  = null; // set when editor is opened via ?url= from admin
 
 // History
 let history    = [];
@@ -728,11 +731,19 @@ eMain.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransf
 (function checkPreloadURL() {
     const url = new URLSearchParams(location.search).get('url');
     if (!url) return;
+    sourceUrl = url;
     fetch(url)
         .then(r => r.blob())
         .then(blob => {
             const name = url.split('/').pop().replace(/[?#].*$/, '') || 'photo';
             loadFile(new File([blob], name, { type: blob.type }));
+            // Show push button only if a PAT is stored
+            const pat = localStorage.getItem('sr_gh_pat');
+            if (pat) {
+                document.getElementById('push-btn').style.display = '';
+                document.getElementById('push-btn').disabled = false;
+                document.getElementById('push-status').style.display = '';
+            }
         })
         .catch(() => {});
 })();
@@ -2282,6 +2293,81 @@ function onFormatChange() {
     const isJpeg = document.getElementById('dl-format').value === 'jpeg';
     document.getElementById('dl-quality').style.display = isJpeg ? '' : 'none';
     document.getElementById('dl-quality-val').style.display = isJpeg ? '' : 'none';
+}
+
+// ── Push to repo ──────────────────────────────────────────────
+async function pushToRepo() {
+    if (!sourceUrl) return;
+    const pat = localStorage.getItem('sr_gh_pat');
+    if (!pat) { setPushStatus('no PAT — open _manage.html first', true); return; }
+
+    // Derive repo path from raw.githubusercontent.com URL
+    const m = sourceUrl.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)/);
+    if (!m) { setPushStatus('unrecognised url', true); return; }
+    const [, owner, repo, branch, path] = m;
+
+    const fmt     = document.getElementById('dl-format').value;
+    const quality = parseInt(document.getElementById('dl-quality').value) / 100;
+    const scale   = parseFloat(document.getElementById('dl-scale').value);
+
+    // Render full-res if mid-adjustment
+    if (isAdjusting) {
+        clearTimeout(fullResTimer); isAdjusting = false;
+        const out = document.getElementById('output-canvas');
+        out.style.width = ''; out.style.height = '';
+        render();
+    }
+
+    const src = document.getElementById('output-canvas');
+    let exportCanvas = src;
+    if (scale !== 1) {
+        exportCanvas = document.createElement('canvas');
+        exportCanvas.width  = Math.round(src.width  * scale);
+        exportCanvas.height = Math.round(src.height * scale);
+        exportCanvas.getContext('2d').drawImage(src, 0, 0, exportCanvas.width, exportCanvas.height);
+    }
+
+    setPushStatus('uploading…', false);
+    const btn = document.getElementById('push-btn');
+    btn.disabled = true;
+
+    try {
+        const b64 = exportCanvas.toDataURL('image/' + fmt, quality).split(',')[1];
+
+        // Get current SHA (required to update an existing file)
+        const infoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+            headers: { 'Authorization': 'Bearer ' + pat, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+        });
+        let sha;
+        if (infoRes.ok) { const d = await infoRes.json(); sha = d.sha; }
+
+        const body = { message: `edit: ${path.split('/').pop()}`, content: b64, branch };
+        if (sha) body.sha = sha;
+
+        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + pat, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || 'upload failed');
+        }
+        setPushStatus('pushed ✓', false);
+        setTimeout(() => setPushStatus('', false), 6000);
+    } catch(e) {
+        setPushStatus(e.message, true);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function setPushStatus(msg, isErr) {
+    const el = document.getElementById('push-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isErr ? '#c0392b' : 'var(--secondary)';
 }
 
 // ── Burn / Dodge ──────────────────────────────────────────────
