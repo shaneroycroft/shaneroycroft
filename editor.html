@@ -153,6 +153,11 @@
         .cg-wheel { display: block; cursor: crosshair; border-radius: 50%; border: 1px solid var(--border); }
         .cg-wheel-label { font-size: 0.58rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); }
 
+        /* Luminosity mask range display */
+        .lm-range-wrap { position: relative; height: 18px; margin: 0.3rem 0 0.75rem; }
+        #lm-range-track { width: 100%; height: 6px; background: var(--border); position: absolute; top: 6px; border-radius: 2px; }
+        #lm-range-fill  { position: absolute; top: 6px; height: 6px; background: var(--text); opacity: 0.55; border-radius: 2px; pointer-events: none; }
+
         /* EXIF strip */
         .exif-strip { padding: 0.5rem 1.2rem 0.65rem; border-bottom: 1px solid var(--border); display:none; }
         .exif-strip-label { font-size: 0.62rem; letter-spacing: 1px; text-transform: lowercase; color: var(--secondary); margin-bottom: 0.3rem; }
@@ -356,6 +361,21 @@
                     <div class="s-row"><label>color NR <input type="number" class="val-input" id="v-colornr" value="0" min="0" max="100" step="1" data-key="colornr" oninput="syncVal(this)"></label><input type="range" id="sl-colornr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row-btns"><button class="s-link" onclick="resetAdjust()">reset</button></div>
+                </div>
+            </details>
+
+            <details class="e-sec" id="lm-sec">
+                <summary>luminosity mask</summary>
+                <div class="e-body">
+                    <p class="s-note">limit all adjustments to a tonal range. 0=shadows, 100=highlights.</p>
+                    <div class="lm-range-wrap">
+                        <div id="lm-range-track"></div>
+                        <div id="lm-range-fill"></div>
+                    </div>
+                    <div class="s-row"><label>floor <input type="number" class="val-input" id="v-lm-floor" value="0" min="0" max="100" step="1" oninput="syncLMVal(this,'floor')"></label><input type="range" id="sl-lm-floor" min="0" max="100" value="0" oninput="onLMSlider()" ondblclick="this.value=0;onLMSlider()"></div>
+                    <div class="s-row"><label>ceiling <input type="number" class="val-input" id="v-lm-ceiling" value="100" min="0" max="100" step="1" oninput="syncLMVal(this,'ceiling')"></label><input type="range" id="sl-lm-ceiling" min="0" max="100" value="100" oninput="onLMSlider()" ondblclick="this.value=100;onLMSlider()"></div>
+                    <div class="s-row"><label>feather <input type="number" class="val-input" id="v-lm-feather" value="20" min="0" max="50" step="1" oninput="syncLMVal(this,'feather')"></label><input type="range" id="sl-lm-feather" min="0" max="50" value="20" oninput="onLMSlider()" ondblclick="this.value=20;onLMSlider()"></div>
+                    <div class="s-row-btns"><button class="s-link" onclick="resetLM()">reset</button></div>
                 </div>
             </details>
 
@@ -978,8 +998,18 @@ uniform float uWhitesStr,uBlacksStr;
 uniform float uDoHSL,uHslH[8],uHslS[8],uHslL[8],uHslW[8];
 uniform float uDoSplit,uShadowHue,uShadowStr,uHighlightHue,uHighlightStr,uSplitBalance,uMidHue,uMidStr;
 uniform float uDehazeF;
+uniform float uLMFloor,uLMCeil,uLMFeather; // luminosity mask (0-1 range)
 
 float hmask(float h,float c,float w){float d=abs(h-c);if(d>180.0)d=360.0-d;return d>=w?0.0:1.0-d/w;}
+
+// Smooth luminosity mask weight: 1 inside [floor,ceil], cosine rolloff in feather zone
+float lumMask(float lum){
+    float lo=uLMFloor,hi=uLMCeil,f=uLMFeather;
+    if(lum<lo-f||lum>hi+f)return 0.0;
+    float wLo=lum<lo?(1.0-cos(3.14159*(lum-(lo-f))/max(f,0.001)))*0.5:1.0;
+    float wHi=lum>hi?(1.0-cos(3.14159*(hi+f-lum)/max(f,0.001)))*0.5:1.0;
+    return min(wLo,wHi);
+}
 
 vec3 rgb2hsl(vec3 c){
     float mx=max(c.r,max(c.g,c.b)),mn=min(c.r,min(c.g,c.b)),l=(mx+mn)*0.5;
@@ -1005,13 +1035,26 @@ vec3 hsl2rgb(float h,float s,float l){
 void main(){
     vec4 px=texture2D(uImg,vUV); vec3 c=px.rgb*255.0;
     // Linearise from sRGB to linear light for tone ops
-    vec3 cL=pow(clamp(c/255.0,0.0,1.0),vec3(2.2))*255.0;
+    vec3 cOrig=pow(clamp(c/255.0,0.0,1.0),vec3(2.2))*255.0; // keep original linear for LM blend
+    vec3 cL=cOrig;
     cL*=uExpF;
     cL=uCF*(cL-128.0)+128.0;
     float lm=dot(cL,vec3(0.2126,0.7152,0.0722));
     cL+=uHlStr*pow(clamp(lm/255.0,0.0,1.0),1.8)+uShStr*pow(clamp(1.0-lm/255.0,0.0,1.0),1.8);
     float lm2=dot(cL,vec3(0.2126,0.7152,0.0722));
     cL+=uWhitesStr*pow(clamp(lm2/255.0,0.0,1.0),3.5)+uBlacksStr*pow(clamp(1.0-lm2/255.0,0.0,1.0),3.5);
+    // Clipping-aware highlight recovery: reconstruct blown channels from uncapped neighbours
+    float mx=max(cL.r,max(cL.g,cL.b));
+    if(mx>255.0){
+        float avg=(cL.r+cL.g+cL.b)/3.0;
+        float over=max(0.0,mx-255.0);
+        float blend=clamp(over/64.0,0.0,1.0); // soft transition up to 64 stops over
+        vec3 recovered=vec3(avg); // neutral grey fallback
+        // weight toward least-clipped channel direction
+        float minC=min(cL.r,min(cL.g,cL.b));
+        if(minC<255.0) recovered=cL*(255.0/mx); // scale to fit
+        cL=mix(cL,clamp(recovered,0.0,255.0),blend);
+    }
     if(uDehazeF>0.0){float dk=min(cL.r,min(cL.g,cL.b))/255.0;float haze=dk*uDehazeF*0.85;cL=(cL-haze*255.0)/max(1.0-haze,0.01);float gr5=dot(cL,vec3(0.2126,0.7152,0.0722));cL=clamp(gr5+(1.0+uDehazeF*0.5)*(cL-gr5),0.0,255.0);}
     if(uFadeFloor>0.0)cL=uFadeFloor+cL*(255.0-uFadeFloor)/255.0;
     float gr=dot(cL,vec3(0.2126,0.7152,0.0722));cL=gr+uSatF*(cL-gr);
@@ -1022,6 +1065,12 @@ void main(){
     }
     // White balance: Bradford chromatic adaptation in linear light
     cL = uWBMat * cL;
+    // Luminosity mask: blend adjusted linear back toward original based on input luma
+    if(uLMFloor>0.0||uLMCeil<1.0||uLMFeather<0.5){
+        float inputLum=dot(cOrig/255.0,vec3(0.2126,0.7152,0.0722));
+        float w=lumMask(inputLum);
+        cL=mix(cOrig,cL,w);
+    }
     // Re-encode back to sRGB before colour/HSL ops
     c=pow(clamp(cL/255.0,0.0,1.0),vec3(1.0/2.2))*255.0;
     if(uDoHSL>0.5){
@@ -1091,7 +1140,7 @@ function _initGL() {
         ['uImg','uLUT','uExpF','uCF','uHlStr','uShStr','uWhitesStr','uBlacksStr','uFadeFloor','uSatF','uVibF',
          'uWBMat','uDoHSL','uHslH','uHslS','uHslL','uHslW',
          'uDoSplit','uShadowHue','uShadowStr','uHighlightHue','uHighlightStr','uSplitBalance',
-         'uMidHue','uMidStr','uDehazeF'
+         'uMidHue','uMidStr','uDehazeF','uLMFloor','uLMCeil','uLMFeather'
         ].forEach(n => L[n] = gl.getUniformLocation(prog, n));
         _glState = { gl, cv, prog, buf, aPos, imgTex, lutTex, L, maxTex: gl.getParameter(gl.MAX_TEXTURE_SIZE) };
         return _glState;
@@ -1126,6 +1175,9 @@ function _applyEditsGL(src, p) {
     gl.uniform1f(L.uHighlightStr,p.highlightStr); gl.uniform1f(L.uSplitBalance,p.splitBalance);
     gl.uniform1f(L.uMidHue, p.midHue); gl.uniform1f(L.uMidStr, p.midStr);
     gl.uniform1f(L.uDehazeF, p.dehazeF);
+    gl.uniform1f(L.uLMFloor,   p.lmFloor);
+    gl.uniform1f(L.uLMCeil,    p.lmCeil);
+    gl.uniform1f(L.uLMFeather, p.lmFeather);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.enableVertexAttribArray(aPos);
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
@@ -1179,6 +1231,9 @@ function applyEdits(src) {
         shadowHue, shadowStr, highlightHue, highlightStr, splitBalance,
         midHue, midStr,
         dehazeF:   dehaze / 100,
+        lmFloor:   parseFloat(document.getElementById('sl-lm-floor').value) / 100,
+        lmCeil:    parseFloat(document.getElementById('sl-lm-ceiling').value) / 100,
+        lmFeather: parseFloat(document.getElementById('sl-lm-feather').value) / 100,
     };
 
     // GPU path (WebGL)
@@ -1196,7 +1251,16 @@ function applyEdits(src) {
     }
 
     // CPU fallback ────────────────────────────────────────────────
-    const { expF, cF, hlStr: hStr, shStr: sStr, whitesStr, blacksStr, fadeFloor, satF, vibF, doHSL, dehazeF } = params;
+    const { expF, cF, hlStr: hStr, shStr: sStr, whitesStr, blacksStr, fadeFloor, satF, vibF, doHSL, dehazeF, lmFloor, lmCeil, lmFeather } = params;
+    const useLM = lmFloor > 0 || lmCeil < 1 || lmFeather < 0.5;
+    function cpuLumMask(lum) {
+        if (!useLM) return 1;
+        const lo = lmFloor, hi = lmCeil, f = Math.max(lmFeather, 0.001);
+        if (lum < lo - f || lum > hi + f) return 0;
+        const wLo = lum < lo ? (1 - Math.cos(Math.PI * (lum - (lo - f)) / f)) * 0.5 : 1;
+        const wHi = lum > hi ? (1 - Math.cos(Math.PI * (hi + f - lum) / f)) * 0.5 : 1;
+        return Math.min(wLo, wHi);
+    }
 
     // sRGB linearisation helpers (matches GPU shader gamma 2.2 path)
     const toLinear = v => Math.pow(Math.max(0, v) / 255, 2.2) * 255;
@@ -1218,7 +1282,8 @@ function applyEdits(src) {
 
     for (let i = 0; i < d.length; i += 4) {
         // Linearise from sRGB before tone ops (matches GPU shader)
-        let r=toLinear(d[i]), g=toLinear(d[i+1]), b=toLinear(d[i+2]);
+        const rOrig=toLinear(d[i]), gOrig=toLinear(d[i+1]), bOrig=toLinear(d[i+2]);
+        let r=rOrig, g=gOrig, b=bOrig;
         r*=expF; g*=expF; b*=expF;
         r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
         const lum = 0.2126*r + 0.7152*g + 0.0722*b;
@@ -1258,11 +1323,28 @@ function applyEdits(src) {
             const vb = 1 + vibF * (1 - Math.min(1, sat * 2));
             r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
         }
+        // Highlight recovery: scale down if any channel blown
+        const mxC = Math.max(r, g, b);
+        if (mxC > 255) {
+            const blend = Math.min(1, (mxC - 255) / 64);
+            const rr = r * (255 / mxC), gr2 = g * (255 / mxC), br = b * (255 / mxC);
+            r = r + (rr - r) * blend;
+            g = g + (gr2 - g) * blend;
+            b = b + (br - b) * blend;
+        }
         // White balance: Bradford chromatic adaptation in linear light (matches GPU shader)
         const wr = wbMat[0]*r + wbMat[1]*g + wbMat[2]*b;
         const wg = wbMat[3]*r + wbMat[4]*g + wbMat[5]*b;
         const wb = wbMat[6]*r + wbMat[7]*g + wbMat[8]*b;
         r = wr; g = wg; b = wb;
+        // Luminosity mask: blend toward original linear based on input luma
+        if (useLM) {
+            const inputLum = (0.2126*rOrig + 0.7152*gOrig + 0.0722*bOrig) / 255;
+            const w = cpuLumMask(inputLum);
+            r = rOrig + (r - rOrig) * w;
+            g = gOrig + (g - gOrig) * w;
+            b = bOrig + (b - bOrig) * w;
+        }
         // Re-encode to sRGB before colour ops (matches GPU shader)
         r=toSRGB(r); g=toSRGB(g); b=toSRGB(b);
         if (doHSL) {
@@ -2391,6 +2473,55 @@ function onVignette() {
     document.getElementById('v-vignette').value=document.getElementById('sl-vignette').value;
     beginAdjust();
 }
+
+// ── Luminosity Mask ───────────────────────────────────────────
+function onLMSlider() {
+    // Clamp: floor can't exceed ceiling
+    const fl = document.getElementById('sl-lm-floor');
+    const ce = document.getElementById('sl-lm-ceiling');
+    if (parseInt(fl.value) > parseInt(ce.value)) fl.value = ce.value;
+    document.getElementById('v-lm-floor').value   = fl.value;
+    document.getElementById('v-lm-ceiling').value = ce.value;
+    document.getElementById('v-lm-feather').value = document.getElementById('sl-lm-feather').value;
+    updateLMRangeFill();
+    beginAdjust();
+}
+function syncLMVal(input, which) {
+    let v = Math.max(0, Math.min(parseInt(input.value)||0, 100));
+    if (which === 'floor') {
+        const ce = parseInt(document.getElementById('sl-lm-ceiling').value);
+        v = Math.min(v, ce);
+    } else if (which === 'ceiling') {
+        const fl = parseInt(document.getElementById('sl-lm-floor').value);
+        v = Math.max(v, fl);
+    }
+    input.value = v;
+    document.getElementById('sl-lm-' + (which === 'feather' ? 'feather' : which === 'floor' ? 'floor' : 'ceiling')).value = v;
+    updateLMRangeFill();
+    beginAdjust();
+}
+function updateLMRangeFill() {
+    const fl = parseInt(document.getElementById('sl-lm-floor').value);
+    const ce = parseInt(document.getElementById('sl-lm-ceiling').value);
+    const fill = document.getElementById('lm-range-fill');
+    const track = document.getElementById('lm-range-track');
+    if (!fill || !track) return;
+    const tw = track.offsetWidth || 222;
+    fill.style.left  = (fl / 100 * tw) + 'px';
+    fill.style.width = ((ce - fl) / 100 * tw) + 'px';
+}
+function resetLM() {
+    document.getElementById('sl-lm-floor').value   = 0;
+    document.getElementById('sl-lm-ceiling').value = 100;
+    document.getElementById('sl-lm-feather').value = 20;
+    document.getElementById('v-lm-floor').value    = 0;
+    document.getElementById('v-lm-ceiling').value  = 100;
+    document.getElementById('v-lm-feather').value  = 20;
+    updateLMRangeFill();
+    scheduleRender();
+}
+// Initialise fill on load
+document.addEventListener('DOMContentLoaded', updateLMRangeFill);
 
 // ── White Balance Eyedropper ───────────────────────────────────
 let wbEyedropperActive = false;
