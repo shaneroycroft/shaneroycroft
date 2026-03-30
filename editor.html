@@ -1128,7 +1128,7 @@ function applyEdits(src) {
     }
 
     // CPU fallback ────────────────────────────────────────────────
-    const { expF, cF, hlStr: hStr, shStr: sStr, whitesStr, blacksStr, fadeFloor, satF, vibF, wbMat, doHSL, dehazeF } = params;
+    const { expF, cF, hlStr: hStr, shStr: sStr, whitesStr, blacksStr, fadeFloor, satF, vibF, doHSL, dehazeF } = params;
 
     // sRGB linearisation helpers (matches GPU shader gamma 2.2 path)
     const toLinear = v => Math.pow(Math.max(0, v) / 255, 2.2) * 255;
