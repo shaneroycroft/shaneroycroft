@@ -32,20 +32,19 @@
 
     <div class="container fade-in" style="max-width: 520px;">
         <h1 class="serif">say hello.</h1>
-        <p class="text-secondary" style="margin-bottom: 2.5rem; line-height: 1.7;">photography enquiries, collaborations, or just a hello — i'd love to hear from you.</p>
 
-        <form id="contact-form" action="https://formspree.io/f/meepkaln" method="POST" novalidate>
-            <div class="form-group">
-                <label class="form-label" for="name">name</label>
-                <input class="form-input" type="text" id="name" name="name" required autocomplete="name">
+        <form id="contact-form" action="https://formspree.io/f/meepkaln" method="POST" novalidate style="margin-top: 2.5rem; display: flex; flex-direction: column; gap: 1.75rem;">
+            <div class="form-field">
+                <label for="name">name</label>
+                <input type="text" id="name" name="name" required autocomplete="name">
             </div>
-            <div class="form-group">
-                <label class="form-label" for="email">email</label>
-                <input class="form-input" type="email" id="email" name="email" required autocomplete="email">
+            <div class="form-field">
+                <label for="email">email</label>
+                <input type="email" id="email" name="email" required autocomplete="email">
             </div>
-            <div class="form-group">
-                <label class="form-label" for="message">message</label>
-                <textarea class="form-input form-textarea" id="message" name="message" required rows="5"></textarea>
+            <div class="form-field">
+                <label for="message">message</label>
+                <textarea id="message" name="message" required rows="5"></textarea>
             </div>
             <button class="btn-submit" type="submit" id="submit-btn">send</button>
             <div id="form-feedback" class="form-feedback" style="display:none;"></div>
