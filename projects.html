@@ -42,6 +42,7 @@
         </a>
     </footer>
 
+    <script src="reveal.js"></script>
     <script src="theme.js"></script>
     <script>
         fetch('projects.json?t=' + Date.now())
@@ -52,15 +53,16 @@
         function renderProjects(projects) {
             const list = document.getElementById('project-list');
             if (!list || !projects.length) return;
-            projects.forEach(proj => {
+            projects.forEach((proj, i) => {
                 const card = document.createElement('div');
-                card.className = 'project-card';
+                card.className = 'project-card reveal';
+                card.style.transitionDelay = (i * 0.1) + 's';
                 const badgeClass = proj.status === 'live' ? 'project-badge project-badge--live' : 'project-badge';
                 const linksHtml = (proj.links || []).map(l =>
                     `<a href="${l.url}" target="_blank" rel="noopener" class="project-link">${l.label}</a>`
                 ).join('');
                 const techHtml = proj.tech
-                    ? `<p class="text-secondary" style="font-size:0.78rem; margin-top:0.75rem; letter-spacing:0.03em;">${proj.tech}</p>`
+                    ? `<p class="project-tech">${proj.tech}</p>`
                     : '';
                 card.innerHTML = `
                     <div class="project-year">${proj.year || ''}</div>
@@ -74,6 +76,7 @@
                         </div>
                     </div>`;
                 list.appendChild(card);
+                if (window.revealObserve) window.revealObserve(card);
             });
         }
     </script>

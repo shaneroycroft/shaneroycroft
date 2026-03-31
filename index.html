@@ -45,6 +45,8 @@
         </a>
     </footer>
 
+    <script src="lazyload.js"></script>
+    <script src="reveal.js"></script>
     <script src="theme.js"></script>
     <script>
         // Load featured photos: portfolio + pinned from other categories
@@ -98,11 +100,10 @@
                 const div = document.createElement('div');
                 div.className = 'featured-item';
                 const img = document.createElement('img');
-                img.src = p.src;
+                img.dataset.src = p.src;
                 img.alt = p.caption || '';
-                img.loading = 'lazy';
                 img.onload = () => img.classList.add('loaded');
-                if (img.complete) img.classList.add('loaded');
+                window.lazyLoad(img);
                 div.appendChild(img);
                 grid.appendChild(div);
             });

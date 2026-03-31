@@ -30,10 +30,10 @@
         </div>
     </nav>
 
-    <div class="container fade-in" style="max-width: 520px;">
+    <div class="container container--narrow fade-in">
         <h1 class="serif">say hello.</h1>
 
-        <form id="contact-form" action="https://formspree.io/f/meepkaln" method="POST" novalidate style="margin-top: 2.5rem; display: flex; flex-direction: column; gap: 1.75rem;">
+        <form id="contact-form" action="https://formspree.io/f/meepkaln" method="POST" novalidate class="contact-form" style="margin-top: 2.5rem;">
             <div class="form-field">
                 <label for="name">name</label>
                 <input type="text" id="name" name="name" required autocomplete="name">
@@ -47,7 +47,7 @@
                 <textarea id="message" name="message" required rows="5"></textarea>
             </div>
             <button class="btn-submit" type="submit" id="submit-btn">send</button>
-            <div id="form-feedback" class="form-feedback" style="display:none;"></div>
+            <div id="form-feedback" class="form-feedback"></div>
         </form>
     </div>
 
@@ -68,7 +68,7 @@
             e.preventDefault();
             btn.disabled = true;
             btn.textContent = 'sending...';
-            fb.style.display = 'none';
+            fb.style.display = '';
 
             try {
                 const res = await fetch(form.action, {
@@ -90,7 +90,7 @@
                 btn.disabled = false;
                 btn.textContent = 'send';
             }
-            fb.style.display = 'block';
+            fb.style.display = 'block'; // override CSS default:none to show feedback
         });
     </script>
 </body>

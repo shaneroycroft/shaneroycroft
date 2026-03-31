@@ -221,7 +221,7 @@
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
         <span class="e-bar-sep">|</span>
-        <button class="e-bar-btn" onclick="resetAllEdits()" title="reset all adjustments to zero">reset</button>
+        <button class="e-bar-btn" onclick="if(confirm('Reset all adjustments to zero?')) resetAllEdits()" title="reset all adjustments to zero">reset</button>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="document.getElementById('info-modal').style.display='block'" title="editor guide">?</button>
         <span class="e-bar-spacer"></span>
@@ -385,7 +385,7 @@
                     <div class="s-row"><label>floor <input type="number" class="val-input" id="v-lm-floor" value="0" min="0" max="100" step="1" oninput="syncLMVal(this,'floor')"></label><input type="range" id="sl-lm-floor" min="0" max="100" value="0" oninput="onLMSlider()" ondblclick="this.value=0;onLMSlider()"></div>
                     <div class="s-row"><label>ceiling <input type="number" class="val-input" id="v-lm-ceiling" value="100" min="0" max="100" step="1" oninput="syncLMVal(this,'ceiling')"></label><input type="range" id="sl-lm-ceiling" min="0" max="100" value="100" oninput="onLMSlider()" ondblclick="this.value=100;onLMSlider()"></div>
                     <div class="s-row"><label>feather <input type="number" class="val-input" id="v-lm-feather" value="20" min="0" max="50" step="1" oninput="syncLMVal(this,'feather')"></label><input type="range" id="sl-lm-feather" min="0" max="50" value="20" oninput="onLMSlider()" ondblclick="this.value=20;onLMSlider()"></div>
-                    <div class="s-row-btns"><button class="s-link" onclick="resetLM()">reset</button></div>
+
                 </div>
             </details>
 
@@ -406,7 +406,6 @@
                         <button class="s-link" onclick="applyCurvePreset('highcon')">high contrast</button>
                         <button class="s-link" onclick="applyCurvePreset('fade')">film fade</button>
                         <button class="s-link" onclick="applyCurvePreset('matte')">matte</button>
-                        <button class="s-link" onclick="resetAllCurves()">reset all</button>
                     </div>
                 </div>
             </details>
@@ -530,10 +529,7 @@
                 </div>
             </details>
 
-            <!-- Global reset — bottom of sidebar -->
-            <div style="padding:0.75rem 1rem 1rem;border-top:1px solid var(--border);margin-top:0.5rem;">
-                <button class="s-link red" onclick="if(confirm('Reset all adjustments to defaults?'))resetAllAdjustments()">reset all adjustments</button>
-            </div>
+
 
         </div>
 
@@ -3348,12 +3344,6 @@ function deletePreset(idx) {
     saved.splice(idx, 1);
     _saveSavedPresets(saved);
     renderPresetList();
-}
-
-function resetAllAdjustments() {
-    resetAdjust(); resetHSL(); resetColorGrading(); resetAllCurves();
-    document.getElementById('sl-vignette').value = 0;
-    document.getElementById('v-vignette').value = 0;
 }
 
 // ── Auto-enhance ──────────────────────────────────────────────

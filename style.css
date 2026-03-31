@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;1,400;1,700&display=swap');
 
+@view-transition { navigation: auto; }
+
 /* ── Theme variables ─────────────────────────────────────── */
 :root {
     --bg: #ffffff;
@@ -159,7 +161,7 @@ h1.serif, h2.serif {
 }
 
 .text-secondary { color: var(--secondary); }
-.text-muted { color: #999; font-size: 0.85rem; }
+.text-muted { color: var(--secondary); font-size: 0.85rem; }
 
 .btn-outline {
     display: inline-block;
@@ -194,6 +196,17 @@ h1.serif, h2.serif {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(15px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Scroll reveal ───────────────────────────────────────── */
+.reveal {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* ── Film grain ──────────────────────────────────── */
@@ -319,7 +332,6 @@ body::before {
 /* ── Photography Grid ────────────────────────────────────── */
 .photo-sections { display: flex; flex-direction: column; gap: 4rem; }
 
-.photo-section {}
 
 .photo-section-label {
     font-size: 1.4rem;
@@ -411,17 +423,14 @@ body::before {
 
 .project-link:hover { color: var(--text); }
 
-.project-link--soon {
-    display: inline-block;
-    margin-top: 1rem;
-    font-size: 0.75rem;
-    letter-spacing: 1.5px;
-    text-transform: lowercase;
-    color: #ccc;
-    cursor: default;
-}
-
 .project-links { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+
+.project-tech {
+    font-size: 0.78rem;
+    margin-top: 0.75rem;
+    letter-spacing: 0.03em;
+    color: var(--secondary);
+}
 
 .project-badge {
     display: inline-block;
@@ -438,6 +447,17 @@ body::before {
 .project-badge--live {
     border-color: #27ae60;
     color: #27ae60;
+}
+
+.container--narrow { max-width: 520px; }
+.container--center { text-align: center; }
+.h1--hero { font-size: 3rem; margin-bottom: 1rem; }
+
+.nav-icon {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+    flex-shrink: 0;
 }
 
 /* ── Contact / Form ──────────────────────────────────────── */
@@ -495,7 +515,7 @@ body::before {
 .btn-submit:hover { opacity: 0.7; }
 .btn-submit:disabled { opacity: 0.4; cursor: default; }
 
-.form-feedback { padding: 1.5rem 0; font-size: 0.9rem; }
+.form-feedback { display: none; padding: 1.5rem 0; font-size: 0.9rem; }
 .form-feedback--success { color: var(--text); }
 .form-feedback--error { color: #c0392b; }
 
@@ -567,7 +587,7 @@ footer {
     padding: 6rem 2rem;
     text-align: center;
     font-size: 0.7rem;
-    color: #bbb;
+    color: var(--secondary);
     text-transform: lowercase;
     letter-spacing: 1px;
     display: flex;
@@ -579,7 +599,7 @@ footer {
 .footer-x {
     display: inline-flex;
     align-items: center;
-    color: #bbb;
+    color: var(--secondary);
     text-decoration: none;
     transition: color 0.2s;
 }
@@ -587,17 +607,11 @@ footer {
 .footer-x:hover { color: var(--text); }
 .footer-x svg { width: 12px; height: 12px; fill: currentColor; }
 
-.footer-editor-link {
-    color: #bbb;
-    text-decoration: none;
-    transition: color 0.2s;
-}
-.footer-editor-link:hover { color: var(--text); }
-
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
     nav { padding: 2rem 1.5rem 1.5rem; }
-    .nav-links { gap: 1.5rem; }
+    .nav-links { gap: 1.5rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+    .nav-links::-webkit-scrollbar { display: none; }
     .gallery { columns: 1; }
     .photo-sections { gap: 3rem; }
     .project-card { grid-template-columns: 1fr; gap: 0.5rem; }
