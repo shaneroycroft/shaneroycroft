@@ -830,20 +830,27 @@ eMain.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransf
     const url = new URLSearchParams(location.search).get('url');
     if (!url) return;
     sourceUrl = url;
+
+    // Show push button immediately — it's always relevant when opened from admin
+    const pushBtn = document.getElementById('push-btn');
+    const pushSt  = document.getElementById('push-status');
+    pushBtn.style.display = '';
+    pushBtn.disabled = true; // stays disabled until image loads
+    pushSt.style.display = '';
+
     fetch(url)
-        .then(r => r.blob())
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
         .then(blob => {
             const name = url.split('/').pop().replace(/[?#].*$/, '') || 'photo';
             loadFile(new File([blob], name, { type: blob.type }));
-            // Show push button only if a PAT is stored
-            const pat = localStorage.getItem('sr_gh_pat');
-            if (pat) {
-                document.getElementById('push-btn').style.display = '';
-                document.getElementById('push-btn').disabled = false;
-                document.getElementById('push-status').style.display = '';
+            pushBtn.disabled = false;
+            if (!localStorage.getItem('sr_gh_pat')) {
+                setPushStatus('no PAT — save your GitHub token in admin first', true);
             }
         })
-        .catch(() => {});
+        .catch(err => {
+            setPushStatus('failed to load image: ' + err.message, true);
+        });
 })();
 
 function loadFile(file) {
