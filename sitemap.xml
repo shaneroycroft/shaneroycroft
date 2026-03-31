@@ -13,16 +13,11 @@
     <url>
         <loc>https://www.shaneroycroft.com/about.html</loc>
         <changefreq>monthly</changefreq>
-        <priority>0.7</priority>
+        <priority>0.8</priority>
     </url>
     <url>
         <loc>https://www.shaneroycroft.com/projects.html</loc>
         <changefreq>monthly</changefreq>
         <priority>0.7</priority>
-    </url>
-    <url>
-        <loc>https://www.shaneroycroft.com/contact.html</loc>
-        <changefreq>yearly</changefreq>
-        <priority>0.5</priority>
     </url>
 </urlset>

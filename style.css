@@ -596,16 +596,6 @@ footer {
     gap: 1.2rem;
 }
 
-.footer-x {
-    display: inline-flex;
-    align-items: center;
-    color: var(--secondary);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.footer-x:hover { color: var(--text); }
-.footer-x svg { width: 12px; height: 12px; fill: currentColor; }
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {

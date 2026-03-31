@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>about | shane roycroft</title>
-    <meta name="description" content="About Shane Roycroft — photographer based in Toronto.">
+    <meta name="description" content="About Shane Roycroft — photographer based in Toronto. Get in touch.">
     <meta property="og:title" content="about | shane roycroft">
     <meta property="og:description" content="Photographer based in Toronto.">
     <meta property="og:type" content="website">
@@ -26,7 +26,6 @@
             <a href="about.html" class="active">about</a>
             <a href="photography.html">photography</a>
             <a href="projects.html">projects</a>
-            <a href="contact.html">contact</a>
             <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" onclick="toggleTheme()">●</button>
         </div>
     </nav>
@@ -70,13 +69,30 @@
                 </a>
             </div>
         </div>
+
+        <div class="about-section reveal">
+            <p class="about-section-label">say hello</p>
+            <form id="contact-form" action="https://formspree.io/f/meepkaln" method="POST" novalidate class="contact-form" style="margin-top: 1rem; max-width: 480px;">
+                <div class="form-field">
+                    <label for="name">name</label>
+                    <input type="text" id="name" name="name" required autocomplete="name">
+                </div>
+                <div class="form-field">
+                    <label for="email">email</label>
+                    <input type="email" id="email" name="email" required autocomplete="email">
+                </div>
+                <div class="form-field">
+                    <label for="message">message</label>
+                    <textarea id="message" name="message" required rows="5"></textarea>
+                </div>
+                <button class="btn-submit" type="submit" id="submit-btn">send</button>
+                <div id="form-feedback" class="form-feedback"></div>
+            </form>
+        </div>
     </div>
 
     <footer>
         <span>&copy; 2026 shane roycroft</span>
-        <a href="https://x.com/helloiamshane" target="_blank" rel="noopener" class="footer-x" aria-label="X / Twitter">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-        </a>
     </footer>
 
     <script src="reveal.js"></script>
@@ -88,18 +104,10 @@
             fetch('photos.json?t=' + Date.now()).then(r => r.json()).catch(() => null)
         ]).then(([content, photos]) => {
             if (content) {
-                if (content.tagline) {
-                    document.getElementById('about-tagline').textContent = content.tagline;
-                }
-                if (content.bio) {
-                    document.getElementById('about-bio').textContent = content.bio;
-                }
-                if (content.about_photo) {
-                    setPhoto(content.about_photo);
-                    return;
-                }
+                if (content.tagline) document.getElementById('about-tagline').textContent = content.tagline;
+                if (content.bio)     document.getElementById('about-bio').textContent = content.bio;
+                if (content.about_photo) { setPhoto(content.about_photo); return; }
             }
-            // Fall back to first portfolio photo
             if (photos) {
                 const first = (photos.portfolio || [])[0];
                 if (first) setPhoto(typeof first === 'string' ? first : first.src);
@@ -112,6 +120,38 @@
             img.onload = () => img.classList.add('loaded');
             if (img.complete) img.classList.add('loaded');
         }
+
+        const form = document.getElementById('contact-form');
+        const btn  = document.getElementById('submit-btn');
+        const fb   = document.getElementById('form-feedback');
+
+        form.addEventListener('submit', async e => {
+            e.preventDefault();
+            btn.disabled = true;
+            btn.textContent = 'sending...';
+            fb.style.display = '';
+            try {
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (res.ok) {
+                    form.reset();
+                    fb.className = 'form-feedback form-feedback--success';
+                    fb.textContent = 'message sent — i\'ll be in touch.';
+                    btn.textContent = 'sent';
+                } else {
+                    throw new Error();
+                }
+            } catch {
+                fb.className = 'form-feedback form-feedback--error';
+                fb.textContent = 'something went wrong — try again or email directly.';
+                btn.disabled = false;
+                btn.textContent = 'send';
+            }
+            fb.style.display = 'block';
+        });
     </script>
 </body>
 </html>
