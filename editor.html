@@ -2071,9 +2071,27 @@ function startCrop() {
     cropMode=true; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
     document.getElementById('crop-idle').style.display = 'none';
     document.getElementById('crop-active').style.display = 'block';
-    document.getElementById('crop-hint').textContent = 'drag on the image to draw crop area';
     document.getElementById('overlay-canvas').classList.add('crop-mode');
+    // If a fixed AR is already selected, place the default box immediately
+    const ratio = getARRatio();
+    if (ratio) {
+        _placeDefaultCropBox(ratio);
+        document.getElementById('crop-hint').textContent = 'drag to move · handles to resize · apply when ready';
+    } else {
+        document.getElementById('crop-hint').textContent = 'drag on the image to draw crop area';
+    }
     renderOverlay();
+}
+
+// Place a centered, max-fit crop box for the given aspect ratio
+function _placeDefaultCropBox(ratio) {
+    const {x1,y1,x2,y2} = imageBounds;
+    const iw = x2-x1, ih = y2-y1;
+    let bw, bh;
+    if (iw/ih >= ratio) { bh=ih*0.92; bw=bh*ratio; }
+    else                { bw=iw*0.92; bh=bw/ratio; }
+    cropBox = {x: x1+(iw-bw)/2, y: y1+(ih-bh)/2, w:bw, h:bh};
+    cropPhase = 'drawn';
 }
 
 function cancelCrop() {
@@ -2124,10 +2142,35 @@ function setAR(btn, value) {
     document.querySelectorAll('.ar-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('ar-custom-row').style.display = value==='custom' ? 'flex' : 'none';
-    if (cropMode&&cropBox) { cropBox=constrainBox(cropBox); renderOverlay(); }
+    if (!workCanvas) return;
+    const ratio = getARRatio();
+    if (ratio) {
+        if (cropMode && cropBox) {
+            // Already have a box — constrain it to the new ratio
+            cropBox = constrainBox(cropBox);
+        } else if (cropMode) {
+            // In crop mode but no box yet — place default
+            _placeDefaultCropBox(ratio);
+            document.getElementById('crop-hint').textContent = 'drag to move · handles to resize · apply when ready';
+        } else {
+            // Not in crop mode — enter it with default box
+            startCrop();
+            return; // startCrop calls renderOverlay
+        }
+        renderOverlay();
+    } else if (cropMode && cropBox) {
+        // Switched to free — leave box as-is, just drop AR constraint
+        renderOverlay();
+    }
 }
 
-function onCustomAR() { if (cropMode&&cropBox) { cropBox=constrainBox(cropBox); renderOverlay(); } }
+function onCustomAR() {
+    if (!workCanvas) return;
+    const ratio = getARRatio();
+    if (!ratio) return;
+    if (cropMode && cropBox) { cropBox=constrainBox(cropBox); renderOverlay(); }
+    else if (!cropMode) { startCrop(); }
+}
 
 function clampBox(box) {
     const {x1,y1,x2,y2}=imageBounds;
