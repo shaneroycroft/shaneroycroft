@@ -37,7 +37,10 @@
 
     <div id="lightbox" onclick="closeLightbox()">
         <img id="lightbox-img" alt="">
-        <p id="lightbox-caption"></p>
+        <div id="lightbox-meta">
+            <span id="lightbox-caption"></span>
+            <span id="lightbox-exif"></span>
+        </div>
         <button id="lightbox-prev" onclick="event.stopPropagation(); shiftLightbox(-1)">&#8592;</button>
         <button id="lightbox-next" onclick="event.stopPropagation(); shiftLightbox(1)">&#8594;</button>
     </div>
@@ -50,6 +53,7 @@
         </a>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/full.umd.js"></script>
     <script src="theme.js"></script>
     <script>
         const PHOTOS_URL = 'photos.json?t=' + Date.now();
@@ -208,27 +212,79 @@
         // ── Lightbox ──────────────────────────────────────
         function openLightbox(index) {
             currentIndex = index;
-            const item = currentList[index];
-            document.getElementById('lightbox-img').src = item.src;
-            const cap = document.getElementById('lightbox-caption');
-            cap.textContent = item.caption || '';
-            cap.style.display = item.caption ? 'block' : 'none';
             document.getElementById('lightbox').style.display = 'flex';
             document.getElementById('lightbox-prev').style.display = currentList.length > 1 ? 'block' : 'none';
             document.getElementById('lightbox-next').style.display = currentList.length > 1 ? 'block' : 'none';
+            setLightboxPhoto(currentList[index]);
         }
 
         function closeLightbox() {
             document.getElementById('lightbox').style.display = 'none';
+            document.getElementById('lightbox').style.backgroundColor = '';
         }
 
         function shiftLightbox(dir) {
             currentIndex = (currentIndex + dir + currentList.length) % currentList.length;
-            const item = currentList[currentIndex];
-            document.getElementById('lightbox-img').src = item.src;
-            const cap = document.getElementById('lightbox-caption');
-            cap.textContent = item.caption || '';
-            cap.style.display = item.caption ? 'block' : 'none';
+            const lbImg = document.getElementById('lightbox-img');
+            lbImg.style.opacity = '0';
+            setTimeout(() => setLightboxPhoto(currentList[currentIndex]), 180);
+        }
+
+        function setLightboxPhoto(item) {
+            const lbImg = document.getElementById('lightbox-img');
+            const cap   = document.getElementById('lightbox-caption');
+            const exifEl = document.getElementById('lightbox-exif');
+            cap.textContent  = item.caption || '';
+            exifEl.textContent = '';
+            lbImg.src = item.src;
+            lbImg.style.opacity = '0';
+            lbImg.onload = () => {
+                lbImg.style.opacity = '1';
+                applyAmbientColor(lbImg);
+                loadLightboxExif(item.src, exifEl);
+            };
+            if (lbImg.complete && lbImg.naturalWidth) {
+                lbImg.style.opacity = '1';
+                applyAmbientColor(lbImg);
+                loadLightboxExif(item.src, exifEl);
+            }
+        }
+
+        function applyAmbientColor(img) {
+            try {
+                const cv = document.createElement('canvas');
+                cv.width = cv.height = 64;
+                cv.getContext('2d').drawImage(img, 0, 0, 64, 64);
+                const d = cv.getContext('2d').getImageData(0, 0, 64, 64).data;
+                let r=0, g=0, b=0, n=0;
+                for (let i=0; i<d.length; i+=4) {
+                    const ri=d[i], gi=d[i+1], bi=d[i+2];
+                    const mx=Math.max(ri,gi,bi), mn=Math.min(ri,gi,bi);
+                    if (mx && (mx-mn)/mx > 0.12) { r+=ri; g+=gi; b+=bi; n++; }
+                }
+                if (!n) { for (let i=0; i<d.length; i+=4) { r+=d[i]; g+=d[i+1]; b+=d[i+2]; n++; } }
+                const sc = 0.18; // darken significantly — we want a mood, not a colour explosion
+                document.getElementById('lightbox').style.backgroundColor =
+                    `rgba(${r/n*sc|0},${g/n*sc|0},${b/n*sc|0},0.98)`;
+            } catch(e) {}
+        }
+
+        function loadLightboxExif(src, el) {
+            if (typeof exifr === 'undefined') return;
+            exifr.parse(src, { tiff:true, exif:true, gps:false, translateValues:true, reviveValues:true })
+                .then(x => {
+                    if (!x) return;
+                    const parts = [];
+                    const model = x.Model ? x.Model.trim() : '';
+                    const make  = x.Make  ? x.Make.trim()  : '';
+                    const cam = (make && !model.toLowerCase().startsWith(make.toLowerCase())) ? make+' '+model : model;
+                    if (cam) parts.push(cam);
+                    if (x.FocalLength) parts.push(x.FocalLength + 'mm');
+                    if (x.FNumber)     parts.push('f/' + x.FNumber.toFixed(1));
+                    if (x.ExposureTime) parts.push(x.ExposureTime >= 1 ? x.ExposureTime+'s' : '¹⁄'+Math.round(1/x.ExposureTime)+'s');
+                    if (x.ISO)         parts.push('iso ' + x.ISO);
+                    el.textContent = parts.join('  ·  ');
+                }).catch(() => {});
         }
 
         document.addEventListener('keydown', e => {

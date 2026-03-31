@@ -175,9 +175,11 @@
         #canvas-wrap { position: relative; display: inline-block; flex-shrink: 0; box-shadow: 0 0 0 1px #111, 0 6px 32px rgba(0,0,0,0.28); transform-origin: center center; }
         #output-canvas { display: block; max-width: calc(100vw - 300px - 4rem); max-height: calc(100vh - 46px - 4rem); }
         #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        #overlay-canvas.crop-mode { pointer-events: auto; cursor: crosshair; }
+        #overlay-canvas.crop-mode  { pointer-events: auto; cursor: crosshair; }
         #overlay-canvas.brush-mode { pointer-events: auto; cursor: none; }
         #overlay-canvas.persp-mode { pointer-events: auto; cursor: default; }
+        #overlay-canvas.split-mode { pointer-events: auto; cursor: col-resize; }
+        #split-btn.active { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
         /* Zoom indicator in top bar */
         #zoom-ind { font-size: 0.68rem; color: var(--secondary); min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
     </style>
@@ -200,7 +202,7 @@
             <option value="4x4">4×4</option>
         </select>
         <span class="e-bar-sep">|</span>
-        <button class="e-bar-btn" onmousedown="showOriginal(true)" onmouseup="showOriginal(false)" ontouchstart="showOriginal(true)" ontouchend="showOriginal(false)">before/after</button>
+        <button class="e-bar-btn" id="split-btn" onclick="toggleSplit()" title="drag the divider to compare before/after">compare</button>
         <span class="e-bar-sep">|</span>
         <label class="grid-label" title="highlight clipping: red=blown, blue=crushed">
             <input type="checkbox" id="clip-toggle" onchange="renderOverlay()"> clipping
@@ -614,6 +616,11 @@ let showingOriginal = false;
 let perspCorners = null; // null = inactive, array of 4 {x,y} in image coords
 let perspDragging = -1;  // index of corner being dragged
 let perspHover = -1;     // index of corner being hovered
+
+// Split compare
+let splitMode     = false;
+let splitX        = 0.5;   // fraction of canvas width
+let splitDragging = false;
 
 // Histogram channel data (256 bins, populated by drawHistogram, consumed by drawCurve)
 let histDataR = new Float32Array(256);
@@ -1870,6 +1877,61 @@ function showOriginal(on) {
     } else { render(); }
 }
 
+function toggleSplit() {
+    splitMode = !splitMode;
+    splitX = 0.5;
+    const btn = document.getElementById('split-btn');
+    btn.classList.toggle('active', splitMode);
+    const ov = document.getElementById('overlay-canvas');
+    if (splitMode) {
+        ov.classList.add('split-mode');
+    } else {
+        ov.classList.remove('split-mode');
+        ov.style.cursor = '';
+    }
+    renderOverlay();
+}
+
+function drawSplitOverlay(ctx, W, H) {
+    if (!workCanvas) return;
+    const sx = Math.round(splitX * W);
+    const {x1, y1, x2, y2} = imageBounds;
+
+    // Draw original (workCanvas) over the left half
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, sx, H); ctx.clip();
+    const bcolor = document.getElementById('sl-bcolor').value;
+    ctx.fillStyle = bcolor; ctx.fillRect(0, 0, sx, H);
+    ctx.drawImage(workCanvas, x1, y1, x2 - x1, y2 - y1);
+    ctx.restore();
+
+    // Divider line
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
+
+    // Handle circle
+    const hy = H / 2;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.beginPath(); ctx.arc(sx, hy, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('◀ ▶', sx, hy);
+    ctx.restore();
+
+    // Labels
+    ctx.save();
+    ctx.font = '600 10px system-ui'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    if (sx > 60)     { ctx.textAlign = 'left';  ctx.fillText('before', x1 + 10, y1 + 10); }
+    if (W - sx > 60) { ctx.textAlign = 'left';  ctx.fillText('after',  sx + 10, y1 + 10); }
+    ctx.restore();
+}
+
 // ── Histogram ─────────────────────────────────────────────────
 function drawHistogram() {
     const cv = document.getElementById('hist-canvas');
@@ -1919,6 +1981,7 @@ function renderOverlay() {
     if (!ov.width) return;
     const ctx = ov.getContext('2d');
     ctx.clearRect(0, 0, ov.width, ov.height);
+    if (splitMode) { drawSplitOverlay(ctx, ov.width, ov.height); return; } // split takes over overlay
     if (document.getElementById('clip-toggle').checked) drawClippingZebra(ctx, ov.width, ov.height);
     if (document.getElementById('grid-toggle').checked) drawGrid(ctx, ov.width, ov.height);
     if (straightenAngle !== 0) drawStraightenGrid(ctx, ov.width, ov.height);
@@ -2068,6 +2131,7 @@ function drawGrid(ctx, W, H) {
 function startCrop() {
     if (!workCanvas) return;
     if (activeTool) setTool(null);
+    if (splitMode) toggleSplit();
     cropMode=true; cropPhase='idle'; cropBox=null; dragHandle=null; dragOrigin=null;
     document.getElementById('crop-idle').style.display = 'none';
     document.getElementById('crop-active').style.display = 'block';
@@ -2266,6 +2330,11 @@ function ovCoords(e) {
 }
 
 ovEl.addEventListener('mousedown', e => {
+    if (splitMode && e.button === 0) {
+        const {x} = ovCoords(e);
+        if (Math.abs(x - splitX * ovEl.width) < 28) { splitDragging = true; e.preventDefault(); }
+        return;
+    }
     if (activeTool && e.button === 0) {
         e.preventDefault();
         brushPainting = true; brushLastPos = null;
@@ -2302,6 +2371,16 @@ ovEl.addEventListener('mousedown', e => {
 });
 
 ovEl.addEventListener('mousemove', e => {
+    if (splitMode) {
+        const {x} = ovCoords(e);
+        if (splitDragging) {
+            splitX = Math.max(0.05, Math.min(0.95, x / ovEl.width));
+            renderOverlay();
+        } else {
+            ovEl.style.cursor = Math.abs(x - splitX * ovEl.width) < 28 ? 'col-resize' : 'default';
+        }
+        return;
+    }
     if (activeTool) {
         const {x,y} = ovCoords(e);
         brushCursorPos = {x, y};
@@ -2344,6 +2423,7 @@ ovEl.addEventListener('mousemove', e => {
 });
 
 ovEl.addEventListener('mouseup', e => {
+    if (splitDragging) { splitDragging = false; return; }
     if (activeTool) {
         if (brushPainting) { brushPainting = false; brushLastPos = null; finishAdjust(); }
         return;
