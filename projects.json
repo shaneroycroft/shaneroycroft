@@ -2,30 +2,30 @@
   {
     "title": "this site",
     "year": 2026,
-    "description": "A static portfolio with no backend and no CMS. Photos are managed, edited, and published entirely in the browser — drag-and-drop upload, in-browser resize, and a full WebGL photo editor with Bradford colour science, per-channel tone curves, HSL, luminosity masking, clipping recovery, Gaussian USM sharpening, split before/after compare, and EXIF display. One-click push to GitHub.",
+    "description": "A static portfolio with no backend and no CMS. Photos are managed, edited, and published entirely in the browser. Drag-and-drop upload, in-browser resize, and a full WebGL photo editor with Bradford colour science, per-channel tone curves, HSL, luminosity masking, clipping recovery, Gaussian USM sharpening, split before/after compare, and EXIF display. One-click push to GitHub.",
     "tech": null,
     "links": [
-      { "label": "open editor →", "url": "https://www.shaneroycroft.com/editor.html" }
+      { "label": "open editor", "url": "https://www.shaneroycroft.com/editor.html" }
     ],
     "status": "live"
   },
   {
     "title": "vaporpath",
     "year": 2026,
-    "description": "Browser-based schematic designer for automotive refrigerant circuits. Drag-and-drop components, auto-route pipes, and snapshot multiple operating modes — cooling, heating, defrost — in a single project.",
+    "description": "Browser-based schematic designer for automotive refrigerant circuits. Drag-and-drop components, auto-route pipes, and snapshot multiple operating modes in a single project.",
     "tech": "React · TypeScript",
     "links": [
-      { "label": "open tool →", "url": "https://hotandcoldrefrigerant.vercel.app/" }
+      { "label": "open tool", "url": "https://hotandcoldrefrigerant.vercel.app/" }
     ],
     "status": "live"
   },
   {
     "title": "cardano ticketing protocol",
     "year": 2026,
-    "description": "On-chain event ticketing on Cardano. Tickets are CIP-68 NFTs — resale prices and royalties enforced at the contract level, no middlemen. Venue seat visualizer, QR gate check-in, artist pages, and organizer analytics.",
+    "description": "On-chain event ticketing on Cardano. Tickets are CIP-68 NFTs, with resale prices and royalties enforced at the contract level, no middlemen. Venue seat visualizer, QR gate check-in, artist pages, and organizer analytics.",
     "tech": "Aiken · Lucid Evolution · Blockfrost · Supabase · CIP-30 · CIP-68 · IPFS · React · Tailwind",
     "links": [
-      { "label": "preview (preprod) →", "url": "https://cardano-event-demo.github-c07.workers.dev/" }
+      { "label": "preview (preprod)", "url": "https://cardano-event-demo.github-c07.workers.dev/" }
     ],
     "status": "building"
   }
