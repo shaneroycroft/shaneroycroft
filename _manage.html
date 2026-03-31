@@ -196,6 +196,14 @@
         }
         .existing-item.cover .cover-dot { display: block; }
 
+        .existing-item.hidden-photo img { opacity: 0.35; }
+        .existing-item.hidden-photo .hidden-badge {
+            position: absolute; top: 4px; left: 4px;
+            background: rgba(0,0,0,0.65); color: #fff;
+            font-size: 0.58rem; letter-spacing: 1px; text-transform: lowercase;
+            padding: 0.15rem 0.4rem; pointer-events: none;
+        }
+
         /* ── Manage controls bar ─────────────────────────── */
         .manage-controls { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
         .sort-select {
@@ -939,7 +947,8 @@
             const list = manifest[manageCat] || [];
             if (list.length === 0) { hint.textContent = 'no photos in this category yet.'; return; }
             const pinned = list.filter(e => (typeof e === 'object' && e.pinned)).length;
-            hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''}${pinned ? ` — ${pinned} pinned` : ''} — drag to reorder · hover to manage.`;
+            const hidden = list.filter(e => (typeof e === 'object' && e.hidden)).length;
+            hint.textContent = `${list.length} photo${list.length > 1 ? 's' : ''}${pinned ? ` · ${pinned} pinned` : ''}${hidden ? ` · ${hidden} hidden` : ''} — drag to reorder · hover to manage.`;
 
             list.forEach((entry, i) => {
                 const src     = typeof entry === 'string' ? entry : entry.src;
@@ -947,18 +956,21 @@
                 const isPinned = typeof entry === 'object' && !!entry.pinned;
                 const isCover = typeof entry === 'object' && !!entry.cover;
                 const div = document.createElement('div');
-                div.className = 'existing-item' + (isPinned ? ' pinned' : '') + (isCover ? ' cover' : '');
+                const isHidden = typeof entry === 'object' && !!entry.hidden;
+                div.className = 'existing-item' + (isPinned ? ' pinned' : '') + (isCover ? ' cover' : '') + (isHidden ? ' hidden-photo' : '');
                 div.draggable = true;
                 div.dataset.idx = i;
                 div.innerHTML = `
                     <img src="${src}" loading="lazy" alt="" draggable="false" onclick="openAdminLb(${i})" style="cursor:zoom-in;">
                     <div class="pin-dot"></div>
                     <div class="cover-dot" title="cover photo"></div>
+                    ${isHidden ? '<div class="hidden-badge">hidden</div>' : ''}
                     <div class="item-caption" onclick="editCaption(this, '${manageCat}', ${i})">${caption ? escHtml(caption) : '<span class="no-cap">caption</span>'}</div>
                     <div class="item-actions">
                         <button onclick="openInEditor('${escHtml(src)}')">edit ↗</button>
                         <button onclick="togglePin('${manageCat}', ${i})">${isPinned ? 'unpin' : 'pin'}</button>
                         <button onclick="setCover('${manageCat}', ${i})">${isCover ? 'uncover' : 'cover'}</button>
+                        <button onclick="toggleHidden('${manageCat}', ${i})">${isHidden ? 'show' : 'hide'}</button>
                         <button onclick="moveToCategoryPrompt('${manageCat}', ${i})">move</button>
                         <button class="btn-delete" onclick="deletePhoto('${manageCat}', ${i})">delete</button>
                     </div>`;
@@ -1059,6 +1071,15 @@
                 return pb - pa;
             });
             try { await saveManifest(); renderManageGrid(); renderHomepagePreview(); }
+            catch (e) { alert('failed to save: ' + e.message); }
+        }
+
+        async function toggleHidden(cat, index) {
+            const entry = manifest[cat][index];
+            const asObj = typeof entry === 'string' ? { src: entry } : { ...entry };
+            if (asObj.hidden) { delete asObj.hidden; } else { asObj.hidden = true; }
+            manifest[cat][index] = asObj;
+            try { await saveManifest(); renderManageGrid(); }
             catch (e) { alert('failed to save: ' + e.message); }
         }
 

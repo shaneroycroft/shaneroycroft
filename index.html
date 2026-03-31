@@ -49,14 +49,14 @@
         fetch('photos.json?t=' + Date.now())
             .then(r => r.json())
             .then(data => {
-                const explicit = (data.portfolio || []);
+                const explicit = (data.portfolio || []).filter(e => !(typeof e === 'object' && e.hidden));
                 const seen = new Set(explicit.map(e => norm(e).src));
                 const pinned = [];
                 Object.entries(data).forEach(([cat, photos]) => {
                     if (cat === 'portfolio') return;
                     (photos || []).forEach(e => {
                         const p = norm(e);
-                        if (e.pinned && !seen.has(p.src)) { seen.add(p.src); pinned.push(e); }
+                        if (e.pinned && !(typeof e === 'object' && e.hidden) && !seen.has(p.src)) { seen.add(p.src); pinned.push(e); }
                     });
                 });
                 let photos;

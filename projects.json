@@ -2,7 +2,7 @@
   {
     "title": "this site",
     "year": 2026,
-    "description": "A static portfolio with no backend and no CMS. Photos are managed and edited entirely in the browser — including a full photo editor with tone curves, crop, vignette, and lossless PNG export.",
+    "description": "A static portfolio with no backend and no CMS. Photos are managed, edited, and published entirely in the browser — drag-and-drop upload, in-browser resize, and a full WebGL photo editor with Bradford colour science, per-channel tone curves, HSL, luminosity masking, clipping recovery, Gaussian USM sharpening, split before/after compare, and EXIF display. One-click push to GitHub.",
     "tech": null,
     "links": [
       { "label": "open editor →", "url": "https://www.shaneroycroft.com/editor.html" }

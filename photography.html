@@ -64,6 +64,7 @@
         function norm(entry) {
             return typeof entry === 'string' ? { src: entry, caption: '' } : entry;
         }
+        function visible(entry) { return !(typeof entry === 'object' && entry.hidden); }
 
         fetch(PHOTOS_URL)
             .then(r => r.json())
@@ -109,13 +110,13 @@
 
         // Portfolio = explicit portfolio entries + pinned photos from other categories
         function getPortfolioPhotos() {
-            const explicit = (categories['portfolio'] || []).map(norm);
+            const explicit = (categories['portfolio'] || []).filter(visible).map(norm);
             const seen = new Set(explicit.map(p => p.src));
             Object.entries(categories).forEach(([cat, photos]) => {
                 if (cat === 'portfolio') return;
                 (photos || []).forEach(entry => {
                     const p = norm(entry);
-                    if (entry.pinned && !seen.has(p.src)) { seen.add(p.src); explicit.push(p); }
+                    if (entry.pinned && visible(entry) && !seen.has(p.src)) { seen.add(p.src); explicit.push(p); }
                 });
             });
             return explicit;
@@ -137,7 +138,7 @@
                 const grid = document.createElement('div');
                 grid.className = 'gallery';
 
-                const photos = cat === 'portfolio' ? getPortfolioPhotos() : (categories[cat] || []).map(norm);
+                const photos = cat === 'portfolio' ? getPortfolioPhotos() : (categories[cat] || []).filter(visible).map(norm);
 
                 if (photos.length === 0) {
                     const empty = document.createElement('p');
