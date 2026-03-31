@@ -56,6 +56,13 @@
         .e-sec summary::-webkit-details-marker { display: none; }
         .e-sec summary::after { content: '+'; color: var(--secondary); }
         .e-sec[open] summary::after { content: '−'; }
+        .sec-reset {
+            font-size: 0.62rem; letter-spacing: 0.5px; color: var(--secondary);
+            margin-left: auto; margin-right: 0.6rem;
+            opacity: 0; transition: opacity 0.15s; cursor: pointer;
+        }
+        .e-sec summary:hover .sec-reset { opacity: 1; }
+        .sec-reset:hover { color: var(--text); }
         .e-body { padding: 0.25rem 1.2rem 1.1rem; }
 
         /* Sliders */
@@ -214,6 +221,8 @@
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
         <span class="e-bar-sep">|</span>
+        <button class="e-bar-btn" onclick="resetAllEdits()" title="reset all adjustments to zero">reset</button>
+        <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="document.getElementById('info-modal').style.display='block'" title="editor guide">?</button>
         <span class="e-bar-spacer"></span>
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
@@ -329,13 +338,12 @@
                     <div class="preset-grid" id="preset-saved"></div>
                     <div class="s-row-btns" style="margin-top:0.85rem;">
                         <button class="s-btn" onclick="savePreset()">save current</button>
-                        <button class="s-link" onclick="resetAllEdits()">reset all</button>
                     </div>
                 </div>
             </details>
 
             <details class="e-sec" open>
-                <summary>adjust</summary>
+                <summary>adjust <span class="sec-reset" onclick="event.stopPropagation();resetAdjust()">reset</span></summary>
                 <div class="e-body">
                     <div class="adj-group">light</div>
                     <div class="s-row"><label>exposure <input type="number" class="val-input" id="v-exposure" value="0" min="-100" max="100" step="1" data-key="exposure" oninput="syncVal(this)"></label><input type="range" id="sl-exposure" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -363,12 +371,11 @@
                     <div class="s-row"><label>luma NR <input type="number" class="val-input" id="v-lumanr" value="0" min="0" max="100" step="1" data-key="lumanr" oninput="syncVal(this)"></label><input type="range" id="sl-lumanr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>color NR <input type="number" class="val-input" id="v-colornr" value="0" min="0" max="100" step="1" data-key="colornr" oninput="syncVal(this)"></label><input type="range" id="sl-colornr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row-btns"><button class="s-link" onclick="resetAdjust()">reset</button></div>
                 </div>
             </details>
 
             <details class="e-sec" id="lm-sec">
-                <summary>luminosity mask</summary>
+                <summary>luminosity mask <span class="sec-reset" onclick="event.stopPropagation();resetLM()">reset</span></summary>
                 <div class="e-body">
                     <p class="s-note">limit all adjustments to a tonal range. 0=shadows, 100=highlights.</p>
                     <div class="lm-range-wrap">
@@ -383,7 +390,7 @@
             </details>
 
             <details class="e-sec">
-                <summary>curve</summary>
+                <summary>curve <span class="sec-reset" onclick="event.stopPropagation();resetAllCurves()">reset</span></summary>
                 <div class="e-body">
                     <div class="hsl-tabs" style="margin-bottom:0.35rem;">
                         <button class="hsl-tab active" id="cv-tab-composite" onclick="setCurveChannel('composite')">all</button>
@@ -405,7 +412,7 @@
             </details>
 
             <details class="e-sec">
-                <summary>hsl</summary>
+                <summary>hsl <span class="sec-reset" onclick="event.stopPropagation();resetHSL()">reset</span></summary>
                 <div class="e-body">
                     <div class="hsl-tabs">
                         <button class="hsl-tab active" id="hsl-tab-h" onclick="setHSLTab('h')">H</button>
@@ -442,12 +449,11 @@
                         <div class="s-row"><label>purple <input type="number" class="val-input" id="v-hsl-l-6" value="0" min="-100" max="100" step="1" data-key="hsl-l-6" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-6" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
                         <div class="s-row"><label>magenta <input type="number" class="val-input" id="v-hsl-l-7" value="0" min="-100" max="100" step="1" data-key="hsl-l-7" oninput="syncVal(this)"></label><input type="range" id="sl-hsl-l-7" min="-100" max="100" value="0" data-default="0" oninput="onHSL()" ondblclick="resetSlider(this)"></div>
                     </div>
-                    <div class="s-row-btns"><button class="s-link" onclick="resetHSL()">reset</button></div>
                 </div>
             </details>
 
             <details class="e-sec">
-                <summary>color grading</summary>
+                <summary>color grading <span class="sec-reset" onclick="event.stopPropagation();resetColorGrading()">reset</span></summary>
                 <div class="e-body">
                     <div class="cg-wheels">
                         <div class="cg-wheel-wrap">
@@ -464,12 +470,11 @@
                         </div>
                     </div>
                     <div class="s-row"><label>balance <input type="number" class="val-input" id="v-st-bal" value="0" min="-100" max="100" step="1" data-key="st-bal" oninput="syncVal(this)"></label><input type="range" id="sl-st-bal" min="-100" max="100" value="0" data-default="0" oninput="onColorGrading()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row-btns"><button class="s-link" onclick="resetColorGrading()">reset</button></div>
                 </div>
             </details>
 
             <details class="e-sec">
-                <summary>vignette</summary>
+                <summary>vignette <span class="sec-reset" onclick="event.stopPropagation();document.getElementById('sl-vignette').value=0;document.getElementById('v-vignette').value=0;scheduleRender()">reset</span></summary>
                 <div class="e-body">
                     <div class="s-row"><label>strength <input type="number" class="val-input" id="v-vignette" value="0" min="0" max="100" step="1" data-key="vignette" oninput="syncVal(this)"></label><input type="range" id="sl-vignette" min="0" max="100" value="0" data-default="0" oninput="onVignette()" ondblclick="resetSlider(this)"></div>
                 </div>
