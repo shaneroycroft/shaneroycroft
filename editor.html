@@ -329,6 +329,7 @@
                     <div class="preset-grid" id="preset-saved"></div>
                     <div class="s-row-btns" style="margin-top:0.85rem;">
                         <button class="s-btn" onclick="savePreset()">save current</button>
+                        <button class="s-link" onclick="resetAllEdits()">reset all</button>
                     </div>
                 </div>
             </details>
@@ -2584,6 +2585,17 @@ function resetAdjust() {
         document.getElementById('sl-'+k).value=0;
         const el=document.getElementById('v-'+k); if(el) el.value='0';
     });
+    scheduleRender();
+}
+
+function resetAllEdits() {
+    resetAdjust();
+    resetAllCurves();
+    resetHSL();
+    resetColorGrading();
+    resetLM();
+    const vigSl = document.getElementById('sl-vignette');
+    if (vigSl) { vigSl.value = 0; document.getElementById('v-vignette').value = 0; }
     scheduleRender();
 }
 function onStraighten() {
