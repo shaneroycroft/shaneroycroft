@@ -3,14 +3,17 @@
     {
       "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/portfolio/1774448225228_dscf4528.jpeg",
       "caption": "osaka - japan"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/portfolio/1775039663390_dscf4683_edited.jpg",
+      "caption": "kyoto - japan"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/portfolio/1775042124758_dscf4992_edited.jpg",
+      "caption": "tokyo - japan"
     }
   ],
   "japan": [
-    {
-      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/japan/1774444394807_dscf4631.jpeg",
-      "caption": "osaka - japan",
-      "pinned": true
-    },
     {
       "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/japan/1774444392657_dscf4508.jpeg",
       "caption": "osaka - japan",
@@ -19,6 +22,16 @@
     {
       "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/japan/1774444397061_dscf4545.jpeg",
       "caption": "osaka - japan",
+      "pinned": true
+    },
+    {
+      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/japan/1774964811470_dscf4695.jpeg",
+      "caption": "kyoto - japan",
+      "pinned": true
+    },
+    {
+      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/japan/1774964148841_dscf4829_edited.png",
+      "caption": "tokyo - japan",
       "pinned": true
     },
     {
