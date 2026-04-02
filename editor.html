@@ -201,6 +201,8 @@
         .mask-del-btn:hover { color: var(--text); opacity: 1; }
         .mask-enable { accent-color: var(--text); cursor: pointer; flex-shrink: 0; }
         .mask-adj-sep { font-size: 0.62rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); margin: 0.55rem 0 0.45rem; border-top: 1px solid var(--border); padding-top: 0.5rem; display: block; }
+        .mask-brush-bar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.65rem; align-items: center; }
+        .mask-brush-bar .s-btn-ghost.painting { background: var(--text); color: var(--bg); border-color: var(--text); }
 
         /* EXIF strip */
         .exif-strip { padding: 0.5rem 1.2rem 0.65rem; border-bottom: 1px solid var(--border); display:none; }
@@ -553,9 +555,20 @@
                     <div class="s-row-btns" style="margin-bottom:0.75rem;">
                         <button class="s-btn-ghost" onclick="addMask('gradient')">+ gradient</button>
                         <button class="s-btn-ghost" onclick="addMask('radial')">+ radial</button>
+                        <button class="s-btn-ghost" onclick="addMask('brush')">+ brush</button>
                     </div>
                     <div class="mask-list" id="mask-list"></div>
                     <div id="mask-adj-panel" style="display:none">
+                        <!-- brush-only tools -->
+                        <div id="mask-brush-tools" style="display:none">
+                            <div class="mask-brush-bar">
+                                <button id="mbtn-add"  class="s-btn-ghost" onclick="setMaskBrush('add')"      title="paint to add to the mask">add</button>
+                                <button id="mbtn-sub"  class="s-btn-ghost" onclick="setMaskBrush('subtract')" title="paint to remove from the mask">remove</button>
+                                <button id="mbtn-done" class="s-btn-ghost" onclick="setMaskBrush(null)"       title="exit paint mode">done</button>
+                                <button class="s-btn-ghost" onclick="clearBrushMask()" title="reset mask to empty">clear</button>
+                            </div>
+                            <p class="s-note" style="margin-bottom:0.65rem;">use brush size [ ] and strength slider while painting.</p>
+                        </div>
                         <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.65rem;">
                             <label style="font-size:0.68rem;color:var(--secondary);display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" id="mask-invert" onchange="onMaskCtrlChange()"> invert</label>
                         </div>
@@ -726,6 +739,11 @@ let masks          = [];
 let activeMaskId   = null;
 let maskDragHandle = null; // {handle:'p1'|'p2'|'center'|'n'|'s'|'e'|'w', id:string}
 let _maskIdCtr     = 0;
+
+// Brush mask painting state
+let maskBrushMode     = null;   // 'add' | 'subtract' | null
+let maskBrushPainting = false;
+let maskBrushLastPos  = null;
 
 // HSL — centers and widths match ACR/Lightroom hue bands
 // Red, Orange, Yellow, Green, Aqua, Blue, Purple, Magenta
@@ -927,7 +945,7 @@ document.addEventListener('keydown', e => {
 
     // ── Brush size: [ and ] ─────────────────────────────────────
     if (e.key === '[' || e.key === ']') {
-        if (activeTool) {
+        if (activeTool || maskBrushMode) {
             e.preventDefault();
             const step  = e.shiftKey ? 20 : 10;
             const delta = e.key === ']' ? step : -step;
@@ -947,7 +965,7 @@ document.addEventListener('keydown', e => {
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         if (e.key === 'd' || e.key === 'D') { e.preventDefault(); setTool('dodge'); return; }
         if (e.key === 'b' || e.key === 'B') { e.preventDefault(); setTool('burn');  return; }
-        if (e.key === 'Escape')             { e.preventDefault(); setTool(null);    return; }
+        if (e.key === 'Escape')             { e.preventDefault(); setTool(null); if (maskBrushMode) setMaskBrush(null); return; }
         if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); zoomTo100();     return; }
 
         // ── Before/after toggle ─────────────────────────────────
@@ -2196,7 +2214,7 @@ function renderOverlay() {
     if (straightenAngle !== 0) drawStraightenGrid(ctx, ov.width, ov.height);
     if (perspCorners) drawPerspHandles(ctx, ov.width, ov.height);
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
-    if (activeTool && brushCursorPos) drawBrushCursor(ctx);
+    if ((activeTool || maskBrushMode) && brushCursorPos) drawBrushCursor(ctx);
     drawMaskOverlay(ctx);
 }
 
@@ -2554,6 +2572,14 @@ ovEl.addEventListener('mousedown', e => {
         applyBrushStroke(e.clientX, e.clientY);
         return;
     }
+    // Brush mask painting
+    if (maskBrushMode && activeMaskId && e.button === 0) {
+        e.preventDefault();
+        maskBrushPainting = true; maskBrushLastPos = null;
+        beginAdjust();
+        applyMaskBrushStroke(e.clientX, e.clientY);
+        return;
+    }
     // Mask handle picking
     if (activeMaskId && e.button === 0) {
         const oc  = ovCoords(e);
@@ -2610,6 +2636,13 @@ ovEl.addEventListener('mousemove', e => {
         if (brushPainting) { applyBrushStroke(e.clientX, e.clientY); }
         return;
     }
+    if (maskBrushMode && activeMaskId) {
+        const {x,y} = ovCoords(e);
+        brushCursorPos = {x, y};
+        renderOverlay();
+        if (maskBrushPainting) { applyMaskBrushStroke(e.clientX, e.clientY); }
+        return;
+    }
     if (maskDragHandle) {
         const oc = ovCoords(e);
         updateMaskDrag(oc.x, oc.y);
@@ -2663,6 +2696,10 @@ ovEl.addEventListener('mouseup', e => {
         if (brushPainting) { brushPainting = false; brushLastPos = null; finishAdjust(); }
         return;
     }
+    if (maskBrushMode && maskBrushPainting) {
+        maskBrushPainting = false; maskBrushLastPos = null; finishAdjust();
+        return;
+    }
     if (maskDragHandle) {
         maskDragHandle = null;
         finishAdjust();
@@ -2683,7 +2720,7 @@ ovEl.addEventListener('mouseup', e => {
 });
 
 ovEl.addEventListener('mouseleave', () => {
-    if (activeTool) { brushCursorPos = null; renderOverlay(); }
+    if (activeTool || maskBrushMode) { brushCursorPos = null; renderOverlay(); }
 });
 
 // Touch support for brush tools and perspective handles
@@ -3116,16 +3153,121 @@ function updateColorSampler(e) {
 function addMask(type) {
     if (!workCanvas) return;
     const id = 'mask_' + (++_maskIdCtr);
-    masks.push({
+    const m = {
         id, type, enabled: true, inverted: false, feather: 50,
         x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,   // gradient: p1→p2
         cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,    // radial: center + radii
         adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
-    });
+    };
+    if (type === 'brush') {
+        m.width  = workCanvas.width;
+        m.height = workCanvas.height;
+        m.pixels = new Float32Array(workCanvas.width * workCanvas.height);
+    }
+    masks.push(m);
     const sec = document.getElementById('masks-sec');
     if (sec && !sec.open) sec.open = true;
     selectMask(id);
     scheduleRender();
+}
+
+// ── Brush mask painting ────────────────────────────────────────
+function setMaskBrush(mode) {
+    // mode: 'add' | 'subtract' | null
+    maskBrushMode = mode;
+    ['add','sub'].forEach(k => {
+        const btn = document.getElementById('mbtn-' + k);
+        if (btn) btn.classList.toggle('painting', (k === 'add' && mode === 'add') || (k === 'sub' && mode === 'subtract'));
+    });
+    if (mode) {
+        ovEl.classList.add('brush-mode');
+        if (activeTool) setTool(null);
+    } else {
+        ovEl.classList.remove('brush-mode');
+        brushCursorPos = null;
+        renderOverlay();
+    }
+}
+
+function clearBrushMask() {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'brush') return;
+    mask.pixels.fill(0);
+    renderOverlay();
+    scheduleRender();
+}
+
+function applyMaskBrushAt(wx, wy) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'brush' || !mask.pixels) return;
+    const r   = brushSize / 2;
+    const str = (brushStrength / 100) * 0.12 * (maskBrushMode === 'subtract' ? -1 : 1);
+    const x0  = Math.max(0, Math.floor(wx - r));
+    const y0  = Math.max(0, Math.floor(wy - r));
+    const x1  = Math.min(mask.width,  Math.ceil(wx + r));
+    const y1  = Math.min(mask.height, Math.ceil(wy + r));
+    for (let py = y0; py < y1; py++) {
+        for (let px = x0; px < x1; px++) {
+            const dx = px - wx, dy = py - wy;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > r) continue;
+            const falloff = Math.cos(dist / r * Math.PI * 0.5);
+            const idx = py * mask.width + px;
+            mask.pixels[idx] = Math.max(0, Math.min(1, mask.pixels[idx] + str * falloff));
+        }
+    }
+}
+
+function applyMaskBrushStroke(clientX, clientY) {
+    const oc  = clientToOverlayCanvas(clientX, clientY);
+    const pos = overlayToWorkCanvas(oc.x, oc.y);
+    if (!pos) return;
+    if (maskBrushLastPos) {
+        const dx = pos.x - maskBrushLastPos.x, dy = pos.y - maskBrushLastPos.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const step = Math.max(1, brushSize * 0.25);
+        if (dist > step) {
+            const steps = Math.ceil(dist / step);
+            for (let k = 1; k <= steps; k++) {
+                applyMaskBrushAt(maskBrushLastPos.x + dx*k/steps, maskBrushLastPos.y + dy*k/steps);
+            }
+            maskBrushLastPos = pos;
+            renderOverlay();
+            scheduleRender();
+        }
+    } else {
+        applyMaskBrushAt(pos.x, pos.y);
+        maskBrushLastPos = pos;
+        renderOverlay();
+        scheduleRender();
+    }
+}
+
+function drawBrushMaskOverlay(ctx, mask) {
+    if (!mask.pixels || !imageBounds) return;
+    const x1o = Math.round(imageBounds.x1), y1o = Math.round(imageBounds.y1);
+    const IW  = Math.round(imageBounds.x2 - imageBounds.x1);
+    const IH  = Math.round(imageBounds.y2 - imageBounds.y1);
+    if (IW <= 0 || IH <= 0) return;
+    // Sample mask at display resolution (avoids iterating millions of full-res pixels)
+    const imgd = ctx.createImageData(IW, IH);
+    const dd   = imgd.data;
+    const inverted = mask.inverted;
+    for (let sy = 0; sy < IH; sy++) {
+        const my = Math.round(sy / IH * (mask.height - 1));
+        const rowBase = my * mask.width;
+        for (let sx = 0; sx < IW; sx++) {
+            const mx = Math.round(sx / IW * (mask.width - 1));
+            let v = mask.pixels[rowBase + mx];
+            if (inverted) v = 1 - v;
+            const i = (sy * IW + sx) * 4;
+            dd[i]   = 220;
+            dd[i+1] = 40;
+            dd[i+2] = 40;
+            dd[i+3] = Math.round(v * 150);
+        }
+    }
+    ctx.putImageData(imgd, x1o, y1o);
 }
 
 function deleteMask(id) {
@@ -3141,6 +3283,8 @@ function toggleMaskEnabled(id, enabled) {
 }
 
 function selectMask(id) {
+    // Exit any active mask-brush mode when switching masks
+    if (maskBrushMode) setMaskBrush(null);
     activeMaskId = id;
     renderMaskList();
     const panel = document.getElementById('mask-adj-panel');
@@ -3155,6 +3299,9 @@ function selectMask(id) {
     if (!mask) { panel.style.display = 'none'; return; }
     panel.style.display = '';
     ovEl.classList.add('mask-mode');
+    // Show/hide brush tools panel
+    const brushTools = document.getElementById('mask-brush-tools');
+    if (brushTools) brushTools.style.display = mask.type === 'brush' ? '' : 'none';
     document.getElementById('mask-invert').checked = mask.inverted;
     ['feather','exposure','highlights','shadows','saturation','temperature'].forEach(f => {
         const val = f === 'feather' ? mask.feather : mask.adj[f];
@@ -3171,7 +3318,7 @@ function renderMaskList() {
     if (!el) return;
     el.innerHTML = '';
     masks.forEach((mask, i) => {
-        const icon = mask.type === 'gradient' ? '▬' : '◎';
+        const icon = mask.type === 'gradient' ? '▬' : mask.type === 'brush' ? '✏' : '◎';
         const div = document.createElement('div');
         div.className = 'mask-item' + (mask.id === activeMaskId ? ' active' : '');
         div.innerHTML = `<input type="checkbox" class="mask-enable" ${mask.enabled ? 'checked' : ''}
@@ -3233,7 +3380,7 @@ function computeMaskAlpha(nx, ny, mask) {
         if (t <= lo) alpha = 1;
         else if (t >= hi) alpha = 0;
         else { const tn = (t - lo) / (hi - lo); alpha = 1 - tn*tn*(3 - 2*tn); }
-    } else {
+    } else if (mask.type === 'radial') {
         const dx = (nx - mask.cx) / Math.max(0.001, mask.rx);
         const dy = (ny - mask.cy) / Math.max(0.001, mask.ry);
         const r = Math.sqrt(dx*dx + dy*dy);
@@ -3242,6 +3389,13 @@ function computeMaskAlpha(nx, ny, mask) {
         if (r <= inner) alpha = 1;
         else if (r >= outer) alpha = 0;
         else { const tn = (r - inner) / (outer - inner); alpha = 1 - tn*tn*(3 - 2*tn); }
+    } else {
+        // brush mask — sample from pixel array (nearest-neighbour)
+        if (!mask.pixels) return 0;
+        const px = Math.round(Math.max(0, Math.min(1, nx)) * (mask.width  - 1));
+        const py = Math.round(Math.max(0, Math.min(1, ny)) * (mask.height - 1));
+        alpha = mask.pixels[py * mask.width + px];
+        return mask.inverted ? 1 - alpha : alpha; // feather not applied to brush (brush edge already soft)
     }
     return mask.inverted ? 1 - alpha : alpha;
 }
@@ -3417,7 +3571,7 @@ function drawMaskOverlay(ctx) {
                 ctx.fill(); ctx.stroke();
                 ctx.restore();
             }
-        } else {
+        } else if (mask.type === 'radial') {
             // Radial mask
             const c   = maskN2O(mask.cx, mask.cy);
             const orx = mask.rx * IW;
@@ -3443,6 +3597,11 @@ function drawMaskOverlay(ctx) {
                 handle(s.x, s.y, hR * 0.8, maskDragHandle?.handle === 's');
                 handle(e.x, e.y, hR * 0.8, maskDragHandle?.handle === 'e');
                 handle(w.x, w.y, hR * 0.8, maskDragHandle?.handle === 'w');
+            }
+        } else if (mask.type === 'brush') {
+            // Brush mask — show red tint overlay of painted area when active
+            if (isActive) {
+                drawBrushMaskOverlay(ctx, mask);
             }
         }
     });
