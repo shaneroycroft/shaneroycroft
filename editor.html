@@ -111,8 +111,18 @@
 
         /* Info modal */
         #info-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--lightbox-bg); z-index: 500; overflow-y: auto; display: none; }
-        .info-wrap { max-width: 560px; margin: 0 auto; padding: 3.5rem 2rem 5rem; }
-        .info-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2.5rem; }
+        .info-wrap { max-width: 580px; margin: 0 auto; padding: 3.5rem 2rem 5rem; }
+        .info-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.6rem; }
+        .info-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+        .info-tab-btn { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 0.72rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); padding: 0.45rem 1rem 0.55rem; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
+        .info-tab-btn:hover { color: var(--text); }
+        .info-tab-btn.active { color: var(--text); border-bottom-color: var(--text); }
+        .info-tab-panel { display: none; }
+        .info-tab-panel.active { display: block; }
+        .workflow-step { margin-bottom: 1.5rem; }
+        .workflow-step-num { font-size: 0.62rem; letter-spacing: 1.5px; text-transform: lowercase; color: var(--secondary); margin-bottom: 0.2rem; }
+        .workflow-step-title { font-size: 0.82rem; color: var(--text); margin-bottom: 0.3rem; font-weight: 500; }
+        .workflow-step-body { font-size: 0.75rem; color: var(--secondary); line-height: 1.65; }
         .info-section { margin-bottom: 1.75rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
         .info-section-title { font-size: 0.65rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin-bottom: 0.75rem; }
         .info-item { display: flex; gap: 1.25rem; margin-bottom: 0.55rem; align-items: baseline; }
@@ -165,6 +175,33 @@
         #lm-range-track { width: 100%; height: 6px; background: var(--border); position: absolute; top: 6px; border-radius: 2px; }
         #lm-range-fill  { position: absolute; top: 6px; height: 6px; background: var(--text); opacity: 0.55; border-radius: 2px; pointer-events: none; }
 
+        /* Color sampler overlay */
+        #color-sampler {
+            position: fixed; pointer-events: none; display: none;
+            background: var(--bg); border: 1px solid var(--border);
+            padding: 0.35rem 0.55rem; font-size: 0.62rem; color: var(--secondary);
+            letter-spacing: 0.4px; line-height: 1.6; z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        #color-sampler .cs-swatch {
+            display: inline-block; width: 10px; height: 10px;
+            border: 1px solid var(--border); margin-right: 4px; vertical-align: middle;
+        }
+        #color-sampler span { color: var(--text); font-variant-numeric: tabular-nums; }
+
+        /* Masks panel */
+        .mask-list { margin-bottom: 0.3rem; }
+        .mask-item { display: flex; align-items: center; gap: 0.45rem; padding: 0.32rem 0; cursor: pointer; }
+        .mask-item:hover .mask-name { color: var(--text); }
+        .mask-item.active { background: rgba(0,0,0,0.04); border-radius: 3px; padding: 0.32rem 0.45rem; margin: 0 -0.45rem; }
+        [data-theme="dark"] .mask-item.active { background: rgba(255,255,255,0.07); }
+        .mask-type-icon { font-size: 0.72rem; color: var(--secondary); flex-shrink: 0; }
+        .mask-name { font-size: 0.68rem; color: var(--secondary); flex: 1; text-transform: lowercase; letter-spacing: 0.3px; }
+        .mask-del-btn { background: none; border: none; cursor: pointer; font-size: 0.95rem; color: var(--secondary); padding: 0 0.1rem; line-height: 1; opacity: 0.55; }
+        .mask-del-btn:hover { color: var(--text); opacity: 1; }
+        .mask-enable { accent-color: var(--text); cursor: pointer; flex-shrink: 0; }
+        .mask-adj-sep { font-size: 0.62rem; text-transform: lowercase; letter-spacing: 1px; color: var(--secondary); margin: 0.55rem 0 0.45rem; border-top: 1px solid var(--border); padding-top: 0.5rem; display: block; }
+
         /* EXIF strip */
         .exif-strip { padding: 0.5rem 1.2rem 0.65rem; border-bottom: 1px solid var(--border); display:none; }
         .exif-strip-label { font-size: 0.62rem; letter-spacing: 1px; text-transform: lowercase; color: var(--secondary); margin-bottom: 0.3rem; }
@@ -186,6 +223,7 @@
         #overlay-canvas.brush-mode { pointer-events: auto; cursor: none; }
         #overlay-canvas.persp-mode { pointer-events: auto; cursor: default; }
         #overlay-canvas.split-mode { pointer-events: auto; cursor: col-resize; }
+        #overlay-canvas.mask-mode  { pointer-events: auto; cursor: default; }
         #split-btn.active { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
         /* Zoom indicator in top bar */
         #zoom-ind { font-size: 0.68rem; color: var(--secondary); min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -234,6 +272,8 @@
             <option value="0.5">50%</option>
             <option value="0.25">25%</option>
         </select>
+        <input type="range" id="dl-outsharpen" min="0" max="100" value="0" style="width:44px;accent-color:var(--text);" title="output sharpening (applied only on export, after downscaling)" oninput="document.getElementById('dl-outsharpen-val').textContent='s:'+this.value">
+        <span id="dl-outsharpen-val" style="font-size:0.65rem;color:var(--secondary);min-width:26px;text-align:right;">s:0</span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
         <button class="e-bar-btn" id="push-btn" onclick="pushToRepo()" disabled style="display:none;">push to repo</button>
         <span id="push-status" style="font-size:0.65rem; color:var(--secondary); display:none;"></span>
@@ -368,6 +408,7 @@
 
                     <div class="adj-group">detail</div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>masking <input type="number" class="val-input" id="v-sharpmask" value="0" min="0" max="100" step="1" data-key="sharpmask" oninput="syncVal(this)"></label><input type="range" id="sl-sharpmask" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>luma NR <input type="number" class="val-input" id="v-lumanr" value="0" min="0" max="100" step="1" data-key="lumanr" oninput="syncVal(this)"></label><input type="range" id="sl-lumanr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>color NR <input type="number" class="val-input" id="v-colornr" value="0" min="0" max="100" step="1" data-key="colornr" oninput="syncVal(this)"></label><input type="range" id="sl-colornr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -473,9 +514,58 @@
             </details>
 
             <details class="e-sec">
-                <summary>vignette <span class="sec-reset" onclick="event.stopPropagation();document.getElementById('sl-vignette').value=0;document.getElementById('v-vignette').value=0;scheduleRender()">reset</span></summary>
+                <summary>vignette <span class="sec-reset" onclick="event.stopPropagation();['sl-vignette','sl-vig-feather','sl-vig-round'].forEach(id=>{const sl=document.getElementById(id),vi=document.getElementById(id.replace('sl-','v-'));if(sl){sl.value=sl.dataset.default||0;if(vi)vi.value=sl.value;}});scheduleRender()">reset</span></summary>
                 <div class="e-body">
                     <div class="s-row"><label>strength <input type="number" class="val-input" id="v-vignette" value="0" min="0" max="100" step="1" data-key="vignette" oninput="syncVal(this)"></label><input type="range" id="sl-vignette" min="0" max="100" value="0" data-default="0" oninput="onVignette()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>feather <input type="number" class="val-input" id="v-vig-feather" value="50" min="0" max="100" step="1" oninput="syncVigVal('vig-feather',this)"></label><input type="range" id="sl-vig-feather" min="0" max="100" value="50" data-default="50" oninput="syncVigVal('vig-feather',this)" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row" style="margin-bottom:0"><label>roundness <input type="number" class="val-input" id="v-vig-round" value="0" min="0" max="100" step="1" oninput="syncVigVal('vig-round',this)"></label><input type="range" id="sl-vig-round" min="0" max="100" value="0" data-default="0" oninput="syncVigVal('vig-round',this)" ondblclick="resetSlider(this)"></div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>dodge &amp; burn</summary>
+                <div class="e-body">
+                    <p class="s-note">paint directly on the image to locally lighten (dodge) or darken (burn).</p>
+                    <div class="s-row-btns" style="margin-bottom:1rem;">
+                        <button id="tool-dodge" class="s-btn-ghost" onclick="setTool('dodge')">dodge</button>
+                        <button id="tool-burn"  class="s-btn-ghost" onclick="setTool('burn')">burn</button>
+                        <button id="tool-erase" class="s-btn-ghost" onclick="setTool('erase')">erase</button>
+                        <button id="tool-off"   class="s-btn"       onclick="setTool(null)">off</button>
+                    </div>
+                    <div class="s-row"><label>size <input type="number" class="val-input" id="v-brush-size" value="60" min="5" max="400" step="1" data-key="brush-size" oninput="syncVal(this)"></label><input type="range" id="sl-brush-size" min="5" max="400" value="60" data-default="60" oninput="onBrushSlider()"></div>
+                    <div class="s-row"><label>strength <input type="number" class="val-input" id="v-brush-str" value="30" min="1" max="100" step="1" data-key="brush-str" oninput="syncVal(this)"></label><input type="range" id="sl-brush-str" min="1" max="100" value="30" data-default="30" oninput="onBrushSlider()"></div>
+                    <div class="s-row" style="margin-bottom:0">
+                        <label>range</label>
+                        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.3rem;">
+                            <button class="ar-btn brush-range-btn" onclick="setBrushRange(this,'shadows')">shadows</button>
+                            <button class="ar-btn brush-range-btn active" onclick="setBrushRange(this,'midtones')">midtones</button>
+                            <button class="ar-btn brush-range-btn" onclick="setBrushRange(this,'highlights')">highlights</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="e-sec" id="masks-sec">
+                <summary>masks</summary>
+                <div class="e-body">
+                    <p class="s-note" style="margin-bottom:0.8rem;">apply local adjustments to targeted areas of the image.</p>
+                    <div class="s-row-btns" style="margin-bottom:0.75rem;">
+                        <button class="s-btn-ghost" onclick="addMask('gradient')">+ gradient</button>
+                        <button class="s-btn-ghost" onclick="addMask('radial')">+ radial</button>
+                    </div>
+                    <div class="mask-list" id="mask-list"></div>
+                    <div id="mask-adj-panel" style="display:none">
+                        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.65rem;">
+                            <label style="font-size:0.68rem;color:var(--secondary);display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" id="mask-invert" onchange="onMaskCtrlChange()"> invert</label>
+                        </div>
+                        <div class="s-row"><label>feather <input type="number" class="val-input" id="v-mask-feather" value="50" min="0" max="100" step="1" oninput="syncMaskVal('feather',this)"></label><input type="range" id="sl-mask-feather" min="0" max="100" value="50" oninput="onMaskSlider('feather','v-mask-feather')"></div>
+                        <span class="mask-adj-sep">adjustments</span>
+                        <div class="s-row"><label>exposure <input type="number" class="val-input" id="v-mask-exposure" value="0" min="-100" max="100" step="1" oninput="syncMaskVal('exposure',this)"></label><input type="range" id="sl-mask-exposure" min="-100" max="100" value="0" oninput="onMaskSlider('exposure','v-mask-exposure')"></div>
+                        <div class="s-row"><label>highlights <input type="number" class="val-input" id="v-mask-highlights" value="0" min="-100" max="100" step="1" oninput="syncMaskVal('highlights',this)"></label><input type="range" id="sl-mask-highlights" min="-100" max="100" value="0" oninput="onMaskSlider('highlights','v-mask-highlights')"></div>
+                        <div class="s-row"><label>shadows <input type="number" class="val-input" id="v-mask-shadows" value="0" min="-100" max="100" step="1" oninput="syncMaskVal('shadows',this)"></label><input type="range" id="sl-mask-shadows" min="-100" max="100" value="0" oninput="onMaskSlider('shadows','v-mask-shadows')"></div>
+                        <div class="s-row"><label>saturation <input type="number" class="val-input" id="v-mask-saturation" value="0" min="-100" max="100" step="1" oninput="syncMaskVal('saturation',this)"></label><input type="range" id="sl-mask-saturation" min="-100" max="100" value="0" oninput="onMaskSlider('saturation','v-mask-saturation')"></div>
+                        <div class="s-row" style="margin-bottom:0"><label>temperature <input type="number" class="val-input" id="v-mask-temperature" value="0" min="-100" max="100" step="1" oninput="syncMaskVal('temperature',this)"></label><input type="range" id="sl-mask-temperature" min="-100" max="100" value="0" oninput="onMaskSlider('temperature','v-mask-temperature')"></div>
+                    </div>
                 </div>
             </details>
 
@@ -507,30 +597,6 @@
                 </div>
             </details>
 
-            <details class="e-sec">
-                <summary>dodge &amp; burn</summary>
-                <div class="e-body">
-                    <p class="s-note">paint directly on the image to locally lighten (dodge) or darken (burn).</p>
-                    <div class="s-row-btns" style="margin-bottom:1rem;">
-                        <button id="tool-dodge" class="s-btn-ghost" onclick="setTool('dodge')">dodge</button>
-                        <button id="tool-burn"  class="s-btn-ghost" onclick="setTool('burn')">burn</button>
-                        <button id="tool-off"   class="s-btn"       onclick="setTool(null)">off</button>
-                    </div>
-                    <div class="s-row"><label>size <input type="number" class="val-input" id="v-brush-size" value="60" min="5" max="400" step="1" data-key="brush-size" oninput="syncVal(this)"></label><input type="range" id="sl-brush-size" min="5" max="400" value="60" data-default="60" oninput="onBrushSlider()"></div>
-                    <div class="s-row"><label>strength <input type="number" class="val-input" id="v-brush-str" value="30" min="1" max="100" step="1" data-key="brush-str" oninput="syncVal(this)"></label><input type="range" id="sl-brush-str" min="1" max="100" value="30" data-default="30" oninput="onBrushSlider()"></div>
-                    <div class="s-row" style="margin-bottom:0">
-                        <label>range</label>
-                        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.3rem;">
-                            <button class="ar-btn brush-range-btn" onclick="setBrushRange(this,'shadows')">shadows</button>
-                            <button class="ar-btn brush-range-btn active" onclick="setBrushRange(this,'midtones')">midtones</button>
-                            <button class="ar-btn brush-range-btn" onclick="setBrushRange(this,'highlights')">highlights</button>
-                        </div>
-                    </div>
-                </div>
-            </details>
-
-
-
         </div>
 
         <div class="e-main" id="e-main">
@@ -543,6 +609,7 @@
                 <canvas id="output-canvas"></canvas>
                 <canvas id="overlay-canvas"></canvas>
             </div>
+        <div id="color-sampler"><div class="cs-swatch" id="cs-swatch"></div><span id="cs-rgb"></span>&nbsp;&nbsp;<span id="cs-hsl"></span></div>
         </div>
     </div>
 
@@ -630,7 +697,8 @@ let histDataG = new Float32Array(256);
 let histDataB = new Float32Array(256);
 let histDataL = new Float32Array(256);
 
-// Brush tools (dodge / burn)
+// Brush tools (dodge / burn / erase)
+let _dbBase         = null; // snapshot of workCanvas before any D&B in current session
 let activeTool      = null;
 let brushSize       = 60;
 let brushStrength   = 30;
@@ -638,6 +706,12 @@ let brushRange      = 'midtones';
 let brushPainting   = false;
 let brushLastPos    = null;
 let brushCursorPos  = null;
+
+// Masks
+let masks          = [];
+let activeMaskId   = null;
+let maskDragHandle = null; // {handle:'p1'|'p2'|'center'|'n'|'s'|'e'|'w', id:string}
+let _maskIdCtr     = 0;
 
 // HSL — centers and widths match ACR/Lightroom hue bands
 // Red, Orange, Yellow, Green, Aqua, Blue, Purple, Magenta
@@ -814,9 +888,81 @@ function updateUndoUI() {
     document.getElementById('redo-btn').disabled = historyIdx >= history.length - 1;
 }
 document.addEventListener('keydown', e => {
-    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-    if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    const tag = document.activeElement?.tagName;
+    const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+    // ── Ctrl/Cmd shortcuts (always active) ──────────────────────
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+        if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+    }
+    if (isInput) return; // don't steal keys while typing
+
+    // ── Arrow keys: nudge focused slider ±1 (Shift = ±10) ──────
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        const focused = document.activeElement;
+        if (focused && focused.type === 'range') {
+            e.preventDefault();
+            const step  = e.shiftKey ? 10 : 1;
+            const delta = (e.key === 'ArrowRight' || e.key === 'ArrowUp') ? step : -step;
+            focused.value = Math.max(parseFloat(focused.min), Math.min(parseFloat(focused.max), parseFloat(focused.value) + delta));
+            focused.dispatchEvent(new Event('input', { bubbles: true }));
+            return;
+        }
+    }
+
+    // ── Brush size: [ and ] ─────────────────────────────────────
+    if (e.key === '[' || e.key === ']') {
+        if (activeTool) {
+            e.preventDefault();
+            const step  = e.shiftKey ? 20 : 10;
+            const delta = e.key === ']' ? step : -step;
+            const sl    = document.getElementById('sl-brush-size');
+            const vi    = document.getElementById('v-brush-size');
+            if (sl) {
+                sl.value = Math.max(5, Math.min(400, parseInt(sl.value) + delta));
+                onBrushSlider();
+                if (vi) vi.value = sl.value;
+                renderOverlay();
+            }
+        }
+        return;
+    }
+
+    // ── Tool shortcuts ──────────────────────────────────────────
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === 'd' || e.key === 'D') { e.preventDefault(); setTool('dodge'); return; }
+        if (e.key === 'b' || e.key === 'B') { e.preventDefault(); setTool('burn');  return; }
+        if (e.key === 'Escape')             { e.preventDefault(); setTool(null);    return; }
+
+        // ── Before/after toggle ─────────────────────────────────
+        if (e.key === 'y' || e.key === 'Y') {
+            e.preventDefault();
+            if (workCanvas) showOriginal(true);
+            return;
+        }
+
+        // ── Clipping indicator toggle ───────────────────────────
+        if (e.key === '\\') {
+            e.preventDefault();
+            const cb = document.getElementById('clip-toggle');
+            if (cb) { cb.checked = !cb.checked; renderOverlay(); }
+            return;
+        }
+
+        // ── Split compare ───────────────────────────────────────
+        if (e.key === 'w' || e.key === 'W') {
+            e.preventDefault();
+            toggleSplit();
+            return;
+        }
+    }
+});
+
+document.addEventListener('keyup', e => {
+    if ((e.key === 'y' || e.key === 'Y') && !e.ctrlKey && !e.metaKey) {
+        showOriginal(false);
+    }
 });
 
 // ── File open ─────────────────────────────────────────────────
@@ -862,6 +1008,7 @@ function loadFile(file) {
         origCanvas = mkCanvas(img.naturalWidth, img.naturalHeight);
         origCanvas.getContext('2d').drawImage(img, 0, 0);
         workCanvas = cloneCanvas(origCanvas);
+        _dbBase = null; // clear erase base on new image load
         const warn = document.getElementById('size-warn');
         if (warn) warn.style.display = img.naturalWidth * img.naturalHeight > 20e6 ? '' : 'none';
         history = [cloneCanvas(workCanvas)]; historyIdx = 0; updateUndoUI();
@@ -925,7 +1072,9 @@ function render() {
     const bx     = parseInt(document.getElementById('sl-bx').value);
     const by     = parseInt(document.getElementById('sl-by').value);
     const bcolor = document.getElementById('sl-bcolor').value;
-    const vigStr = parseInt(document.getElementById('sl-vignette').value);
+    const vigStr    = parseInt(document.getElementById('sl-vignette').value);
+    const vigFeather = parseInt(document.getElementById('sl-vig-feather').value);
+    const vigRound   = parseInt(document.getElementById('sl-vig-round').value);
 
     const out = document.getElementById('output-canvas');
 
@@ -979,7 +1128,8 @@ function render() {
             adj = applyHomography(adj, inv);
         }
     }
-    applyVignette(adj, vigStr);
+    applyMasks(adj);
+    applyVignette(adj, vigStr, vigFeather, vigRound);
     if (!isAdjusting && grainAmt > 0) applyGrain(adj, grainAmt);
 
     out.width  = adj.width  + bxR * 2;
@@ -1219,6 +1369,7 @@ function applyEdits(src) {
     const clarity     = parseFloat(document.getElementById('sl-clarity').value);
     const texture     = parseFloat(document.getElementById('sl-texture').value);
     const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
+    const sharpmask   = parseFloat(document.getElementById('sl-sharpmask').value);
     const lumanr      = parseFloat(document.getElementById('sl-lumanr').value);
     const colornr     = parseFloat(document.getElementById('sl-colornr').value);
     const dehaze      = parseFloat(document.getElementById('sl-dehaze').value);
@@ -1261,7 +1412,7 @@ function applyEdits(src) {
             if (colornr > 0) applyColorNR(ctx, glOut.width, glOut.height, colornr);
             if (clarity > 0) applyClarity(ctx, glOut.width, glOut.height, clarity);
             if (texture > 0) applyTexture(ctx, glOut.width, glOut.height, texture);
-            if (sharpen > 0) applySharpening(ctx, glOut.width, glOut.height, sharpen);
+            if (sharpen > 0) applySharpening(ctx, glOut.width, glOut.height, sharpen, sharpmask);
         }
         return glOut;
     }
@@ -1426,7 +1577,7 @@ function applyEdits(src) {
         if (colornr > 0) applyColorNR(ctx, out.width, out.height, colornr);
         if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
         if (texture > 0) applyTexture(ctx, out.width, out.height, texture);
-        if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen);
+        if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen, sharpmask);
     }
     return out;
 }
@@ -1472,32 +1623,51 @@ function applyColorNR(ctx, w, h, amount) {
 }
 
 // Gaussian Unsharp Mask — resolution-aware radius, luminance-only to prevent colour fringing
-function applySharpening(ctx, w, h, amount) {
+// masking: 0=sharpen everything, 100=sharpen only strong edges (Lightroom-style edge mask)
+function applySharpening(ctx, w, h, amount, masking = 0) {
     if (amount <= 0) return;
-    const id  = ctx.getImageData(0, 0, w, h);
+    const id   = ctx.getImageData(0, 0, w, h);
     const orig = new Uint8ClampedArray(id.data);
     const d    = id.data;
 
-    // Extract luminance channel into a float array
     const lumData = new Float32Array(w * h);
     for (let i = 0; i < orig.length; i += 4) {
         lumData[i >> 2] = 0.2126*orig[i] + 0.7152*orig[i+1] + 0.0722*orig[i+2];
     }
 
-    // Gaussian radius scales with the longer edge so sharpening is resolution-independent
-    const radius = Math.max(1, Math.round(Math.max(w, h) * 0.005));
+    const radius  = Math.max(1, Math.round(Math.max(w, h) * 0.005));
     const blurred = new Float32Array(lumData);
-    // Three box-blur passes approximate a Gaussian (central limit theorem)
     boxBlurFloat(blurred, w, h, radius);
     boxBlurFloat(blurred, w, h, radius);
     boxBlurFloat(blurred, w, h, radius);
 
-    const strength = amount / 100 * 1.5;
+    // Edge mask: Sobel gradient of luminance, normalised 0–1
+    let edgeData = null;
+    if (masking > 0) {
+        edgeData = new Float32Array(w * h);
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+                const gx = lumData[y*w + x+1] - lumData[y*w + x-1];
+                const gy = lumData[(y+1)*w + x] - lumData[(y-1)*w + x];
+                edgeData[y*w + x] = Math.sqrt(gx*gx + gy*gy) / 360;
+            }
+        }
+    }
+
+    const strength  = amount / 100 * 1.5;
+    // threshold: as masking→100, only very sharp edges survive
+    const threshold = masking > 0 ? Math.pow(1 - masking / 100, 2) * 0.25 + 0.001 : 0;
     for (let i = 0; i < orig.length; i += 4) {
         const idx   = i >> 2;
-        const delta = strength * (lumData[idx] - blurred[idx]); // high-pass
+        const delta = strength * (lumData[idx] - blurred[idx]);
+        let   str   = 1;
+        if (edgeData) {
+            const e  = edgeData[idx];
+            const tn = Math.min(1, e / threshold);
+            str = tn*tn*(3 - 2*tn); // smoothstep — 0 on flat areas, 1 on edges
+        }
         for (let c = 0; c < 3; c++) {
-            d[i+c] = Math.max(0, Math.min(255, orig[i+c] + delta));
+            d[i+c] = Math.max(0, Math.min(255, orig[i+c] + delta * str));
         }
     }
     ctx.putImageData(id, 0, 0);
@@ -1796,24 +1966,37 @@ function resetPerspective() {
     scheduleRender();
 }
 
-function applyVignette(canvas, strength) {
+function syncVigVal(key, el) {
+    const isSlider = el.type === 'range';
+    const paired   = document.getElementById((isSlider ? 'v-' : 'sl-') + key);
+    if (paired) paired.value = el.value;
+    scheduleRender();
+}
+
+function applyVignette(canvas, strength, feather = 50, roundness = 0) {
     if (strength <= 0) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
+    const ctx   = canvas.getContext('2d');
+    const W     = canvas.width, H = canvas.height;
     const alpha = strength / 100 * 0.85;
-    // Draw a circular gradient on a square working canvas, then stretch it to the
-    // image aspect ratio — this produces a true elliptical vignette that follows all
-    // four edges equally rather than a circle that only touches the shorter edges.
-    const S = 512;
-    const tmp = mkCanvas(S, S);
-    const tctx = tmp.getContext('2d');
-    const c = S / 2, r = c * Math.SQRT2; // outer radius = corner distance
-    const grad = tctx.createRadialGradient(c, c, r * 0.38, c, c, r);
+    const S     = 512;
+    const tmp   = mkCanvas(S, S);
+    const tctx  = tmp.getContext('2d');
+    const c     = S / 2;
+    const r     = c * Math.SQRT2; // outer radius reaches corners
+    // feather=0 → tight (inner near outer), feather=100 → soft (wide gradient, original default)
+    const innerR = r * (0.38 + (1 - feather / 100) * 0.47);
+    const grad   = tctx.createRadialGradient(c, c, innerR, c, c, r);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
     grad.addColorStop(1, `rgba(0,0,0,${alpha})`);
     tctx.fillStyle = grad;
     tctx.fillRect(0, 0, S, S);
-    ctx.drawImage(tmp, 0, 0, W, H); // stretch square → image aspect = elliptical vignette
+    // roundness=0: stretch to image AR (ellipse following all edges)
+    // roundness=100: draw as circle using the shorter dimension
+    const rnd    = roundness / 100;
+    const side   = Math.min(W, H);
+    const drawW  = W * (1 - rnd) + side * rnd;
+    const drawH  = H * (1 - rnd) + side * rnd;
+    ctx.drawImage(tmp, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
 }
 
 function applyGrain(canvas, amount) {
@@ -1997,6 +2180,7 @@ function renderOverlay() {
     if (perspCorners) drawPerspHandles(ctx, ov.width, ov.height);
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
     if (activeTool && brushCursorPos) drawBrushCursor(ctx);
+    drawMaskOverlay(ctx);
 }
 
 function drawClippingZebra(ctx, W, H) {
@@ -2190,7 +2374,7 @@ function applyCrop() {
     pushHistory();
     const nc = mkCanvas(iw, ih);
     nc.getContext('2d').drawImage(workCanvas, ix, iy, iw, ih, 0, 0, iw, ih);
-    workCanvas = nc; cancelCrop(); render();
+    workCanvas = nc; _dbBase = null; cancelCrop(); render();
     document.getElementById('crop-info').textContent = `cropped to ${iw} × ${ih}px`;
 }
 
@@ -2347,10 +2531,22 @@ ovEl.addEventListener('mousedown', e => {
     if (activeTool && e.button === 0) {
         e.preventDefault();
         brushPainting = true; brushLastPos = null;
+        if (!_dbBase) _dbBase = cloneCanvas(workCanvas); // capture pre-D&B state once
         pushHistory();
         beginAdjust();
         applyBrushStroke(e.clientX, e.clientY);
         return;
+    }
+    // Mask handle picking
+    if (activeMaskId && e.button === 0) {
+        const oc  = ovCoords(e);
+        const hit = maskHandleHit(oc.x, oc.y);
+        if (hit) {
+            maskDragHandle = hit;
+            beginAdjust();
+            e.preventDefault();
+            return;
+        }
     }
     // Perspective corner picking
     if (perspCorners && !cropMode && !activeTool && e.button === 0) {
@@ -2397,6 +2593,19 @@ ovEl.addEventListener('mousemove', e => {
         if (brushPainting) { applyBrushStroke(e.clientX, e.clientY); }
         return;
     }
+    if (maskDragHandle) {
+        const oc = ovCoords(e);
+        updateMaskDrag(oc.x, oc.y);
+        renderOverlay();
+        scheduleRender();
+        return;
+    }
+    // Update cursor near mask handles
+    if (activeMaskId) {
+        const oc  = ovCoords(e);
+        const hit = maskHandleHit(oc.x, oc.y);
+        ovEl.style.cursor = hit ? 'grab' : 'default';
+    }
     if (perspDragging >= 0 && perspCorners && workCanvas) {
         const rect = ovEl.getBoundingClientRect();
         const scaleX = workCanvas.width / rect.width;
@@ -2435,6 +2644,11 @@ ovEl.addEventListener('mouseup', e => {
     if (splitDragging) { splitDragging = false; return; }
     if (activeTool) {
         if (brushPainting) { brushPainting = false; brushLastPos = null; finishAdjust(); }
+        return;
+    }
+    if (maskDragHandle) {
+        maskDragHandle = null;
+        finishAdjust();
         return;
     }
     if (perspDragging >= 0) {
@@ -2537,10 +2751,13 @@ eMain.addEventListener('mousedown', e => {
     eMain.style.cursor = 'grabbing'; e.preventDefault();
 });
 window.addEventListener('mousemove', e => {
-    if (!panDragging) return;
-    panX += e.clientX - panLastX; panY += e.clientY - panLastY;
-    panLastX = e.clientX; panLastY = e.clientY;
-    clampPan(); applyZoom();
+    if (panDragging) {
+        panX += e.clientX - panLastX; panY += e.clientY - panLastY;
+        panLastX = e.clientX; panLastY = e.clientY;
+        clampPan(); applyZoom();
+    }
+    // Color sampler: show RGB + HSL under cursor when hovering the image
+    updateColorSampler(e);
 });
 window.addEventListener('mouseup', () => {
     if (!panDragging) return;
@@ -2736,22 +2953,28 @@ function downloadImage() {
         out.style.width = ''; out.style.height = '';
         render();
     }
-    const fmt     = document.getElementById('dl-format').value;
-    const quality = parseInt(document.getElementById('dl-quality').value) / 100;
-    const scale   = parseFloat(document.getElementById('dl-scale').value);
-    const ext     = fmt === 'jpeg' ? 'jpg' : 'png';
+    const fmt        = document.getElementById('dl-format').value;
+    const quality    = parseInt(document.getElementById('dl-quality').value) / 100;
+    const scale      = parseFloat(document.getElementById('dl-scale').value);
+    const outSharpen = parseInt(document.getElementById('dl-outsharpen').value);
+    const ext        = fmt === 'jpeg' ? 'jpg' : 'png';
     const src = document.getElementById('output-canvas');
-    let dataURL;
+    let exportCanvas;
     if (scale === 1) {
-        dataURL = src.toDataURL('image/' + fmt, quality);
+        exportCanvas = src;
     } else {
-        const scaled = document.createElement('canvas');
-        scaled.width  = Math.round(src.width  * scale);
-        scaled.height = Math.round(src.height * scale);
-        const sCtx = scaled.getContext('2d');
-        sCtx.drawImage(src, 0, 0, scaled.width, scaled.height);
-        dataURL = scaled.toDataURL('image/' + fmt, quality);
+        exportCanvas = document.createElement('canvas');
+        exportCanvas.width  = Math.round(src.width  * scale);
+        exportCanvas.height = Math.round(src.height * scale);
+        exportCanvas.getContext('2d').drawImage(src, 0, 0, exportCanvas.width, exportCanvas.height);
     }
+    // Output sharpening: applied after downscaling for crisp web/screen exports
+    if (outSharpen > 0) {
+        const ec = exportCanvas === src ? (()=>{ const c=document.createElement('canvas'); c.width=src.width; c.height=src.height; c.getContext('2d').drawImage(src,0,0); return c; })() : exportCanvas;
+        applySharpening(ec.getContext('2d'), ec.width, ec.height, outSharpen, 0);
+        exportCanvas = ec;
+    }
+    const dataURL = exportCanvas.toDataURL('image/' + fmt, quality);
     const a = document.createElement('a');
     a.download = origName + '_edited.' + ext;
     a.href = dataURL;
@@ -2838,10 +3061,380 @@ function setPushStatus(msg, isErr) {
     el.style.color = isErr ? '#c0392b' : 'var(--secondary)';
 }
 
+// ── Color Sampler ─────────────────────────────────────────────
+function updateColorSampler(e) {
+    const sampler = document.getElementById('color-sampler');
+    if (!sampler || !workCanvas) { if (sampler) sampler.style.display = 'none'; return; }
+    const out  = document.getElementById('output-canvas');
+    const rect = out.getBoundingClientRect();
+    // Is cursor over the image area?
+    const ox = (e.clientX - rect.left) * (out.width  / rect.width);
+    const oy = (e.clientY - rect.top)  * (out.height / rect.height);
+    const inImage = ox >= imageBounds.x1 && ox < imageBounds.x2 &&
+                    oy >= imageBounds.y1 && oy < imageBounds.y2;
+    if (!inImage) { sampler.style.display = 'none'; return; }
+    // Sample pixel from output canvas
+    const px = Math.floor(ox), py = Math.floor(oy);
+    const ctx = out.getContext('2d');
+    const p   = ctx.getImageData(px, py, 1, 1).data;
+    const r   = p[0], g = p[1], b = p[2];
+    const [h, s, l] = rgbToHsl(r, g, b);
+    const hDeg = Math.round(h * 360);
+    const sPct = Math.round(s * 100);
+    const lPct = Math.round(l * 100);
+    document.getElementById('cs-swatch').style.background = `rgb(${r},${g},${b})`;
+    document.getElementById('cs-rgb').textContent = `${r} ${g} ${b}`;
+    document.getElementById('cs-hsl').textContent = `${hDeg}° ${sPct}% ${lPct}%`;
+    // Position near cursor, keeping within viewport
+    const margin = 12;
+    const sw = 160, sh = 36;
+    const left = Math.min(e.clientX + margin, window.innerWidth  - sw - margin);
+    const top  = Math.min(e.clientY + margin, window.innerHeight - sh - margin);
+    sampler.style.left    = left + 'px';
+    sampler.style.top     = top  + 'px';
+    sampler.style.display = 'block';
+}
+
+// ── Masks ─────────────────────────────────────────────────────
+function addMask(type) {
+    if (!workCanvas) return;
+    const id = 'mask_' + (++_maskIdCtr);
+    masks.push({
+        id, type, enabled: true, inverted: false, feather: 50,
+        x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,   // gradient: p1→p2
+        cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,    // radial: center + radii
+        adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
+    });
+    const sec = document.getElementById('masks-sec');
+    if (sec && !sec.open) sec.open = true;
+    selectMask(id);
+    scheduleRender();
+}
+
+function deleteMask(id) {
+    masks = masks.filter(m => m.id !== id);
+    if (activeMaskId === id) selectMask(null);
+    else renderMaskList();
+    scheduleRender();
+}
+
+function toggleMaskEnabled(id, enabled) {
+    const m = masks.find(m => m.id === id);
+    if (m) { m.enabled = enabled; scheduleRender(); }
+}
+
+function selectMask(id) {
+    activeMaskId = id;
+    renderMaskList();
+    const panel = document.getElementById('mask-adj-panel');
+    if (!panel) return;
+    if (!id) {
+        panel.style.display = 'none';
+        ovEl.classList.remove('mask-mode');
+        renderOverlay();
+        return;
+    }
+    const mask = masks.find(m => m.id === id);
+    if (!mask) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+    ovEl.classList.add('mask-mode');
+    document.getElementById('mask-invert').checked = mask.inverted;
+    ['feather','exposure','highlights','shadows','saturation','temperature'].forEach(f => {
+        const val = f === 'feather' ? mask.feather : mask.adj[f];
+        const sl = document.getElementById('sl-mask-' + f);
+        const vl = document.getElementById('v-mask-' + f);
+        if (sl) sl.value = val;
+        if (vl) vl.value = val;
+    });
+    renderOverlay();
+}
+
+function renderMaskList() {
+    const el = document.getElementById('mask-list');
+    if (!el) return;
+    el.innerHTML = '';
+    masks.forEach((mask, i) => {
+        const icon = mask.type === 'gradient' ? '▬' : '◎';
+        const div = document.createElement('div');
+        div.className = 'mask-item' + (mask.id === activeMaskId ? ' active' : '');
+        div.innerHTML = `<input type="checkbox" class="mask-enable" ${mask.enabled ? 'checked' : ''}
+            onchange="toggleMaskEnabled('${mask.id}',this.checked)" onclick="event.stopPropagation()">
+            <span class="mask-type-icon">${icon}</span>
+            <span class="mask-name">${mask.type} ${i + 1}</span>
+            <button class="mask-del-btn" onclick="event.stopPropagation();deleteMask('${mask.id}')" title="delete">×</button>`;
+        div.addEventListener('click', () => selectMask(mask.id === activeMaskId ? null : mask.id));
+        el.appendChild(div);
+    });
+}
+
+function onMaskSlider(field, inputId) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask) return;
+    const val = parseFloat(document.getElementById('sl-mask-' + field).value);
+    if (field === 'feather') mask.feather = val; else mask.adj[field] = val;
+    const vi = document.getElementById(inputId);
+    if (vi) vi.value = val;
+    beginAdjust();
+}
+
+function syncMaskVal(field, input) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask) return;
+    const val = parseFloat(input.value);
+    if (field === 'feather') mask.feather = val; else mask.adj[field] = val;
+    const sl = document.getElementById('sl-mask-' + field);
+    if (sl) sl.value = val;
+    beginAdjust();
+}
+
+function onMaskCtrlChange() {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask) return;
+    mask.inverted = document.getElementById('mask-invert').checked;
+    scheduleRender();
+}
+
+// Normalized image coords ↔ overlay canvas pixel coords
+function maskN2O(nx, ny) {
+    const IW = imageBounds.x2 - imageBounds.x1, IH = imageBounds.y2 - imageBounds.y1;
+    return { x: imageBounds.x1 + nx * IW, y: imageBounds.y1 + ny * IH };
+}
+function maskO2N(ox, oy) {
+    const IW = imageBounds.x2 - imageBounds.x1, IH = imageBounds.y2 - imageBounds.y1;
+    return { x: (ox - imageBounds.x1) / IW, y: (oy - imageBounds.y1) / IH };
+}
+
+function computeMaskAlpha(nx, ny, mask) {
+    let alpha;
+    if (mask.type === 'gradient') {
+        const dx = mask.x2 - mask.x1, dy = mask.y2 - mask.y1;
+        const len2 = dx*dx + dy*dy;
+        if (len2 < 1e-8) return 0.5;
+        const t = ((nx - mask.x1)*dx + (ny - mask.y1)*dy) / len2;
+        const f = (mask.feather / 100) * 0.45;
+        const lo = -f, hi = 1 + f;
+        if (t <= lo) alpha = 1;
+        else if (t >= hi) alpha = 0;
+        else { const tn = (t - lo) / (hi - lo); alpha = 1 - tn*tn*(3 - 2*tn); }
+    } else {
+        const dx = (nx - mask.cx) / Math.max(0.001, mask.rx);
+        const dy = (ny - mask.cy) / Math.max(0.001, mask.ry);
+        const r = Math.sqrt(dx*dx + dy*dy);
+        const f = (mask.feather / 100) * 0.6;
+        const inner = Math.max(0, 1 - f), outer = 1 + f;
+        if (r <= inner) alpha = 1;
+        else if (r >= outer) alpha = 0;
+        else { const tn = (r - inner) / (outer - inner); alpha = 1 - tn*tn*(3 - 2*tn); }
+    }
+    return mask.inverted ? 1 - alpha : alpha;
+}
+
+function applyMasks(canvas) {
+    const active = masks.filter(m => m.enabled);
+    if (!active.length) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const id = ctx.getImageData(0, 0, W, H);
+    const d = id.data;
+    for (const mask of active) {
+        const a = mask.adj;
+        const hasExp  = a.exposure    !== 0;
+        const hasHL   = a.highlights  !== 0;
+        const hasSH   = a.shadows     !== 0;
+        const hasSat  = a.saturation  !== 0;
+        const hasTemp = a.temperature !== 0;
+        if (!hasExp && !hasHL && !hasSH && !hasSat && !hasTemp) continue;
+        const expF   = Math.pow(2, a.exposure * 3 / 100);
+        const hlStr  = a.highlights  / 100 * 80;
+        const shStr  = a.shadows     / 100 * 80;
+        const satF   = 1 + a.saturation  / 100;
+        const tShift = a.temperature / 100 * 0.12;
+        for (let py = 0; py < H; py++) {
+            const ny = py / H;
+            for (let px = 0; px < W; px++) {
+                const alpha = computeMaskAlpha(px / W, ny, mask);
+                if (alpha < 0.001) continue;
+                const i = (py * W + px) * 4;
+                const r = d[i], g = d[i+1], b = d[i+2];
+                let nr = r, ng = g, nb = b;
+                if (hasExp)  { nr *= expF;  ng *= expF;  nb *= expF; }
+                if (hasHL || hasSH) {
+                    const lum = 0.2126*nr + 0.7152*ng + 0.0722*nb;
+                    const delta = hlStr * Math.pow(Math.max(0, lum/255), 1.8)
+                                + shStr * Math.pow(Math.max(0, 1 - lum/255), 1.8);
+                    nr += delta; ng += delta; nb += delta;
+                }
+                if (hasSat) {
+                    const gr = 0.2126*nr + 0.7152*ng + 0.0722*nb;
+                    nr = gr + satF*(nr-gr); ng = gr + satF*(ng-gr); nb = gr + satF*(nb-gr);
+                }
+                if (hasTemp) { nr *= (1 + tShift); nb *= (1 - tShift); }
+                nr = Math.max(0, Math.min(255, nr));
+                ng = Math.max(0, Math.min(255, ng));
+                nb = Math.max(0, Math.min(255, nb));
+                d[i]   = Math.round(r + alpha*(nr - r));
+                d[i+1] = Math.round(g + alpha*(ng - g));
+                d[i+2] = Math.round(b + alpha*(nb - b));
+            }
+        }
+    }
+    ctx.putImageData(id, 0, 0);
+}
+
+function maskHandleHit(ox, oy) {
+    if (!activeMaskId) return null;
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask) return null;
+    const IW  = imageBounds.x2 - imageBounds.x1;
+    const hitR = Math.max(12, IW * 0.022);
+    const d2 = (ax, ay) => Math.sqrt((ox-ax)*(ox-ax) + (oy-ay)*(oy-ay));
+    if (mask.type === 'gradient') {
+        const p1 = maskN2O(mask.x1, mask.y1);
+        const p2 = maskN2O(mask.x2, mask.y2);
+        const mc = maskN2O((mask.x1+mask.x2)/2, (mask.y1+mask.y2)/2);
+        if (d2(p1.x, p1.y) < hitR)    return { handle:'p1',     id:mask.id };
+        if (d2(p2.x, p2.y) < hitR)    return { handle:'p2',     id:mask.id };
+        if (d2(mc.x, mc.y) < hitR)    return { handle:'center', id:mask.id };
+    } else {
+        const c = maskN2O(mask.cx,          mask.cy);
+        const n = maskN2O(mask.cx,          mask.cy - mask.ry);
+        const s = maskN2O(mask.cx,          mask.cy + mask.ry);
+        const e = maskN2O(mask.cx + mask.rx, mask.cy);
+        const w = maskN2O(mask.cx - mask.rx, mask.cy);
+        if (d2(c.x, c.y) < hitR)      return { handle:'center', id:mask.id };
+        if (d2(n.x, n.y) < hitR*0.8)  return { handle:'n',      id:mask.id };
+        if (d2(s.x, s.y) < hitR*0.8)  return { handle:'s',      id:mask.id };
+        if (d2(e.x, e.y) < hitR*0.8)  return { handle:'e',      id:mask.id };
+        if (d2(w.x, w.y) < hitR*0.8)  return { handle:'w',      id:mask.id };
+    }
+    return null;
+}
+
+function updateMaskDrag(ox, oy) {
+    if (!maskDragHandle) return;
+    const mask = masks.find(m => m.id === maskDragHandle.id);
+    if (!mask) return;
+    const n = maskO2N(ox, oy);
+    const nx = Math.max(-0.5, Math.min(1.5, n.x));
+    const ny = Math.max(-0.5, Math.min(1.5, n.y));
+    if (mask.type === 'gradient') {
+        if      (maskDragHandle.handle === 'p1') { mask.x1 = nx; mask.y1 = ny; }
+        else if (maskDragHandle.handle === 'p2') { mask.x2 = nx; mask.y2 = ny; }
+        else if (maskDragHandle.handle === 'center') {
+            const ddx = nx - (mask.x1+mask.x2)/2, ddy = ny - (mask.y1+mask.y2)/2;
+            mask.x1 += ddx; mask.y1 += ddy; mask.x2 += ddx; mask.y2 += ddy;
+        }
+    } else {
+        if      (maskDragHandle.handle === 'center') { mask.cx = nx; mask.cy = ny; }
+        else if (maskDragHandle.handle === 'n') mask.ry = Math.max(0.02, mask.cy - ny);
+        else if (maskDragHandle.handle === 's') mask.ry = Math.max(0.02, ny - mask.cy);
+        else if (maskDragHandle.handle === 'e') mask.rx = Math.max(0.02, nx - mask.cx);
+        else if (maskDragHandle.handle === 'w') mask.rx = Math.max(0.02, mask.cx - nx);
+    }
+}
+
+function drawMaskOverlay(ctx) {
+    if (!masks.length) return;
+    const ov    = document.getElementById('overlay-canvas');
+    const rect  = ov.getBoundingClientRect();
+    const scale = rect.width > 0 ? ov.width / rect.width : 1;
+    const lw    = Math.max(1, scale);
+    const dash  = Math.round(7 * scale);
+    const IW    = imageBounds.x2 - imageBounds.x1;
+    const IH    = imageBounds.y2 - imageBounds.y1;
+    const hR    = Math.max(6, IW * 0.018);
+
+    function dashes(x1, y1, x2, y2, alpha) {
+        ctx.save();
+        ctx.lineWidth = lw * 1.5;
+        ctx.setLineDash([dash, dash]);
+        ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+        ctx.lineDashOffset = 0;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        ctx.strokeStyle = `rgba(0,0,0,${alpha * 0.7})`;
+        ctx.lineDashOffset = dash;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+        ctx.restore();
+    }
+
+    function handle(x, y, r, lit) {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+        ctx.fillStyle = lit ? '#ffffff' : 'rgba(255,255,255,0.88)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.lineWidth = lw * 1.2;
+        ctx.stroke();
+    }
+
+    masks.forEach(mask => {
+        const isActive = mask.id === activeMaskId;
+        const alpha    = isActive ? 0.9 : 0.42;
+
+        if (mask.type === 'gradient') {
+            const dx = mask.x2 - mask.x1, dy = mask.y2 - mask.y1;
+            const len = Math.sqrt(dx*dx + dy*dy) || 0.001;
+            const pdx = -dy / len, pdy = dx / len; // perpendicular unit vector
+            const ext = 2.5; // extend lines well past image edges
+            const p1  = maskN2O(mask.x1, mask.y1);
+            const p2  = maskN2O(mask.x2, mask.y2);
+            // Perpendicular lines through p1 and p2
+            dashes(p1.x + pdx*ext*IW, p1.y + pdy*ext*IH, p1.x - pdx*ext*IW, p1.y - pdy*ext*IH, alpha);
+            dashes(p2.x + pdx*ext*IW, p2.y + pdy*ext*IH, p2.x - pdx*ext*IW, p2.y - pdy*ext*IH, alpha * 0.65);
+            dashes(p1.x, p1.y, p2.x, p2.y, alpha * 0.45); // gradient axis
+            if (isActive) {
+                const mc   = maskN2O((mask.x1+mask.x2)/2, (mask.y1+mask.y2)/2);
+                const lit1 = maskDragHandle?.handle === 'p1';
+                const lit2 = maskDragHandle?.handle === 'p2';
+                const litC = maskDragHandle?.handle === 'center';
+                handle(p1.x, p1.y, hR, lit1);
+                handle(p2.x, p2.y, hR, lit2);
+                // Diamond center handle
+                const dR = hR * 0.82;
+                ctx.save();
+                ctx.translate(mc.x, mc.y); ctx.rotate(Math.PI/4);
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = litC ? 'rgba(0,0,0,0.9)' : 'rgba(0,0,0,0.65)';
+                ctx.lineWidth = lw * (litC ? 1.8 : 1.2);
+                ctx.beginPath(); ctx.rect(-dR * 0.707, -dR * 0.707, dR * 1.414, dR * 1.414);
+                ctx.fill(); ctx.stroke();
+                ctx.restore();
+            }
+        } else {
+            // Radial mask
+            const c   = maskN2O(mask.cx, mask.cy);
+            const orx = mask.rx * IW;
+            const ory = mask.ry * IH;
+            ctx.save();
+            ctx.lineWidth = lw * 1.5;
+            ctx.setLineDash([dash, dash]);
+            ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+            ctx.lineDashOffset = 0;
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, orx, ory, 0, 0, Math.PI*2); ctx.stroke();
+            ctx.strokeStyle = `rgba(0,0,0,${alpha * 0.7})`;
+            ctx.lineDashOffset = dash;
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, orx, ory, 0, 0, Math.PI*2); ctx.stroke();
+            ctx.setLineDash([]); ctx.lineDashOffset = 0;
+            ctx.restore();
+            if (isActive) {
+                const n = maskN2O(mask.cx,           mask.cy - mask.ry);
+                const s = maskN2O(mask.cx,           mask.cy + mask.ry);
+                const e = maskN2O(mask.cx + mask.rx, mask.cy);
+                const w = maskN2O(mask.cx - mask.rx, mask.cy);
+                handle(c.x, c.y, hR,       maskDragHandle?.handle === 'center');
+                handle(n.x, n.y, hR * 0.8, maskDragHandle?.handle === 'n');
+                handle(s.x, s.y, hR * 0.8, maskDragHandle?.handle === 's');
+                handle(e.x, e.y, hR * 0.8, maskDragHandle?.handle === 'e');
+                handle(w.x, w.y, hR * 0.8, maskDragHandle?.handle === 'w');
+            }
+        }
+    });
+}
+
 // ── Burn / Dodge ──────────────────────────────────────────────
 function setTool(tool) {
     activeTool = tool || null;
-    ['dodge','burn','off'].forEach(t => {
+    ['dodge','burn','erase','off'].forEach(t => {
         const btn = document.getElementById('tool-' + t);
         if (!btn) return;
         const isActive = (activeTool === t) || (!activeTool && t === 'off');
@@ -2849,6 +3442,7 @@ function setTool(tool) {
     });
     if (activeTool) {
         if (cropMode) cancelCrop();
+        selectMask(null);
         ovEl.classList.remove('crop-mode');
         ovEl.classList.add('brush-mode');
     } else {
@@ -2960,35 +3554,51 @@ function hslToRgb(h, s, l) {
 function applyBrushAt(wx, wy) {
     if (!workCanvas || !activeTool) return;
     const r   = brushSize / 2;
-    const str = brushStrength / 100 * 0.12; // max 12% lightness shift per dab
+    const str = brushStrength / 100 * 0.12;
     const x0  = Math.max(0, Math.floor(wx - r));
     const y0  = Math.max(0, Math.floor(wy - r));
     const x1  = Math.min(workCanvas.width,  Math.ceil(wx + r));
     const y1  = Math.min(workCanvas.height, Math.ceil(wy + r));
     if (x1 <= x0 || y1 <= y0) return;
-    const ctx = workCanvas.getContext('2d');
-    const id  = ctx.getImageData(x0, y0, x1 - x0, y1 - y0);
-    const d   = id.data;
+    const ctx  = workCanvas.getContext('2d');
+    const id   = ctx.getImageData(x0, y0, x1 - x0, y1 - y0);
+    const d    = id.data;
     const isDodge = activeTool === 'dodge';
+    const isErase = activeTool === 'erase';
+
+    // For erase: sample the base canvas (pre-D&B state)
+    let baseData = null;
+    if (isErase && _dbBase) {
+        const bctx = _dbBase.getContext('2d');
+        baseData = bctx.getImageData(x0, y0, x1 - x0, y1 - y0).data;
+    }
+
     for (let py = y0; py < y1; py++) {
         for (let px = x0; px < x1; px++) {
             const dx = px - wx, dy = py - wy;
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist > r) continue;
-            // Cosine falloff: full strength at centre, zero at edge
             const falloff = Math.cos(dist / r * Math.PI * 0.5);
             const i = ((py - y0) * (x1 - x0) + (px - x0)) * 4;
-            const lum = 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2];
-            let rangeMask;
-            if      (brushRange === 'shadows')    rangeMask = Math.pow(Math.max(0, 1 - lum/255), 1.5);
-            else if (brushRange === 'highlights') rangeMask = Math.pow(lum/255, 1.5);
-            else                                  rangeMask = 1 - Math.abs(2*lum/255 - 1);
-            const w = str * falloff * rangeMask;
-            // Adjust only HSL lightness to preserve hue and saturation
-            const [h, s, l] = rgbToHsl(d[i], d[i+1], d[i+2]);
-            const newL = isDodge ? Math.min(1, l + w) : Math.max(0, l - w);
-            const [nr, ng, nb] = hslToRgb(h, s, newL);
-            d[i] = nr; d[i+1] = ng; d[i+2] = nb;
+            if (isErase) {
+                const blend = str * 2 * falloff; // erase is faster (2×)
+                if (baseData) {
+                    d[i]   = Math.round(d[i]   + (baseData[i]   - d[i])   * blend);
+                    d[i+1] = Math.round(d[i+1] + (baseData[i+1] - d[i+1]) * blend);
+                    d[i+2] = Math.round(d[i+2] + (baseData[i+2] - d[i+2]) * blend);
+                }
+            } else {
+                const lum = 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2];
+                let rangeMask;
+                if      (brushRange === 'shadows')    rangeMask = Math.pow(Math.max(0, 1 - lum/255), 1.5);
+                else if (brushRange === 'highlights') rangeMask = Math.pow(lum/255, 1.5);
+                else                                  rangeMask = 1 - Math.abs(2*lum/255 - 1);
+                const w = str * falloff * rangeMask;
+                const [h, s, l] = rgbToHsl(d[i], d[i+1], d[i+2]);
+                const newL = isDodge ? Math.min(1, l + w) : Math.max(0, l - w);
+                const [nr, ng, nb] = hslToRgb(h, s, newL);
+                d[i] = nr; d[i+1] = ng; d[i+2] = nb;
+            }
         }
     }
     ctx.putImageData(id, x0, y0);
@@ -3129,7 +3739,10 @@ function monotoneCubic(xs,ys) {
         return (2*t3-3*t2+1)*ys[lo]+(t3-2*t2+t)*h*m[lo]+(-2*t3+3*t2)*ys[hi]+(t3-t2)*h*m[hi];
     };
 }
+let _curveLUTCache = null;
 function buildCurveLUT() {
+    const key = JSON.stringify([curvePoints, curvePointsR, curvePointsG, curvePointsB]);
+    if (_curveLUTCache && _curveLUTCache.key === key) return _curveLUTCache.lut;
     const buildLUT1 = pts => {
         const sorted=[...pts].sort((a,b)=>a.x-b.x);
         const f=monotoneCubic(sorted.map(p=>p.x),sorted.map(p=>p.y));
@@ -3148,6 +3761,7 @@ function buildCurveLUT() {
         out[i*4+2]=comp[bL[i]];
         out[i*4+3]=255;
     }
+    _curveLUTCache = { key, lut: out };
     return out;
 }
 
@@ -3460,19 +4074,27 @@ renderPresetList();
             <button class="s-link" onclick="closeInfoModal()">close ×</button>
         </div>
 
+        <div class="info-tabs">
+            <button class="info-tab-btn active" data-tab="guide" onclick="switchInfoTab('guide')">reference</button>
+            <button class="info-tab-btn" data-tab="workflow" onclick="switchInfoTab('workflow')">workflow</button>
+        </div>
+
+        <!-- ── Reference tab ── -->
+        <div class="info-tab-panel active" data-tab="guide">
+
         <div class="info-section">
             <div class="info-section-title">composition</div>
             <div class="info-item">
                 <span class="info-item-key">crop</span>
-                <span class="info-item-desc">drag to draw a crop region. choose a preset aspect ratio or lock the current one. apply or cancel with the buttons.</span>
+                <span class="info-item-desc">drag to draw a region. choose a preset aspect ratio or draw freely. apply or cancel with the buttons below the canvas.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">transform</span>
-                <span class="info-item-desc">rotate 90° cw/ccw, flip horizontal or vertical. straighten corrects a tilted horizon — a grid overlay appears to guide alignment. perspective correction lets you drag four corner handles to fix converging lines. commit bakes the transform in and auto-crops black corners.</span>
+                <span class="info-item-desc">rotate 90° cw/ccw, flip h/v. straighten corrects a tilted horizon. perspective correction drags four corner handles to fix converging lines — commit bakes it and auto-crops black corners.</span>
             </div>
             <div class="info-item">
-                <span class="info-item-key">composition grid</span>
-                <span class="info-item-desc">overlay a rule of thirds, golden ratio, diagonal, or 4×4 grid on the canvas to guide composition.</span>
+                <span class="info-item-key">grid</span>
+                <span class="info-item-desc">rule of thirds, golden ratio, diagonals, or 4×4. toggle with the checkbox in the top bar.</span>
             </div>
         </div>
 
@@ -3480,39 +4102,31 @@ renderPresetList();
             <div class="info-section-title">tone &amp; colour</div>
             <div class="info-item">
                 <span class="info-item-key">presets</span>
-                <span class="info-item-desc">apply a built-in film look (kodak portra, fuji velvia, tri-x b&w, cinematic, golden hour, matte fade) or save and recall your own.</span>
+                <span class="info-item-desc">12 built-in film looks. save your current adjustments as a named preset and recall them later. presets are stored in your browser.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">adjust</span>
-                <span class="info-item-desc">exposure, contrast, highlights, shadows, fade, vibrance, saturation, temperature, tint, clarity, sharpening, noise reduction, and grain. click a value to type it directly.</span>
+                <span class="info-item-desc">exposure · contrast · highlights · shadows · whites · blacks · fade · temperature · tint · vibrance · saturation · clarity · texture · dehaze · sharpen · masking · luma NR · color NR · grain. click any value to type it directly. double-click a slider to reset it.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">sharpening masking</span>
+                <span class="info-item-desc">limits sharpening to edges only. at 0 every pixel is sharpened equally; at 100 only strong edges are sharpened — smooth areas like sky and skin are left untouched.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">luminosity mask</span>
+                <span class="info-item-desc">limits all adjustments to a tonal range. set a floor and ceiling to target shadows, midtones, or highlights. feather softens the transition at each boundary.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">tone curve</span>
-                <span class="info-item-desc">click on the curve to add control points; drag them to reshape tone. right-click or drag off-canvas to remove a point. applied after all other adjustments.</span>
+                <span class="info-item-desc">click the curve to add points; drag to reshape. double-click a point to remove it. switch channels (composite, R, G, B) with the tabs. the histogram of the current channel is shown behind the curve.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">hsl</span>
-                <span class="info-item-desc">per-colour-band hue, saturation, and luminance across 8 bands: red, orange, yellow, green, aqua, blue, purple, magenta.</span>
+                <span class="info-item-desc">hue, saturation, and luminance across 8 colour bands: red, orange, yellow, green, aqua, blue, purple, magenta.</span>
             </div>
             <div class="info-item">
-                <span class="info-item-key">split tone</span>
-                <span class="info-item-desc">tint shadows and highlights independently. the balance slider shifts which tones are affected.</span>
-            </div>
-        </div>
-
-        <div class="info-section">
-            <div class="info-section-title">finishing</div>
-            <div class="info-item">
-                <span class="info-item-key">vignette</span>
-                <span class="info-item-desc">darkens corners. amount controls strength; feather controls the blend radius.</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key">border</span>
-                <span class="info-item-desc">adds a solid-colour border around the image. set width and pick a colour.</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key">label</span>
-                <span class="info-item-desc">stamp text onto the image in permanent marker. adjust size, opacity, position, and colour. useful for watermarks or captions.</span>
+                <span class="info-item-key">color grading</span>
+                <span class="info-item-desc">drag the colour wheel to tint shadows, midtones, and highlights independently. the balance slider shifts the shadow/highlight boundary.</span>
             </div>
         </div>
 
@@ -3520,39 +4134,99 @@ renderPresetList();
             <div class="info-section-title">local adjustments</div>
             <div class="info-item">
                 <span class="info-item-key">dodge &amp; burn</span>
-                <span class="info-item-desc">paint exposure directly onto the image. dodge brightens; burn darkens. adjust brush size and strength. use reset to clear the mask.</span>
+                <span class="info-item-desc">paint directly on the image to lighten (dodge), darken (burn), or restore (erase). erase blends pixels back toward the state before any dodge/burn was applied. adjust size with [ and ], tonal range with the shadows / midtones / highlights buttons.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">masks</span>
+                <span class="info-item-desc">non-destructive local adjustments. gradient masks apply from a full-effect line to a zero-effect line. radial masks apply inside an ellipse. each mask has its own exposure, highlights, shadows, saturation, and temperature. drag handles on the canvas to reposition. invert to flip the affected area. feather softens the edge.</span>
             </div>
         </div>
 
         <div class="info-section">
-            <div class="info-section-title">output</div>
+            <div class="info-section-title">finishing</div>
             <div class="info-item">
-                <span class="info-item-key">format</span>
-                <span class="info-item-desc">png (lossless) or jpeg. for jpeg, a quality slider appears (60–100).</span>
+                <span class="info-item-key">vignette</span>
+                <span class="info-item-desc">darkens the edges of the frame. feather controls how soft the gradient is; roundness blends between an ellipse (follows all edges) and a circle.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">border</span>
+                <span class="info-item-desc">solid-colour border around the image. link h &amp; v to resize both axes together. colour picker sets the border colour.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">label</span>
+                <span class="info-item-desc">stamp text in permanent marker. appears in the bottom border area — increase vertical border for space. adjust size, horizontal position, and colour.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">tools &amp; view</div>
+            <div class="info-item">
+                <span class="info-item-key">compare</span>
+                <span class="info-item-desc">drag the split divider to compare before and after side by side. press <span class="info-kbd">W</span> to toggle.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">before / after</span>
-                <span class="info-item-desc">hold the button to compare against the original image.</span>
+                <span class="info-item-desc">hold <span class="info-kbd">Y</span> to temporarily view the original. release to return to edited.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">clipping</span>
+                <span class="info-item-desc">red zebra = blown highlights. blue zebra = crushed shadows. toggle with <span class="info-kbd">\</span> or the checkbox in the top bar.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">color sampler</span>
+                <span class="info-item-desc">hover over the image to read the RGB and HSL values under your cursor. useful for checking skin tone ratios and neutral greys.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">histogram</span>
+                <span class="info-item-desc">live RGB histogram in the sidebar. auto-enhance button sets blacks, whites, and exposure based on the 2nd and 98th percentile of the image.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-section-title">export</div>
+            <div class="info-item">
+                <span class="info-item-key">format</span>
+                <span class="info-item-desc">PNG for lossless; JPEG with quality 60–100 for sharing. scale sets the output resolution (25–100% of full size).</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">output sharpening</span>
+                <span class="info-item-desc">applied after downscaling, on export only. compensates for softness introduced by resampling. separate from the adjustment sharpening slider.</span>
             </div>
         </div>
 
         <div class="info-section">
             <div class="info-section-title">keyboard shortcuts</div>
             <div class="info-item">
-                <span class="info-item-key"><span class="info-kbd">Ctrl Z</span></span>
-                <span class="info-item-desc">undo</span>
+                <span class="info-item-key"><span class="info-kbd">Ctrl Z / Y</span></span>
+                <span class="info-item-desc">undo / redo</span>
             </div>
             <div class="info-item">
-                <span class="info-item-key"><span class="info-kbd">Ctrl Y</span></span>
-                <span class="info-item-desc">redo</span>
+                <span class="info-item-key"><span class="info-kbd">Y</span> (hold)</span>
+                <span class="info-item-desc">before / after toggle</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">W</span></span>
+                <span class="info-item-desc">split compare</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">\</span></span>
+                <span class="info-item-desc">clipping indicators</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">D</span> / <span class="info-kbd">B</span></span>
+                <span class="info-item-desc">dodge / burn tool</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">[ ]</span></span>
+                <span class="info-item-desc">brush size −/+ (Shift = larger steps)</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">← →</span> on slider</span>
+                <span class="info-item-desc">nudge focused slider ±1 (Shift = ±10)</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">Esc</span></span>
-                <span class="info-item-desc">close this guide</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key"><span class="info-kbd">← →</span></span>
-                <span class="info-item-desc">navigate lightbox (photography page)</span>
+                <span class="info-item-desc">deactivate current tool</span>
             </div>
         </div>
 
@@ -3560,15 +4234,77 @@ renderPresetList();
             <div class="info-section-title">privacy</div>
             <div class="info-item">
                 <span class="info-item-key">100% local</span>
-                <span class="info-item-desc">nothing is uploaded. all processing happens in your browser. your photos never leave your device.</span>
+                <span class="info-item-desc">nothing is uploaded. all processing happens in your browser. your images never leave your device.</span>
             </div>
         </div>
+
+        </div><!-- end guide tab -->
+
+        <!-- ── Workflow tab ── -->
+        <div class="info-tab-panel" data-tab="workflow">
+
+        <p style="font-size:0.75rem;color:var(--secondary);line-height:1.7;margin-bottom:2rem;">a suggested order for editing a photograph. you don't have to follow every step — skip what doesn't apply. the order matters because earlier decisions affect how later adjustments look.</p>
+
+        <div class="workflow-step">
+            <div class="workflow-step-num">01 · composition first</div>
+            <div class="workflow-step-title">crop and straighten before anything else</div>
+            <div class="workflow-step-body">Decide your frame before touching tone or colour. Everything downstream — vignette placement, mask positions, your sense of what's bright or dark — depends on the final composition. Straighten the horizon in transform if the camera was tilted. Correct converging verticals with perspective if you're shooting architecture.</div>
+        </div>
+
+        <div class="workflow-step">
+            <div class="workflow-step-num">02 · foundation</div>
+            <div class="workflow-step-title">set white balance, then exposure</div>
+            <div class="workflow-step-body">White balance first — get the neutrals right (grey should look grey, whites should look white). Use the temperature and tint sliders, or the eyedropper on a neutral area. Then set exposure so the overall brightness feels right. Use the histogram as a guide: avoid clipping the highlights or crushing the shadows unless it's intentional.</div>
+        </div>
+
+        <div class="workflow-step">
+            <div class="workflow-step-num">03 · tone shaping</div>
+            <div class="workflow-step-title">contrast, highlights, shadows, whites, blacks</div>
+            <div class="workflow-step-body">Contrast adds punch but can crush shadows — pair it with highlights and shadows to recover detail at the extremes. Whites and blacks set the true endpoints of the tonal range. Fade lifts the blacks to create a matte, film-like look. The tone curve gives you precise control over specific tonal regions — a gentle S-curve adds contrast and character without affecting the endpoints.</div>
+        </div>
+
+        <div class="workflow-step">
+            <div class="workflow-step-num">04 · colour</div>
+            <div class="workflow-step-title">global colour, then specific adjustments</div>
+            <div class="workflow-step-body">Start broad: vibrance adds saturation to muted colours without oversaturating already-strong ones. Saturation affects everything equally. Then go narrow with HSL — shift, boost, or pull back specific colour bands (sky blues, foliage greens, skin tones). Color grading lets you push shadows cool and highlights warm, or any combination. Use the color sampler to check that skin tones have a healthy ratio (red slightly higher than green, green higher than blue).</div>
+        </div>
+
+        <div class="workflow-step">
+            <div class="workflow-step-num">05 · detail</div>
+            <div class="workflow-step-title">sharpening and noise reduction</div>
+            <div class="workflow-step-body">Apply noise reduction before sharpening — NR smooths out sensor noise; sharpening then enhances real edges rather than amplifying noise. Use the masking slider with sharpen to limit it to edges only, protecting smooth areas like skin and sky. Clarity adds localised contrast at a mid-frequency scale. Texture is subtler and great for preserving fine detail like fabric or bark.</div>
+        </div>
+
+        <div class="workflow-step">
+            <div class="workflow-step-num">06 · local adjustments</div>
+            <div class="workflow-step-title">dodge, burn, and masks</div>
+            <div class="workflow-step-body">These are your most powerful and time-consuming tools — apply them after global edits are settled. Dodge and burn guide the viewer's eye: lighten where you want attention, darken what's competing. Use the tonal range selector to limit strokes to highlights, midtones, or shadows. Gradient and radial masks let you apply targeted exposure or colour corrections — darkening a blown sky, warming a foreground, isolating the subject from the background.</div>
+        </div>
+
+        <div class="workflow-step">
+            <div class="workflow-step-num">07 · finishing</div>
+            <div class="workflow-step-title">vignette, then border and label if needed</div>
+            <div class="workflow-step-body">Vignette is the last adjustment before export. A subtle darkening of the corners draws the eye inward without the viewer noticing. Feather keeps it soft; roundness controls the shape. Add a border if you're presenting the image with breathing room. Add a label if you want to watermark or caption it.</div>
+        </div>
+
+        <div class="workflow-step" style="margin-bottom:0">
+            <div class="workflow-step-num">08 · export</div>
+            <div class="workflow-step-title">choose format, scale, and output sharpening</div>
+            <div class="workflow-step-body">JPEG at quality 85–92 is right for most web use. PNG if you need pixel-perfect lossless output. If you're exporting at less than 100% scale, apply a small amount of output sharpening to compensate for softness introduced by resampling — it's applied after the resize, so it's separate from the adjustment sharpening. Download, and you're done.</div>
+        </div>
+
+        </div><!-- end workflow tab -->
+
     </div>
 </div>
 
 <script>
 function closeInfoModal() {
     document.getElementById('info-modal').style.display = 'none';
+}
+function switchInfoTab(tab) {
+    document.querySelectorAll('.info-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.info-tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
 }
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && document.getElementById('info-modal').style.display === 'block') {
