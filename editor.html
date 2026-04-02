@@ -380,9 +380,13 @@
                     <div class="preset-group-label" id="saved-label" style="display:none">saved</div>
                     <div class="preset-grid" id="preset-saved"></div>
                     <div class="s-row-btns" style="margin-top:0.85rem;">
-                        <button class="s-btn" onclick="savePreset()">save current</button>
-                        <button class="s-btn-ghost" onclick="exportPreset()" title="export settings as .json file">export</button>
-                        <button class="s-btn-ghost" onclick="document.getElementById('preset-import-input').click()" title="import a preset .json file">import</button>
+                        <button class="s-btn" onclick="savePreset()">save</button>
+                        <button class="s-btn-ghost" onclick="copyAdjustments()" title="copy all adjustments to clipboard (Ctrl+Alt+C)">copy</button>
+                        <button class="s-btn-ghost" onclick="pasteAdjustments()" title="paste adjustments from clipboard (Ctrl+Alt+V)">paste</button>
+                    </div>
+                    <div class="s-row-btns" style="margin-top:0.35rem;">
+                        <button class="s-btn-ghost" onclick="exportPreset()" title="export settings as .json file">export .json</button>
+                        <button class="s-btn-ghost" onclick="document.getElementById('preset-import-input').click()" title="import a preset .json file">import .json</button>
                         <input type="file" id="preset-import-input" accept=".json" style="display:none" onchange="importPreset(this)">
                     </div>
                 </div>
@@ -930,6 +934,19 @@ document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
         if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
         if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+    }
+    // ── Copy / paste adjustments (Ctrl+Alt+C / Ctrl+Alt+V) ──────
+    if ((e.ctrlKey || e.metaKey) && e.altKey) {
+        if (e.key === 'c' || e.key === 'C') {
+            e.preventDefault();
+            copyAdjustments();
+            return;
+        }
+        if (e.key === 'v' || e.key === 'V') {
+            e.preventDefault();
+            pasteAdjustments();
+            return;
+        }
     }
     if (isInput) return; // don't steal keys while typing
 
@@ -4221,6 +4238,39 @@ function importPreset(input) {
         }
     };
     reader.readAsText(file);
+}
+
+// ── Copy / paste adjustments ──────────────────────────────────
+function copyAdjustments() {
+    const data = _collectPresetData('clipboard');
+    const json = JSON.stringify(data);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(json).then(() => {
+            setPushStatus('adjustments copied to clipboard', false);
+            setTimeout(() => setPushStatus('', false), 2000);
+        }).catch(() => _fallbackCopy(json));
+    } else { _fallbackCopy(json); }
+}
+function _fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    setPushStatus('adjustments copied', false);
+    setTimeout(() => setPushStatus('', false), 2000);
+}
+function pasteAdjustments() {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(text => {
+            try {
+                const data = JSON.parse(text);
+                if (!data || typeof data !== 'object') throw new Error('invalid');
+                _applyPreset(data);
+                setPushStatus('adjustments pasted', false);
+                setTimeout(() => setPushStatus('', false), 2000);
+            } catch(e) { alert('Clipboard does not contain valid adjustment data.'); }
+        }).catch(() => alert('Could not read clipboard. Use the import button instead.'));
+    } else { alert('Clipboard API not available. Use the import button to load a preset file.'); }
 }
 
 // ── Auto-enhance ──────────────────────────────────────────────
