@@ -254,7 +254,8 @@
         </label>
         <span class="e-bar-sep">|</span>
         <span id="zoom-ind"></span>
-        <button class="e-bar-btn" id="zoom-reset-btn" onclick="resetZoom()" style="display:none">fit</button>
+        <button class="e-bar-btn" id="zoom-100-btn" onclick="zoomTo100()" style="display:none" title="toggle 1:1 pixel view (Z)">1:1</button>
+        <button class="e-bar-btn" id="zoom-reset-btn" onclick="resetZoom()" style="display:none" title="fit to window">fit</button>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
@@ -653,6 +654,19 @@ function applyZoom() {
     if (!panDragging) em.style.cursor = zoom > 1 && !cropMode ? 'grab' : '';
 }
 function resetZoom() { zoom = 1; panX = 0; panY = 0; applyZoom(); }
+function zoomTo100() {
+    if (!workCanvas) return;
+    const out = document.getElementById('output-canvas');
+    const rect = out.getBoundingClientRect();
+    // Base display width at zoom=1
+    const baseW = rect.width / zoom;
+    const target = out.width / baseW;
+    // Toggle: if already near 1:1, return to fit
+    if (Math.abs(zoom - target) < 0.06) { resetZoom(); return; }
+    zoom = Math.max(1, Math.min(20, target));
+    panX = 0; panY = 0;
+    clampPan(); applyZoom();
+}
 
 // Curve
 let curvePoints = [{x:0,y:0},{x:255,y:255}];
@@ -934,6 +948,7 @@ document.addEventListener('keydown', e => {
         if (e.key === 'd' || e.key === 'D') { e.preventDefault(); setTool('dodge'); return; }
         if (e.key === 'b' || e.key === 'B') { e.preventDefault(); setTool('burn');  return; }
         if (e.key === 'Escape')             { e.preventDefault(); setTool(null);    return; }
+        if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); zoomTo100();     return; }
 
         // ── Before/after toggle ─────────────────────────────────
         if (e.key === 'y' || e.key === 'Y') {
@@ -1016,6 +1031,8 @@ function loadFile(file) {
         document.getElementById('drop-hint').style.display = 'none';
         document.getElementById('canvas-wrap').style.display = 'inline-block';
         document.getElementById('dl-btn').disabled = false;
+        const z100btn = document.getElementById('zoom-100-btn');
+        if (z100btn) z100btn.style.display = '';
         document.getElementById('exif-strip').style.display = 'none';
         render();
         updateDimsDisplay();
@@ -2732,7 +2749,7 @@ eMain.addEventListener('wheel', e => {
     if (!workCanvas) return;
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.14 : 1 / 1.14;
-    const newZoom = Math.max(1, Math.min(8, zoom * factor));
+    const newZoom = Math.max(1, Math.min(20, zoom * factor));
     if (newZoom === zoom) return;
     const rect = eMain.getBoundingClientRect();
     const cx = e.clientX - rect.left - rect.width  / 2;
@@ -2787,7 +2804,7 @@ eMain.addEventListener('touchmove', e => {
         const mcx  = (t0.clientX + t1.clientX) / 2 - rect.left - rect.width  / 2;
         const mcy  = (t0.clientY + t1.clientY) / 2 - rect.top  - rect.height / 2;
         const s = dist / touchStartState.dist;
-        zoom = Math.max(1, Math.min(8, touchStartState.zoom * s));
+        zoom = Math.max(1, Math.min(20, touchStartState.zoom * s));
         const zs = zoom / touchStartState.zoom;
         panX = touchStartState.panX + (touchStartState.cx - touchStartState.panX) * (1 - zs) + (mcx - touchStartState.cx);
         panY = touchStartState.panY + (touchStartState.cy - touchStartState.panY) * (1 - zs) + (mcy - touchStartState.cy);
