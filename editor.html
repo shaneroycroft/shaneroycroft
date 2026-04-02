@@ -563,9 +563,23 @@
                         <button class="s-btn-ghost" onclick="addMask('gradient')">+ gradient</button>
                         <button class="s-btn-ghost" onclick="addMask('radial')">+ radial</button>
                         <button class="s-btn-ghost" onclick="addMask('brush')">+ brush</button>
+                        <button class="s-btn-ghost" onclick="addMask('luminosity')">+ luma</button>
                     </div>
                     <div class="mask-list" id="mask-list"></div>
                     <div id="mask-adj-panel" style="display:none">
+                        <!-- luminosity-only controls -->
+                        <div id="mask-lum-tools" style="display:none">
+                            <p class="s-note" style="margin-bottom:0.55rem;">select which luminosity zone to affect. hover the image to preview the mask in red.</p>
+                            <div class="s-row"><label>min luma <input type="number" class="val-input" id="v-mask-lumlo" value="0" min="0" max="100" step="1" oninput="syncMaskLum('lo',this)"></label><input type="range" id="sl-mask-lumlo" min="0" max="100" value="0" oninput="onMaskLumSlider('lo')"></div>
+                            <div class="s-row"><label>max luma <input type="number" class="val-input" id="v-mask-lumhi" value="100" min="0" max="100" step="1" oninput="syncMaskLum('hi',this)"></label><input type="range" id="sl-mask-lumhi" min="0" max="100" value="100" oninput="onMaskLumSlider('hi')"></div>
+                            <div class="s-row-btns" style="margin-bottom:0.6rem;">
+                                <button class="s-btn-ghost" onclick="setLumZone(0,30)" title="shadows">shadows</button>
+                                <button class="s-btn-ghost" onclick="setLumZone(25,55)" title="darks">darks</button>
+                                <button class="s-btn-ghost" onclick="setLumZone(40,60)" title="midtones">mids</button>
+                                <button class="s-btn-ghost" onclick="setLumZone(45,75)" title="lights">lights</button>
+                                <button class="s-btn-ghost" onclick="setLumZone(70,100)" title="highlights">highlights</button>
+                            </div>
+                        </div>
                         <!-- brush-only tools -->
                         <div id="mask-brush-tools" style="display:none">
                             <div class="mask-brush-bar">
@@ -3177,12 +3191,16 @@ function addMask(type) {
         id, type, enabled: true, inverted: false, feather: 50,
         x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,   // gradient: p1→p2
         cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,    // radial: center + radii
+        lumLo: 0, lumHi: 100,                      // luminosity range (0-100)
         adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
     };
     if (type === 'brush') {
         m.width  = workCanvas.width;
         m.height = workCanvas.height;
         m.pixels = new Float32Array(workCanvas.width * workCanvas.height);
+    }
+    if (type === 'luminosity') {
+        m.lumLo = 0; m.lumHi = 100; m.feather = 30;
     }
     masks.push(m);
     const sec = document.getElementById('masks-sec');
@@ -3290,6 +3308,35 @@ function drawBrushMaskOverlay(ctx, mask) {
     ctx.putImageData(imgd, x1o, y1o);
 }
 
+function drawLumMaskOverlay(ctx, mask) {
+    if (!imageBounds) return;
+    const out  = document.getElementById('output-canvas');
+    const x1o  = Math.round(imageBounds.x1), y1o = Math.round(imageBounds.y1);
+    const IW   = Math.round(imageBounds.x2 - imageBounds.x1);
+    const IH   = Math.round(imageBounds.y2 - imageBounds.y1);
+    if (IW <= 0 || IH <= 0) return;
+    const outData = out.getContext('2d').getImageData(x1o, y1o, IW, IH);
+    const imgd    = ctx.createImageData(IW, IH);
+    const dd      = imgd.data;
+    const f       = (mask.feather / 100) * 30;
+    const lo      = mask.lumLo || 0, hi = mask.lumHi || 100;
+    for (let i = 0; i < IW * IH; i++) {
+        const r = outData.data[i*4], g = outData.data[i*4+1], b = outData.data[i*4+2];
+        const lum = (0.2126*r + 0.7152*g + 0.0722*b) / 255 * 100;
+        let v;
+        if (lum < lo - f || lum > hi + f) v = 0;
+        else if (lum >= lo && lum <= hi)   v = 1;
+        else if (lum < lo) { const t = f > 0 ? (lum - (lo-f)) / f : 0; v = t*t*(3-2*t); }
+        else               { const t = f > 0 ? ((hi+f) - lum) / f : 0; v = t*t*(3-2*t); }
+        if (mask.inverted) v = 1 - v;
+        dd[i*4]   = 220;
+        dd[i*4+1] = 40;
+        dd[i*4+2] = 40;
+        dd[i*4+3] = Math.round(v * 150);
+    }
+    ctx.putImageData(imgd, x1o, y1o);
+}
+
 function deleteMask(id) {
     masks = masks.filter(m => m.id !== id);
     if (activeMaskId === id) selectMask(null);
@@ -3319,9 +3366,19 @@ function selectMask(id) {
     if (!mask) { panel.style.display = 'none'; return; }
     panel.style.display = '';
     ovEl.classList.add('mask-mode');
-    // Show/hide brush tools panel
+    // Show/hide type-specific tool panels
     const brushTools = document.getElementById('mask-brush-tools');
     if (brushTools) brushTools.style.display = mask.type === 'brush' ? '' : 'none';
+    const lumTools = document.getElementById('mask-lum-tools');
+    if (lumTools) {
+        lumTools.style.display = mask.type === 'luminosity' ? '' : 'none';
+        if (mask.type === 'luminosity') {
+            const slo = document.getElementById('sl-mask-lumlo'), vlo = document.getElementById('v-mask-lumlo');
+            const shi = document.getElementById('sl-mask-lumhi'), vhi = document.getElementById('v-mask-lumhi');
+            if (slo) slo.value = mask.lumLo; if (vlo) vlo.value = mask.lumLo;
+            if (shi) shi.value = mask.lumHi; if (vhi) vhi.value = mask.lumHi;
+        }
+    }
     document.getElementById('mask-invert').checked = mask.inverted;
     ['feather','exposure','highlights','shadows','saturation','temperature'].forEach(f => {
         const val = f === 'feather' ? mask.feather : mask.adj[f];
@@ -3338,7 +3395,7 @@ function renderMaskList() {
     if (!el) return;
     el.innerHTML = '';
     masks.forEach((mask, i) => {
-        const icon = mask.type === 'gradient' ? '▬' : mask.type === 'brush' ? '✏' : '◎';
+        const icon = mask.type === 'gradient' ? '▬' : mask.type === 'brush' ? '✏' : mask.type === 'luminosity' ? '◑' : '◎';
         const div = document.createElement('div');
         div.className = 'mask-item' + (mask.id === activeMaskId ? ' active' : '');
         div.innerHTML = `<input type="checkbox" class="mask-enable" ${mask.enabled ? 'checked' : ''}
@@ -3376,6 +3433,45 @@ function onMaskCtrlChange() {
     if (!mask) return;
     mask.inverted = document.getElementById('mask-invert').checked;
     scheduleRender();
+    renderOverlay(); // update luminosity preview tint if active
+}
+
+function onMaskLumSlider(which) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'luminosity') return;
+    const sl = document.getElementById('sl-mask-lum' + which);
+    const vi = document.getElementById('v-mask-lum'  + which);
+    if (!sl) return;
+    const val = parseFloat(sl.value);
+    if (which === 'lo') mask.lumLo = val; else mask.lumHi = val;
+    if (vi) vi.value = val;
+    beginAdjust();
+    renderOverlay();
+}
+
+function syncMaskLum(which, input) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'luminosity') return;
+    const val = Math.max(0, Math.min(100, parseFloat(input.value)));
+    if (isNaN(val)) return;
+    input.value = val;
+    if (which === 'lo') mask.lumLo = val; else mask.lumHi = val;
+    const sl = document.getElementById('sl-mask-lum' + which);
+    if (sl) sl.value = val;
+    beginAdjust();
+    renderOverlay();
+}
+
+function setLumZone(lo, hi) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'luminosity') return;
+    mask.lumLo = lo; mask.lumHi = hi;
+    const slo = document.getElementById('sl-mask-lumlo'), vlo = document.getElementById('v-mask-lumlo');
+    const shi = document.getElementById('sl-mask-lumhi'), vhi = document.getElementById('v-mask-lumhi');
+    if (slo) slo.value = lo; if (vlo) vlo.value = lo;
+    if (shi) shi.value = hi; if (vhi) vhi.value = hi;
+    beginAdjust();
+    renderOverlay();
 }
 
 // Normalized image coords ↔ overlay canvas pixel coords
@@ -3440,13 +3536,29 @@ function applyMasks(canvas) {
         const shStr  = a.shadows     / 100 * 80;
         const satF   = 1 + a.saturation  / 100;
         const tShift = a.temperature / 100 * 0.12;
+        // Pre-compute luminosity mask params (only used for type='luminosity')
+        const isLumMask = mask.type === 'luminosity';
+        const lumF = isLumMask ? (mask.feather / 100) * 30 : 0; // feather width in luma units (0-100)
+        const lumLo = isLumMask ? (mask.lumLo || 0)  : 0;
+        const lumHi = isLumMask ? (mask.lumHi || 100) : 100;
+
         for (let py = 0; py < H; py++) {
             const ny = py / H;
             for (let px = 0; px < W; px++) {
-                const alpha = computeMaskAlpha(px / W, ny, mask);
-                if (alpha < 0.001) continue;
                 const i = (py * W + px) * 4;
                 const r = d[i], g = d[i+1], b = d[i+2];
+                let alpha;
+                if (isLumMask) {
+                    const lum = (0.2126*r + 0.7152*g + 0.0722*b) / 255 * 100;
+                    if (lum < lumLo - lumF || lum > lumHi + lumF) { alpha = 0; }
+                    else if (lum >= lumLo && lum <= lumHi)         { alpha = 1; }
+                    else if (lum < lumLo) { const t = lumF > 0 ? (lum - (lumLo - lumF)) / lumF : 0; alpha = t*t*(3-2*t); }
+                    else                  { const t = lumF > 0 ? ((lumHi + lumF) - lum) / lumF : 0; alpha = t*t*(3-2*t); }
+                    if (mask.inverted) alpha = 1 - alpha;
+                } else {
+                    alpha = computeMaskAlpha(px / W, ny, mask);
+                }
+                if (alpha < 0.001) continue;
                 let nr = r, ng = g, nb = b;
                 if (hasExp)  { nr *= expF;  ng *= expF;  nb *= expF; }
                 if (hasHL || hasSH) {
@@ -3479,6 +3591,7 @@ function maskHandleHit(ox, oy) {
     const IW  = imageBounds.x2 - imageBounds.x1;
     const hitR = Math.max(12, IW * 0.022);
     const d2 = (ax, ay) => Math.sqrt((ox-ax)*(ox-ax) + (oy-ay)*(oy-ay));
+    if (mask.type === 'brush' || mask.type === 'luminosity') return null; // no drag handles
     if (mask.type === 'gradient') {
         const p1 = maskN2O(mask.x1, mask.y1);
         const p2 = maskN2O(mask.x2, mask.y2);
@@ -3622,6 +3735,11 @@ function drawMaskOverlay(ctx) {
             // Brush mask — show red tint overlay of painted area when active
             if (isActive) {
                 drawBrushMaskOverlay(ctx, mask);
+            }
+        } else if (mask.type === 'luminosity') {
+            // Luminosity mask — show red tint on pixels within range when active
+            if (isActive) {
+                drawLumMaskOverlay(ctx, mask);
             }
         }
     });
