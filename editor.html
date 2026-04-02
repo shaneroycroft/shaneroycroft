@@ -381,6 +381,9 @@
                     <div class="preset-grid" id="preset-saved"></div>
                     <div class="s-row-btns" style="margin-top:0.85rem;">
                         <button class="s-btn" onclick="savePreset()">save current</button>
+                        <button class="s-btn-ghost" onclick="exportPreset()" title="export settings as .json file">export</button>
+                        <button class="s-btn-ghost" onclick="document.getElementById('preset-import-input').click()" title="import a preset .json file">import</button>
+                        <input type="file" id="preset-import-input" accept=".json" style="display:none" onchange="importPreset(this)">
                     </div>
                 </div>
             </details>
@@ -4148,19 +4151,9 @@ function _saveSavedPresets(arr) { localStorage.setItem('sr_presets', JSON.string
 function savePreset() {
     const name = prompt('preset name:');
     if (!name || !name.trim()) return;
-    const KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','dehaze','clarity','texture','sharpen','lumanr','colornr','grain','vignette'];
-    const s = {};
-    KEYS.forEach(k => { const sl = document.getElementById('sl-'+k); if(sl) s[k] = parseFloat(sl.value); });
-    const hslData = { h: Array.from(hslH), s: Array.from(hslS), l: Array.from(hslL) };
-    const st = {
-        sc: hueToHex(shadowHue), ss: Math.round(shadowStr*100),
-        hc: hueToHex(highlightHue), hs: Math.round(highlightStr*100),
-        mh: midHue, ms: Math.round(midStr*100),
-        bal: splitBalance
-    };
-    const curve = { composite: JSON.parse(JSON.stringify(curvePoints)), r: JSON.parse(JSON.stringify(curvePointsR)), g: JSON.parse(JSON.stringify(curvePointsG)), b: JSON.parse(JSON.stringify(curvePointsB)) };
+    const data = _collectPresetData(name.trim());
     const saved = _loadSavedPresets();
-    saved.push({ name: name.trim(), s, hslData, st, curve });
+    saved.push(data);
     _saveSavedPresets(saved);
     renderPresetList();
 }
@@ -4170,6 +4163,64 @@ function deletePreset(idx) {
     saved.splice(idx, 1);
     _saveSavedPresets(saved);
     renderPresetList();
+}
+
+function _collectPresetData(name) {
+    const KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','dehaze','clarity','texture','sharpen','lumanr','colornr','grain','vignette'];
+    const s = {};
+    KEYS.forEach(k => { const sl = document.getElementById('sl-'+k); if(sl) s[k] = parseFloat(sl.value); });
+    // Additional vignette controls
+    ['vignette-feather','vignette-roundness'].forEach(k => {
+        const sl = document.getElementById('sl-'+k); if(sl) s[k] = parseFloat(sl.value);
+    });
+    const hslData = { h: Array.from(hslH), s: Array.from(hslS), l: Array.from(hslL) };
+    const st = {
+        sc: hueToHex(shadowHue), ss: Math.round(shadowStr*100),
+        hc: hueToHex(highlightHue), hs: Math.round(highlightStr*100),
+        mh: midHue, ms: Math.round(midStr*100), bal: splitBalance
+    };
+    const curve = {
+        composite: JSON.parse(JSON.stringify(curvePoints)),
+        r: JSON.parse(JSON.stringify(curvePointsR)),
+        g: JSON.parse(JSON.stringify(curvePointsG)),
+        b: JSON.parse(JSON.stringify(curvePointsB))
+    };
+    return { name, s, hslData, st, curve, _version: 2 };
+}
+
+function exportPreset() {
+    const name = prompt('preset name (used as filename):');
+    if (!name || !name.trim()) return;
+    const data = _collectPresetData(name.trim());
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = name.trim().replace(/[^a-z0-9_\-]/gi, '_') + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importPreset(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = ''; // allow re-import of same file
+    const reader = new FileReader();
+    reader.onload = ev => {
+        try {
+            const data = JSON.parse(ev.target.result);
+            if (!data || typeof data !== 'object') throw new Error('invalid');
+            _applyPreset(data);
+            // Also save into local library so it shows in saved list
+            const saved = _loadSavedPresets();
+            saved.push(data);
+            _saveSavedPresets(saved);
+            renderPresetList();
+        } catch(e) {
+            alert('Could not load preset: ' + e.message);
+        }
+    };
+    reader.readAsText(file);
 }
 
 // ── Auto-enhance ──────────────────────────────────────────────
