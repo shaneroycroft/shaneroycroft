@@ -300,12 +300,26 @@
                 </div>
             </div>
 
-            <!-- EXIF strip -->
-            <div class="exif-strip" id="exif-strip">
-                <div class="exif-strip-label">camera info</div>
-                <div class="exif-grid" id="exif-grid"></div>
-            </div>
 
+            <details class="e-sec">
+                <summary>presets</summary>
+                <div class="e-body">
+                    <div class="preset-group-label">built-in</div>
+                    <div class="preset-grid" id="preset-builtin"></div>
+                    <div class="preset-group-label" id="saved-label" style="display:none">saved</div>
+                    <div class="preset-grid" id="preset-saved"></div>
+                    <div class="s-row-btns" style="margin-top:0.85rem;">
+                        <button class="s-btn" onclick="savePreset()">save</button>
+                        <button class="s-btn-ghost" onclick="copyAdjustments()" title="copy all adjustments to clipboard (Ctrl+Alt+C)">copy</button>
+                        <button class="s-btn-ghost" onclick="pasteAdjustments()" title="paste adjustments from clipboard (Ctrl+Alt+V)">paste</button>
+                    </div>
+                    <div class="s-row-btns" style="margin-top:0.35rem;">
+                        <button class="s-btn-ghost" onclick="exportPreset()" title="export settings as .json file">export .json</button>
+                        <button class="s-btn-ghost" onclick="document.getElementById('preset-import-input').click()" title="import a preset .json file">import .json</button>
+                        <input type="file" id="preset-import-input" accept=".json" style="display:none" onchange="importPreset(this)">
+                    </div>
+                </div>
+            </details>
             <details class="e-sec">
                 <summary>crop</summary>
                 <div class="e-body">
@@ -371,26 +385,16 @@
                     </div>
                 </div>
             </details>
-
             <details class="e-sec">
-                <summary>presets</summary>
+                <summary>lens corrections <span class="sec-reset" onclick="event.stopPropagation();['sl-distortion','sl-ca-red','sl-ca-blue'].forEach(id=>{const sl=document.getElementById(id),vi=document.getElementById(id.replace('sl-','v-'));if(sl){sl.value=0;if(vi)vi.value=0;}});scheduleRender()">reset</span></summary>
                 <div class="e-body">
-                    <div class="preset-group-label">built-in</div>
-                    <div class="preset-grid" id="preset-builtin"></div>
-                    <div class="preset-group-label" id="saved-label" style="display:none">saved</div>
-                    <div class="preset-grid" id="preset-saved"></div>
-                    <div class="s-row-btns" style="margin-top:0.85rem;">
-                        <button class="s-btn" onclick="savePreset()">save</button>
-                        <button class="s-btn-ghost" onclick="copyAdjustments()" title="copy all adjustments to clipboard (Ctrl+Alt+C)">copy</button>
-                        <button class="s-btn-ghost" onclick="pasteAdjustments()" title="paste adjustments from clipboard (Ctrl+Alt+V)">paste</button>
-                    </div>
-                    <div class="s-row-btns" style="margin-top:0.35rem;">
-                        <button class="s-btn-ghost" onclick="exportPreset()" title="export settings as .json file">export .json</button>
-                        <button class="s-btn-ghost" onclick="document.getElementById('preset-import-input').click()" title="import a preset .json file">import .json</button>
-                        <input type="file" id="preset-import-input" accept=".json" style="display:none" onchange="importPreset(this)">
-                    </div>
+                    <p class="s-note">correct barrel (+) or pincushion (−) distortion, and colour fringing from chromatic aberration.</p>
+                    <div class="s-row"><label>distortion <input type="number" class="val-input" id="v-distortion" value="0" min="-100" max="100" step="1" oninput="syncCAVal('distortion',this)"></label><input type="range" id="sl-distortion" min="-100" max="100" value="0" step="1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>red / cyan <input type="number" class="val-input" id="v-ca-red" value="0" min="-3" max="3" step="0.1" oninput="syncCAVal('ca-red',this)"></label><input type="range" id="sl-ca-red" min="-3" max="3" value="0" step="0.1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row" style="margin-bottom:0"><label>blue / yellow <input type="number" class="val-input" id="v-ca-blue" value="0" min="-3" max="3" step="0.1" oninput="syncCAVal('ca-blue',this)"></label><input type="range" id="sl-ca-blue" min="-3" max="3" value="0" step="0.1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
                 </div>
             </details>
+
 
             <details class="e-sec" open>
                 <summary>adjust <span class="sec-reset" onclick="event.stopPropagation();resetAdjust()">reset</span></summary>
@@ -428,20 +432,6 @@
                 </div>
             </details>
 
-            <details class="e-sec" id="lm-sec">
-                <summary>luminosity mask <span class="sec-reset" onclick="event.stopPropagation();resetLM()">reset</span></summary>
-                <div class="e-body">
-                    <p class="s-note">limit all adjustments to a tonal range. 0=shadows, 100=highlights.</p>
-                    <div class="lm-range-wrap">
-                        <div id="lm-range-track"></div>
-                        <div id="lm-range-fill"></div>
-                    </div>
-                    <div class="s-row"><label>floor <input type="number" class="val-input" id="v-lm-floor" value="0" min="0" max="100" step="1" oninput="syncLMVal(this,'floor')"></label><input type="range" id="sl-lm-floor" min="0" max="100" value="0" oninput="onLMSlider()" ondblclick="this.value=0;onLMSlider()"></div>
-                    <div class="s-row"><label>ceiling <input type="number" class="val-input" id="v-lm-ceiling" value="100" min="0" max="100" step="1" oninput="syncLMVal(this,'ceiling')"></label><input type="range" id="sl-lm-ceiling" min="0" max="100" value="100" oninput="onLMSlider()" ondblclick="this.value=100;onLMSlider()"></div>
-                    <div class="s-row"><label>feather <input type="number" class="val-input" id="v-lm-feather" value="20" min="0" max="50" step="1" oninput="syncLMVal(this,'feather')"></label><input type="range" id="sl-lm-feather" min="0" max="50" value="20" oninput="onLMSlider()" ondblclick="this.value=20;onLMSlider()"></div>
-
-                </div>
-            </details>
 
             <details class="e-sec">
                 <summary>curve <span class="sec-reset" onclick="event.stopPropagation();resetAllCurves()">reset</span></summary>
@@ -540,16 +530,21 @@
                     <div class="s-row" style="margin-bottom:0"><label>roundness <input type="number" class="val-input" id="v-vig-round" value="0" min="0" max="100" step="1" oninput="syncVigVal('vig-round',this)"></label><input type="range" id="sl-vig-round" min="0" max="100" value="0" data-default="0" oninput="syncVigVal('vig-round',this)" ondblclick="resetSlider(this)"></div>
                 </div>
             </details>
-
-            <details class="e-sec">
-                <summary>lens corrections <span class="sec-reset" onclick="event.stopPropagation();['sl-distortion','sl-ca-red','sl-ca-blue'].forEach(id=>{const sl=document.getElementById(id),vi=document.getElementById(id.replace('sl-','v-'));if(sl){sl.value=0;if(vi)vi.value=0;}});scheduleRender()">reset</span></summary>
+            <details class="e-sec" id="lm-sec">
+                <summary>luminosity mask <span class="sec-reset" onclick="event.stopPropagation();resetLM()">reset</span></summary>
                 <div class="e-body">
-                    <p class="s-note">correct barrel (+) or pincushion (−) distortion, and colour fringing from chromatic aberration.</p>
-                    <div class="s-row"><label>distortion <input type="number" class="val-input" id="v-distortion" value="0" min="-100" max="100" step="1" oninput="syncCAVal('distortion',this)"></label><input type="range" id="sl-distortion" min="-100" max="100" value="0" step="1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>red / cyan <input type="number" class="val-input" id="v-ca-red" value="0" min="-3" max="3" step="0.1" oninput="syncCAVal('ca-red',this)"></label><input type="range" id="sl-ca-red" min="-3" max="3" value="0" step="0.1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row" style="margin-bottom:0"><label>blue / yellow <input type="number" class="val-input" id="v-ca-blue" value="0" min="-3" max="3" step="0.1" oninput="syncCAVal('ca-blue',this)"></label><input type="range" id="sl-ca-blue" min="-3" max="3" value="0" step="0.1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
+                    <p class="s-note">limit all adjustments to a tonal range. 0=shadows, 100=highlights.</p>
+                    <div class="lm-range-wrap">
+                        <div id="lm-range-track"></div>
+                        <div id="lm-range-fill"></div>
+                    </div>
+                    <div class="s-row"><label>floor <input type="number" class="val-input" id="v-lm-floor" value="0" min="0" max="100" step="1" oninput="syncLMVal(this,'floor')"></label><input type="range" id="sl-lm-floor" min="0" max="100" value="0" oninput="onLMSlider()" ondblclick="this.value=0;onLMSlider()"></div>
+                    <div class="s-row"><label>ceiling <input type="number" class="val-input" id="v-lm-ceiling" value="100" min="0" max="100" step="1" oninput="syncLMVal(this,'ceiling')"></label><input type="range" id="sl-lm-ceiling" min="0" max="100" value="100" oninput="onLMSlider()" ondblclick="this.value=100;onLMSlider()"></div>
+                    <div class="s-row"><label>feather <input type="number" class="val-input" id="v-lm-feather" value="20" min="0" max="50" step="1" oninput="syncLMVal(this,'feather')"></label><input type="range" id="sl-lm-feather" min="0" max="50" value="20" oninput="onLMSlider()" ondblclick="this.value=20;onLMSlider()"></div>
+
                 </div>
             </details>
+
 
             <details class="e-sec">
                 <summary>dodge, burn &amp; clone</summary>
@@ -679,6 +674,11 @@
                     <p class="s-note" style="margin-top:0.65rem;">appears in bottom border — increase vertical border for more space.</p>
                 </div>
             </details>
+            <!-- EXIF strip -->
+            <div class="exif-strip" id="exif-strip">
+                <div class="exif-strip-label">camera info</div>
+                <div class="exif-grid" id="exif-grid"></div>
+            </div>
 
         </div>
 
