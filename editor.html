@@ -533,13 +533,14 @@
             </details>
 
             <details class="e-sec">
-                <summary>dodge &amp; burn</summary>
+                <summary>dodge, burn &amp; clone</summary>
                 <div class="e-body">
-                    <p class="s-note">paint directly on the image to locally lighten (dodge) or darken (burn).</p>
+                    <p class="s-note">paint directly on the image to locally lighten (dodge), darken (burn), restore (erase), or copy pixels (clone — <strong>alt+click</strong> to set source).</p>
                     <div class="s-row-btns" style="margin-bottom:1rem;">
                         <button id="tool-dodge" class="s-btn-ghost" onclick="setTool('dodge')">dodge</button>
                         <button id="tool-burn"  class="s-btn-ghost" onclick="setTool('burn')">burn</button>
                         <button id="tool-erase" class="s-btn-ghost" onclick="setTool('erase')">erase</button>
+                        <button id="tool-clone" class="s-btn-ghost" onclick="setTool('clone')">clone</button>
                         <button id="tool-off"   class="s-btn"       onclick="setTool(null)">off</button>
                     </div>
                     <div class="s-row"><label>size <input type="number" class="val-input" id="v-brush-size" value="60" min="5" max="400" step="1" data-key="brush-size" oninput="syncVal(this)"></label><input type="range" id="sl-brush-size" min="5" max="400" value="60" data-default="60" oninput="onBrushSlider()"></div>
@@ -773,7 +774,7 @@ let histDataG = new Float32Array(256);
 let histDataB = new Float32Array(256);
 let histDataL = new Float32Array(256);
 
-// Brush tools (dodge / burn / erase)
+// Brush tools (dodge / burn / erase / clone)
 let _dbBase         = null; // snapshot of workCanvas before any D&B in current session
 let activeTool      = null;
 let brushSize       = 60;
@@ -782,6 +783,9 @@ let brushRange      = 'midtones';
 let brushPainting   = false;
 let brushLastPos    = null;
 let brushCursorPos  = null;
+// Clone stamp state
+let cloneSource = null; // { canvas, x, y } — set via Alt+click
+let cloneOffset = null; // { dx, dy } — set on first stroke contact (aligned mode)
 
 // Masks
 let masks          = [];
@@ -2671,6 +2675,18 @@ ovEl.addEventListener('mousedown', e => {
         if (Math.abs(x - splitX * ovEl.width) < 28) { splitDragging = true; e.preventDefault(); }
         return;
     }
+    if (activeTool === 'clone' && e.button === 0 && e.altKey) {
+        // Alt+click: set clone source point (snapshot workCanvas at this moment)
+        const oc  = clientToOverlayCanvas(e.clientX, e.clientY);
+        const pos = overlayToWorkCanvas(oc.x, oc.y);
+        if (pos) {
+            cloneSource = { canvas: cloneCanvas(workCanvas), x: Math.round(pos.x), y: Math.round(pos.y) };
+            cloneOffset = null; // reset aligned offset — will recompute on next stroke
+            renderOverlay();
+        }
+        e.preventDefault();
+        return;
+    }
     if (activeTool && e.button === 0) {
         e.preventDefault();
         brushPainting = true; brushLastPos = null;
@@ -2738,8 +2754,9 @@ ovEl.addEventListener('mousemove', e => {
         return;
     }
     if (activeTool) {
-        const {x,y} = ovCoords(e);
-        brushCursorPos = {x, y};
+        const {x, y} = ovCoords(e);
+        const _wp = overlayToWorkCanvas(x, y);
+        brushCursorPos = { x, y, wx: _wp ? Math.round(_wp.x) : 0, wy: _wp ? Math.round(_wp.y) : 0 };
         renderOverlay();
         if (brushPainting) { applyBrushStroke(e.clientX, e.clientY); }
         return;
@@ -3968,12 +3985,13 @@ function drawMaskOverlay(ctx) {
 // ── Burn / Dodge ──────────────────────────────────────────────
 function setTool(tool) {
     activeTool = tool || null;
-    ['dodge','burn','erase','off'].forEach(t => {
+    ['dodge','burn','erase','clone','off'].forEach(t => {
         const btn = document.getElementById('tool-' + t);
         if (!btn) return;
         const isActive = (activeTool === t) || (!activeTool && t === 'off');
         btn.className = isActive ? 's-btn' : 's-btn-ghost';
     });
+    if (activeTool !== 'clone') { cloneSource = null; cloneOffset = null; }
     if (activeTool) {
         if (cropMode) cancelCrop();
         selectMask(null);
@@ -4003,9 +4021,11 @@ function onBrushSlider() {
 function drawBrushCursor(ctx) {
     if (!brushCursorPos || !workCanvas) return;
     // Convert workCanvas brush radius to overlay canvas pixels
-    const out = document.getElementById('output-canvas');
-    const bx  = parseInt(document.getElementById('sl-bx').value);
-    const adjW = Math.max(1, out.width - bx * 2);
+    const out  = document.getElementById('output-canvas');
+    const bx   = parseInt(document.getElementById('sl-bx').value);
+    const by   = parseInt(document.getElementById('sl-by').value);
+    const adjW = Math.max(1, out.width  - bx * 2);
+    const adjH = Math.max(1, out.height - by * 2);
     const r = (brushSize / 2) * adjW / Math.max(1, workCanvas.width);
     const {x, y} = brushCursorPos;
     ctx.save();
@@ -4019,6 +4039,28 @@ function drawBrushCursor(ctx) {
     // Centre dot
     ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
+
+    // Clone tool: show source position crosshair
+    if (activeTool === 'clone' && cloneSource && straightenAngle === 0) {
+        // When offset is set, source moves with the brush (aligned mode)
+        const sWX = cloneOffset && brushCursorPos.wx !== undefined
+            ? brushCursorPos.wx + cloneOffset.dx
+            : cloneSource.x;
+        const sWY = cloneOffset && brushCursorPos.wy !== undefined
+            ? brushCursorPos.wy + cloneOffset.dy
+            : cloneSource.y;
+        const sx  = sWX * adjW / Math.max(1, workCanvas.width)  + bx;
+        const sy  = sWY * adjH / Math.max(1, workCanvas.height) + by;
+        const cr  = Math.max(6, r * 0.5);
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(sx - cr, sy); ctx.lineTo(sx + cr, sy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx, sy - cr); ctx.lineTo(sx, sy + cr); ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(sx - cr, sy); ctx.lineTo(sx + cr, sy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx, sy - cr); ctx.lineTo(sx, sy + cr); ctx.stroke();
+    }
     ctx.restore();
 }
 
@@ -4097,6 +4139,36 @@ function applyBrushAt(wx, wy) {
     const ctx  = workCanvas.getContext('2d');
     const id   = ctx.getImageData(x0, y0, x1 - x0, y1 - y0);
     const d    = id.data;
+    // Clone stamp: read from source canvas snapshot, blend into destination
+    if (activeTool === 'clone') {
+        if (!cloneSource) return; // no source set — wait for Alt+click
+        if (!cloneOffset) {
+            // First contact of this stroke — lock in the aligned offset
+            cloneOffset = { dx: Math.round(cloneSource.x - wx), dy: Math.round(cloneSource.y - wy) };
+        }
+        const pw = x1 - x0, ph = y1 - y0;
+        const destId = ctx.getImageData(x0, y0, pw, ph);
+        const srcId  = cloneSource.canvas.getContext('2d').getImageData(x0 + cloneOffset.dx, y0 + cloneOffset.dy, pw, ph);
+        const dd = destId.data, sd = srcId.data;
+        for (let py = y0; py < y1; py++) {
+            for (let px = x0; px < x1; px++) {
+                const spx = px + cloneOffset.dx, spy = py + cloneOffset.dy;
+                if (spx < 0 || spy < 0 || spx >= cloneSource.canvas.width || spy >= cloneSource.canvas.height) continue;
+                const ddx = px - wx, ddy = py - wy;
+                const dist = Math.sqrt(ddx*ddx + ddy*ddy);
+                if (dist > r) continue;
+                const falloff = Math.cos(dist / r * Math.PI * 0.5);
+                const blend   = Math.min(1, str * 4 * falloff);
+                const i = ((py - y0) * pw + (px - x0)) * 4;
+                dd[i]   = Math.round(dd[i]   * (1 - blend) + sd[i]   * blend);
+                dd[i+1] = Math.round(dd[i+1] * (1 - blend) + sd[i+1] * blend);
+                dd[i+2] = Math.round(dd[i+2] * (1 - blend) + sd[i+2] * blend);
+            }
+        }
+        ctx.putImageData(destId, x0, y0);
+        return;
+    }
+
     const isDodge = activeTool === 'dodge';
     const isErase = activeTool === 'erase';
 
