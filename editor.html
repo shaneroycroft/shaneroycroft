@@ -266,8 +266,8 @@
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="document.getElementById('info-modal').style.display='block'" title="editor guide">?</button>
         <span class="e-bar-spacer"></span>
-        <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option></select>
-        <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="jpeg quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
+        <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option></select>
+        <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
         <select id="dl-scale" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" title="export size">
             <option value="1">100%</option>
@@ -395,6 +395,7 @@
             <details class="e-sec" open>
                 <summary>adjust <span class="sec-reset" onclick="event.stopPropagation();resetAdjust()">reset</span></summary>
                 <div class="e-body">
+                    <div class="s-row-btns" style="margin-bottom:0.9rem;"><button class="s-btn-ghost" onclick="autoAdjust()" title="auto tone and white balance from image statistics">auto</button></div>
                     <div class="adj-group">light</div>
                     <div class="s-row"><label>exposure <input type="number" class="val-input" id="v-exposure" value="0" min="-100" max="100" step="1" data-key="exposure" oninput="syncVal(this)"></label><input type="range" id="sl-exposure" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>contrast <input type="number" class="val-input" id="v-contrast" value="0" min="-100" max="100" step="1" data-key="contrast" oninput="syncVal(this)"></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -529,6 +530,15 @@
                     <div class="s-row"><label>strength <input type="number" class="val-input" id="v-vignette" value="0" min="0" max="100" step="1" data-key="vignette" oninput="syncVal(this)"></label><input type="range" id="sl-vignette" min="0" max="100" value="0" data-default="0" oninput="onVignette()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>feather <input type="number" class="val-input" id="v-vig-feather" value="50" min="0" max="100" step="1" oninput="syncVigVal('vig-feather',this)"></label><input type="range" id="sl-vig-feather" min="0" max="100" value="50" data-default="50" oninput="syncVigVal('vig-feather',this)" ondblclick="resetSlider(this)"></div>
                     <div class="s-row" style="margin-bottom:0"><label>roundness <input type="number" class="val-input" id="v-vig-round" value="0" min="0" max="100" step="1" oninput="syncVigVal('vig-round',this)"></label><input type="range" id="sl-vig-round" min="0" max="100" value="0" data-default="0" oninput="syncVigVal('vig-round',this)" ondblclick="resetSlider(this)"></div>
+                </div>
+            </details>
+
+            <details class="e-sec">
+                <summary>lens corrections <span class="sec-reset" onclick="event.stopPropagation();['sl-ca-red','sl-ca-blue'].forEach(id=>{const sl=document.getElementById(id),vi=document.getElementById(id.replace('sl-','v-'));if(sl){sl.value=0;if(vi)vi.value=0;}});scheduleRender()">reset</span></summary>
+                <div class="e-body">
+                    <p class="s-note">correct colour fringing caused by chromatic aberration. red/cyan fixes reddish or cyan edges; blue/yellow fixes blue or yellow fringing.</p>
+                    <div class="s-row"><label>red / cyan <input type="number" class="val-input" id="v-ca-red" value="0" min="-3" max="3" step="0.1" oninput="syncCAVal('ca-red',this)"></label><input type="range" id="sl-ca-red" min="-3" max="3" value="0" step="0.1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row" style="margin-bottom:0"><label>blue / yellow <input type="number" class="val-input" id="v-ca-blue" value="0" min="-3" max="3" step="0.1" oninput="syncCAVal('ca-blue',this)"></label><input type="range" id="sl-ca-blue" min="-3" max="3" value="0" step="0.1" data-default="0" oninput="onCASlider()" ondblclick="resetSlider(this)"></div>
                 </div>
             </details>
 
@@ -1522,6 +1532,8 @@ function applyEdits(src) {
     const lumanr      = parseFloat(document.getElementById('sl-lumanr').value);
     const colornr     = parseFloat(document.getElementById('sl-colornr').value);
     const dehaze      = parseFloat(document.getElementById('sl-dehaze').value);
+    const caRed       = parseFloat(document.getElementById('sl-ca-red').value  || 0);
+    const caBlue      = parseFloat(document.getElementById('sl-ca-blue').value || 0);
 
     const lut = buildCurveLUT();
     const wbMat = computeWBMatrix(temperature, tint);
@@ -1557,6 +1569,7 @@ function applyEdits(src) {
     if (glOut) {
         if (!isAdjusting) {
             const ctx = glOut.getContext('2d');
+            if (caRed !== 0 || caBlue !== 0) applyCA(ctx, glOut.width, glOut.height, caRed, caBlue);
             if (lumanr  > 0) applyNoiseReduction(ctx, glOut.width, glOut.height, lumanr);
             if (colornr > 0) applyColorNR(ctx, glOut.width, glOut.height, colornr);
             if (clarity > 0) applyClarity(ctx, glOut.width, glOut.height, clarity);
@@ -1701,6 +1714,7 @@ function applyEdits(src) {
     }
     ctx.putImageData(id, 0, 0);
     if (!isAdjusting) {
+        if (caRed !== 0 || caBlue !== 0) applyCA(ctx, out.width, out.height, caRed, caBlue);
         if (lumanr  > 0) applyNoiseReduction(ctx, out.width, out.height, lumanr);
         if (colornr > 0) applyColorNR(ctx, out.width, out.height, colornr);
         if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
@@ -1708,6 +1722,42 @@ function applyEdits(src) {
         if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen, sharpmask);
     }
     return out;
+}
+
+// Chromatic aberration correction: radially scale R and B channels independently.
+// caR / caB: signed pixel offset at the image corner (positive = correct outward fringe).
+// Bilinear resampling preserves sub-pixel colour accuracy.
+function applyCA(ctx, w, h, caR, caB) {
+    if (caR === 0 && caB === 0) return;
+    const id  = ctx.getImageData(0, 0, w, h);
+    const src = new Uint8ClampedArray(id.data); // original (read-only copy)
+    const dst = id.data;
+    const cx  = (w - 1) * 0.5;
+    const cy  = (h - 1) * 0.5;
+    const maxD = Math.sqrt(cx * cx + cy * cy) || 1;
+    const scaleR = 1.0 - caR / maxD; // < 1 = compress outward fringe inward
+    const scaleB = 1.0 - caB / maxD;
+    function bilinear(ch, fx, fy) {
+        const x0 = Math.max(0, Math.min(w - 2, Math.floor(fx)));
+        const y0 = Math.max(0, Math.min(h - 2, Math.floor(fy)));
+        const tx = fx - x0, ty = fy - y0;
+        const i00 = (y0 * w + x0    ) * 4 + ch;
+        const i10 = (y0 * w + x0 + 1) * 4 + ch;
+        const i01 = ((y0+1) * w + x0    ) * 4 + ch;
+        const i11 = ((y0+1) * w + x0 + 1) * 4 + ch;
+        return src[i00]*(1-tx)*(1-ty) + src[i10]*tx*(1-ty)
+             + src[i01]*(1-tx)*ty     + src[i11]*tx*ty;
+    }
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i  = (y * w + x) * 4;
+            const dx = x - cx, dy = y - cy;
+            dst[i]   = Math.round(bilinear(0, cx + dx * scaleR, cy + dy * scaleR));
+            // Green channel left unchanged
+            dst[i+2] = Math.round(bilinear(2, cx + dx * scaleB, cy + dy * scaleB));
+        }
+    }
+    ctx.putImageData(id, 0, 0);
 }
 
 // Luma NR: luminance-only smoothing with edge protection
@@ -2994,6 +3044,102 @@ function onAdjust() {
     });
     beginAdjust();
 }
+
+// ── Lens correction sliders ────────────────────────────────────
+function onCASlider() {
+    ['ca-red','ca-blue'].forEach(k => {
+        const sl = document.getElementById('sl-' + k);
+        const vi = document.getElementById('v-'  + k);
+        if (sl && vi) vi.value = sl.value;
+    });
+    beginAdjust();
+}
+function syncCAVal(key, input) {
+    const val = Math.max(-3, Math.min(3, parseFloat(input.value) || 0));
+    input.value = val;
+    const sl = document.getElementById('sl-' + key);
+    if (sl) sl.value = val;
+    beginAdjust();
+}
+
+// ── Auto adjustments ──────────────────────────────────────────
+// Analyses workCanvas in linear light to set tone and white balance.
+function autoAdjust() {
+    if (!workCanvas) return;
+    // Downsample for speed
+    const sW = Math.min(workCanvas.width,  250);
+    const sH = Math.min(workCanvas.height, 250);
+    const sc = document.createElement('canvas');
+    sc.width = sW; sc.height = sH;
+    sc.getContext('2d').drawImage(workCanvas, 0, 0, sW, sH);
+    const d = sc.getContext('2d').getImageData(0, 0, sW, sH).data;
+    const n = sW * sH;
+    const toLin = v => { const f = v / 255; return f <= 0.04045 ? f / 12.92 : Math.pow((f+0.055)/1.055, 2.4); };
+
+    let sumR = 0, sumG = 0, sumB = 0;
+    const lums = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        const r = toLin(d[i*4]), g = toLin(d[i*4+1]), b = toLin(d[i*4+2]);
+        sumR += r; sumG += g; sumB += b;
+        lums[i] = 0.2126*r + 0.7152*g + 0.0722*b;
+    }
+    const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
+
+    // ── White balance: analytical grey-world inverse of Bradford WB model ──
+    // Convert mean RGB to LMS (Bradford)
+    const lmsL = M_SRGB2LMS[0]*meanR + M_SRGB2LMS[1]*meanG + M_SRGB2LMS[2]*meanB;
+    const lmsM = M_SRGB2LMS[3]*meanR + M_SRGB2LMS[4]*meanG + M_SRGB2LMS[5]*meanB;
+    const lmsS = M_SRGB2LMS[6]*meanR + M_SRGB2LMS[7]*meanG + M_SRGB2LMS[8]*meanB;
+    // Target LMS for D65 white (sum of each M_SRGB2LMS row = LMS of [1,1,1])
+    const lmsW_L = M_SRGB2LMS[0]+M_SRGB2LMS[1]+M_SRGB2LMS[2];
+    const lmsW_M = M_SRGB2LMS[3]+M_SRGB2LMS[4]+M_SRGB2LMS[5];
+    const lmsW_S = M_SRGB2LMS[6]+M_SRGB2LMS[7]+M_SRGB2LMS[8];
+    let autoTemp = 0, autoTint = 0;
+    if (lmsL > 0.001 && lmsM > 0.001 && lmsS > 0.001) {
+        // Desired Ls/Ss ratio for grey world (solve for t = temp/100)
+        const ratioLS = (lmsW_L * lmsS) / (lmsW_S * lmsL);
+        const t = (ratioLS - 1) / (0.266 + ratioLS * 0.687);
+        autoTemp = Math.max(-100, Math.min(100, t * 100));
+        // Desired Ls/Ms ratio (solve for g = tint/100)
+        const ratioLM = (lmsW_L * lmsM) / (lmsW_M * lmsL);
+        const g = (ratioLM - ratioLM*t*0.127 - 1 - t*0.266) / (ratioLM * 0.20);
+        autoTint = Math.max(-100, Math.min(100, g * 100));
+    }
+
+    // ── Tone from luminance histogram ─────────────────────────────────
+    lums.sort();
+    const p01 = lums[Math.max(0, Math.floor(n * 0.01))];
+    const p50 = lums[Math.floor(n * 0.50)];
+    const p99 = lums[Math.min(n-1, Math.floor(n * 0.99))];
+    // Exposure: map median to 18% grey (0.18 linear)
+    const expLinear  = p50 > 0.001 ? 0.18 / p50 : 1;
+    const expEV      = Math.log2(expLinear);
+    const autoExp    = Math.max(-100, Math.min(100, expEV / 3 * 100));
+    // Highlights: pull back if top 1% clips after exposure correction
+    const p99e = p99 * expLinear;
+    const autoHL = Math.max(-100, Math.min(0, Math.round(-(p99e - 0.88) / 0.12 * 100)));
+    // Shadows: lift bottom 1% if very crushed
+    const p01e = p01 * expLinear;
+    const autoSH = Math.max(0, Math.min(100, Math.round((0.04 - p01e) / 0.06 * 100)));
+
+    // Apply to sliders
+    const set = (id, val) => {
+        const sl = document.getElementById('sl-' + id);
+        const vi = document.getElementById('v-'  + id);
+        const v  = Math.round(val * 10) / 10;
+        if (sl) sl.value = v;
+        if (vi) vi.value = Math.round(v);
+    };
+    set('exposure',    autoExp);
+    set('highlights',  autoHL);
+    set('shadows',     autoSH);
+    set('whites',      0);
+    set('blacks',      0);
+    set('temperature', Math.round(autoTemp));
+    set('tint',        Math.round(autoTint));
+    beginAdjust();
+    finishAdjust();
+}
 function resetAdjust() {
     ADJUST_KEYS.forEach(k => {
         document.getElementById('sl-'+k).value=0;
@@ -3231,7 +3377,7 @@ function downloadImage() {
     const quality    = parseInt(document.getElementById('dl-quality').value) / 100;
     const scale      = parseFloat(document.getElementById('dl-scale').value);
     const outSharpen = parseInt(document.getElementById('dl-outsharpen').value);
-    const ext        = fmt === 'jpeg' ? 'jpg' : 'png';
+    const ext        = fmt === 'jpeg' ? 'jpg' : fmt === 'webp' ? 'webp' : 'png';
     const src = document.getElementById('output-canvas');
     let exportCanvas;
     if (scale === 1) {
@@ -3259,9 +3405,10 @@ function downloadImage() {
     a.click();
 }
 function onFormatChange() {
-    const isJpeg = document.getElementById('dl-format').value === 'jpeg';
-    document.getElementById('dl-quality').style.display = isJpeg ? '' : 'none';
-    document.getElementById('dl-quality-val').style.display = isJpeg ? '' : 'none';
+    const fmt = document.getElementById('dl-format').value;
+    const showQ = fmt === 'jpeg' || fmt === 'webp';
+    document.getElementById('dl-quality').style.display    = showQ ? '' : 'none';
+    document.getElementById('dl-quality-val').style.display = showQ ? '' : 'none';
 }
 
 // ── Push to repo ──────────────────────────────────────────────
