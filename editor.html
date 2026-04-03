@@ -419,6 +419,8 @@
 
                     <div class="adj-group">detail</div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>radius <input type="number" class="val-input" id="v-sharpen-radius" value="1" min="0.5" max="3" step="0.5" data-key="sharpenRadius" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen-radius" min="0.5" max="3" step="0.5" value="1" data-default="1" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>detail <input type="number" class="val-input" id="v-sharpen-detail" value="0" min="0" max="100" step="1" data-key="sharpenDetail" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen-detail" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>masking <input type="number" class="val-input" id="v-sharpmask" value="0" min="0" max="100" step="1" data-key="sharpmask" oninput="syncVal(this)"></label><input type="range" id="sl-sharpmask" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>luma NR <input type="number" class="val-input" id="v-lumanr" value="0" min="0" max="100" step="1" data-key="lumanr" oninput="syncVal(this)"></label><input type="range" id="sl-lumanr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>color NR <input type="number" class="val-input" id="v-colornr" value="0" min="0" max="100" step="1" data-key="colornr" oninput="syncVal(this)"></label><input type="range" id="sl-colornr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -459,6 +461,12 @@
                         <button class="s-link" onclick="applyCurvePreset('fade')">film fade</button>
                         <button class="s-link" onclick="applyCurvePreset('matte')">matte</button>
                     </div>
+                    <p class="s-note" style="margin-top:0.5rem">levels — input clamp</p>
+                    <div class="s-row"><label>in black <input type="number" class="val-input" id="v-in-black" value="0" min="0" max="254" step="1" oninput="onLevelInput(this,'sl-in-black')"></label><input type="range" id="sl-in-black" min="0" max="254" value="0" data-default="0" oninput="onLevelSlider(this,'v-in-black')" ondblclick="resetLevelSlider(this,'v-in-black',0)"></div>
+                    <div class="s-row"><label>in white <input type="number" class="val-input" id="v-in-white" value="255" min="1" max="255" step="1" oninput="onLevelInput(this,'sl-in-white')"></label><input type="range" id="sl-in-white" min="1" max="255" value="255" data-default="255" oninput="onLevelSlider(this,'v-in-white')" ondblclick="resetLevelSlider(this,'v-in-white',255)"></div>
+                    <p class="s-note">output clamp</p>
+                    <div class="s-row"><label>out black <input type="number" class="val-input" id="v-out-black" value="0" min="0" max="127" step="1" oninput="onLevelInput(this,'sl-out-black')"></label><input type="range" id="sl-out-black" min="0" max="127" value="0" data-default="0" oninput="onLevelSlider(this,'v-out-black')" ondblclick="resetLevelSlider(this,'v-out-black',0)"></div>
+                    <div class="s-row"><label>out white <input type="number" class="val-input" id="v-out-white" value="255" min="128" max="255" step="1" oninput="onLevelInput(this,'sl-out-white')"></label><input type="range" id="sl-out-white" min="128" max="255" value="255" data-default="255" oninput="onLevelSlider(this,'v-out-white')" ondblclick="resetLevelSlider(this,'v-out-white',255)"></div>
                 </div>
             </details>
 
@@ -770,6 +778,7 @@ let dragOrigin = null;
 // Transform
 let straightenAngle = 0;
 let showingOriginal = false;
+let compareMode = false; // sticky before/after toggle (\)
 
 // Perspective correction (4-corner homography)
 let perspCorners = null; // null = inactive, array of 4 {x,y} in image coords
@@ -1070,11 +1079,10 @@ document.addEventListener('keydown', e => {
             return;
         }
 
-        // ── Clipping indicator toggle ───────────────────────────
+        // ── Before/after sticky toggle ──────────────────────────
         if (e.key === '\\') {
             e.preventDefault();
-            const cb = document.getElementById('clip-toggle');
-            if (cb) { cb.checked = !cb.checked; renderOverlay(); }
+            if (workCanvas) toggleCompare();
             return;
         }
 
@@ -1141,6 +1149,7 @@ function loadFile(file) {
         origCanvas = mkCanvas(img.naturalWidth, img.naturalHeight);
         origCanvas.getContext('2d').drawImage(img, 0, 0);
         workCanvas = cloneCanvas(origCanvas);
+        compareMode = false; // reset sticky compare on new load
         _dbBase = null; // clear erase base on new image load
         const warn = document.getElementById('size-warn');
         if (warn) warn.style.display = img.naturalWidth * img.naturalHeight > 20e6 ? '' : 'none';
@@ -1210,7 +1219,7 @@ function cloneCanvas(s) { const c = mkCanvas(s.width,s.height); c.getContext('2d
 
 // ── Render ────────────────────────────────────────────────────
 function render() {
-    if (!workCanvas || showingOriginal) return;
+    if (!workCanvas || showingOriginal || compareMode) return;
     const bx     = parseInt(document.getElementById('sl-bx').value);
     const by     = parseInt(document.getElementById('sl-by').value);
     const bcolor = document.getElementById('sl-bcolor').value;
@@ -1538,8 +1547,10 @@ function applyEdits(src) {
     const tint        = parseFloat(document.getElementById('sl-tint').value);
     const clarity     = parseFloat(document.getElementById('sl-clarity').value);
     const texture     = parseFloat(document.getElementById('sl-texture').value);
-    const sharpen     = parseFloat(document.getElementById('sl-sharpen').value);
-    const sharpmask   = parseFloat(document.getElementById('sl-sharpmask').value);
+    const sharpen       = parseFloat(document.getElementById('sl-sharpen').value);
+    const sharpmask     = parseFloat(document.getElementById('sl-sharpmask').value);
+    const sharpenRadius = parseFloat(document.getElementById('sl-sharpen-radius')?.value ?? 1);
+    const sharpenDetail = parseFloat(document.getElementById('sl-sharpen-detail')?.value ?? 0);
     const lumanr      = parseFloat(document.getElementById('sl-lumanr').value);
     const colornr     = parseFloat(document.getElementById('sl-colornr').value);
     const dehaze      = parseFloat(document.getElementById('sl-dehaze').value);
@@ -1587,7 +1598,7 @@ function applyEdits(src) {
             if (colornr > 0) applyColorNR(ctx, glOut.width, glOut.height, colornr);
             if (clarity > 0) applyClarity(ctx, glOut.width, glOut.height, clarity);
             if (texture > 0) applyTexture(ctx, glOut.width, glOut.height, texture);
-            if (sharpen > 0) applySharpening(ctx, glOut.width, glOut.height, sharpen, sharpmask);
+            if (sharpen > 0) applySharpening(ctx, glOut.width, glOut.height, sharpen, sharpmask, sharpenRadius, sharpenDetail);
         }
         return glOut;
     }
@@ -1733,7 +1744,7 @@ function applyEdits(src) {
         if (colornr > 0) applyColorNR(ctx, out.width, out.height, colornr);
         if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
         if (texture > 0) applyTexture(ctx, out.width, out.height, texture);
-        if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen, sharpmask);
+        if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen, sharpmask, sharpenRadius, sharpenDetail);
     }
     return out;
 }
@@ -1954,7 +1965,8 @@ function applyColorNR(ctx, w, h, amount) {
 
 // Gaussian Unsharp Mask — resolution-aware radius, luminance-only to prevent colour fringing
 // masking: 0=sharpen everything, 100=sharpen only strong edges (Lightroom-style edge mask)
-function applySharpening(ctx, w, h, amount, masking = 0) {
+// radiusMult: 0.5–3 (UI slider); detail: 0–100 adds a fine-detail pass at half radius
+function applySharpening(ctx, w, h, amount, masking = 0, radiusMult = 1, detail = 0) {
     if (amount <= 0) return;
     const id   = ctx.getImageData(0, 0, w, h);
     const orig = new Uint8ClampedArray(id.data);
@@ -1965,11 +1977,22 @@ function applySharpening(ctx, w, h, amount, masking = 0) {
         lumData[i >> 2] = 0.2126*orig[i] + 0.7152*orig[i+1] + 0.0722*orig[i+2];
     }
 
-    const radius  = Math.max(1, Math.round(Math.max(w, h) * 0.005));
+    // Base radius: resolution-aware, scaled by radiusMult slider
+    const baseR  = Math.max(1, Math.round(Math.max(w, h) * 0.005 * radiusMult));
     const blurred = new Float32Array(lumData);
-    boxBlurFloat(blurred, w, h, radius);
-    boxBlurFloat(blurred, w, h, radius);
-    boxBlurFloat(blurred, w, h, radius);
+    boxBlurFloat(blurred, w, h, baseR);
+    boxBlurFloat(blurred, w, h, baseR);
+    boxBlurFloat(blurred, w, h, baseR);
+
+    // Fine-detail pass: small-radius blur subtracted with detail blend weight
+    let detailBlur = null;
+    const detailWeight = detail / 100;
+    if (detail > 0) {
+        const fineR = Math.max(1, Math.round(baseR * 0.4));
+        detailBlur = new Float32Array(lumData);
+        boxBlurFloat(detailBlur, w, h, fineR);
+        boxBlurFloat(detailBlur, w, h, fineR);
+    }
 
     // Edge mask: Sobel gradient of luminance, normalised 0–1
     let edgeData = null;
@@ -1989,8 +2012,13 @@ function applySharpening(ctx, w, h, amount, masking = 0) {
     const threshold = masking > 0 ? Math.pow(1 - masking / 100, 2) * 0.25 + 0.001 : 0;
     for (let i = 0; i < orig.length; i += 4) {
         const idx   = i >> 2;
-        const delta = strength * (lumData[idx] - blurred[idx]);
-        let   str   = 1;
+        // Blend coarse and fine-detail USM deltas
+        let delta = strength * (lumData[idx] - blurred[idx]);
+        if (detailBlur) {
+            const fineDelta = strength * (lumData[idx] - detailBlur[idx]);
+            delta = delta * (1 - detailWeight) + fineDelta * detailWeight;
+        }
+        let str = 1;
         if (edgeData) {
             const e  = edgeData[idx];
             const tn = Math.min(1, e / threshold);
@@ -2397,6 +2425,34 @@ function showOriginal(on) {
         ov.width = out.width; ov.height = out.height;
         ov.getContext('2d').clearRect(0,0,99999,99999);
     } else { render(); }
+}
+
+function toggleCompare() {
+    compareMode = !compareMode;
+    if (compareMode) {
+        // Show true original (origCanvas) without any adjustments or retouching
+        const src = origCanvas || workCanvas;
+        const out = document.getElementById('output-canvas');
+        out.width = src.width; out.height = src.height;
+        out.getContext('2d').drawImage(src, 0, 0);
+        const ov = document.getElementById('overlay-canvas');
+        ov.width = out.width; ov.height = out.height;
+        const octx = ov.getContext('2d');
+        octx.clearRect(0, 0, ov.width, ov.height);
+        // "BEFORE" label
+        octx.save();
+        octx.font = 'bold 14px sans-serif';
+        octx.fillStyle = 'rgba(0,0,0,0.55)';
+        const lbl = 'BEFORE  (press \\ to return)';
+        const tw = octx.measureText(lbl).width;
+        octx.fillRect(ov.width/2 - tw/2 - 10, ov.height - 42, tw + 20, 28);
+        octx.fillStyle = '#fff';
+        octx.textAlign = 'center';
+        octx.fillText(lbl, ov.width/2, ov.height - 22);
+        octx.restore();
+    } else {
+        render();
+    }
 }
 
 function toggleSplit() {
@@ -3465,6 +3521,218 @@ function fixExifOrientation(seg) {
     return seg;
 }
 
+// ── ICC sRGB profile ──────────────────────────────────────────
+// Minimal sRGB v2 ICC profile (IEC 61966-2-1), ~3KB — embeds colour-space
+// declaration so browsers, OS colour managers, and print pipelines render
+// faithfully without guessing.
+function buildSRGBProfile() {
+    // Helper writers
+    const enc = new TextEncoder();
+    function u32be(v) { return [(v>>>24)&0xFF,(v>>>16)&0xFF,(v>>>8)&0xFF,v&0xFF]; }
+    function u16be(v) { return [(v>>>8)&0xFF,v&0xFF]; }
+    function s15f16(v) { const i=Math.round(v*65536); return u32be(i>>>0); }
+    function tag(sig,data) { return {sig, data}; }
+    function mluc(str) {
+        // multiLocalizedUnicodeType — one English record
+        const ucs2=[]; for(let c of str){ucs2.push(0,c.charCodeAt(0));}
+        const rec=[...u32be(1),...u32be(12),...enc.encode('enUS'),...u32be(ucs2.length),...u32be(28),...ucs2];
+        return [...enc.encode('mluc'),...u32be(0),...rec];
+    }
+    function curv0() { // identity curve (linear)
+        return [...enc.encode('curv'),...u32be(0),...u32be(0)];
+    }
+    function para(g,a,b,c,d) { // parametricCurveType — sRGB piecewise
+        // type 3: Y = (aX+b)^g  for X>=d; Y=cX for X<d
+        return [...enc.encode('para'),...u32be(0),...u16be(3),...u16be(0),
+            ...s15f16(g),...s15f16(a),...s15f16(b),...s15f16(c),...s15f16(d)];
+    }
+    // sRGB primaries in XYZ (D50 adapted via Bradford)
+    const rXYZ=[0.4360747,0.2225045,0.0139322];
+    const gXYZ=[0.3850649,0.7168786,0.0971045];
+    const bXYZ=[0.1430804,0.0606169,0.7141733];
+    // D50 white point
+    const wXYZ=[0.9642957,1.0000000,0.8251046];
+    function xyzTag(x,y,z) { return [...enc.encode('XYZ '),...u32be(0),...s15f16(x),...s15f16(y),...s15f16(z)]; }
+
+    // sRGB TRC: parametric (gamma=2.4, a=1/1.055, b=0.055/1.055, c=1/12.92, d=0.04045)
+    const trc = para(2.4, 1/1.055, 0.055/1.055, 1/12.92, 0.04045);
+
+    // Tags
+    const tags = [
+        { sig:'rXYZ', data: xyzTag(...rXYZ) },
+        { sig:'gXYZ', data: xyzTag(...gXYZ) },
+        { sig:'bXYZ', data: xyzTag(...bXYZ) },
+        { sig:'wtpt', data: xyzTag(...wXYZ) },
+        { sig:'rTRC', data: trc },
+        { sig:'gTRC', data: trc },
+        { sig:'bTRC', data: trc },
+        { sig:'desc', data: mluc('sRGB IEC61966-2.1') },
+        { sig:'cprt', data: mluc('Copyright (c) 1998 Hewlett-Packard Company') },
+        { sig:'dmdd', data: mluc('IEC 61966-2.1 Default RGB colour space - sRGB') },
+        { sig:'dmnd', data: mluc('IEC http://www.iec.ch') },
+        { sig:'bkpt', data: xyzTag(0,0,0) },
+        { sig:'lumi', data: xyzTag(76.03647,80.00000,0) },
+        { sig:'meas', data: [...enc.encode('meas'),...new Array(32).fill(0)] },
+        { sig:'tech', data: [...enc.encode('sig '),...u32be(0),...enc.encode('CRT ')] },
+        { sig:'vued', data: mluc('Reference Viewing Condition in IEC61966-2.1') },
+    ];
+
+    // Compute layout
+    const numTags = tags.length;
+    const tagTableOffset = 128; // header size
+    const tagTableSize   = 4 + numTags * 12;
+    let dataOffset = tagTableOffset + tagTableSize;
+    // Align to 4 bytes
+    const aligned = d => d + (4 - d%4)%4;
+    const offsets = [];
+    for (const t of tags) {
+        offsets.push(dataOffset);
+        dataOffset += aligned(t.data.length);
+    }
+    const profileSize = dataOffset;
+
+    const buf = new Uint8Array(profileSize);
+    let p = 0;
+    const wr = bytes => { for(const b of bytes) buf[p++]=b; };
+    const wrPad = n => { for(let i=0;i<n;i++) buf[p++]=0; };
+
+    // Profile header (128 bytes)
+    wr(u32be(profileSize));       // 0: profile size
+    wr(u32be(0));                 // 4: preferred CMM (0=none)
+    wr([0x02,0x20,0x00,0x00]);   // 8: version 2.2.0
+    wr(enc.encode('mntr'));       // 12: device class = monitor
+    wr(enc.encode('RGB '));       // 16: colour space
+    wr(enc.encode('XYZ '));       // 20: PCS
+    wr([2001,0,0,0,0,0].flatMap(v=>[0,v,0,0])); // 24: date+time placeholder
+    p = 24; wr([0x07,0xD1,0,1,0,0,0,0,0,0,0,0]); // date: 2001-01-00 00:00:00
+    p = 36;
+    wr(enc.encode('acsp'));       // 36: file signature
+    wr(enc.encode('MSFT'));       // 40: primary platform
+    wr(u32be(0));                 // 44: profile flags
+    wr(u32be(0));                 // 48: device manufacturer
+    wr(u32be(0));                 // 52: device model
+    wr([0,0,0,0,0,0,0,0]);       // 56: device attributes
+    wr(u32be(0));                 // 64: rendering intent (perceptual)
+    wr(s15f16(wXYZ[0]));         // 68: illuminant X
+    wr(s15f16(wXYZ[1]));         // 72: illuminant Y
+    wr(s15f16(wXYZ[2]));         // 76: illuminant Z
+    wr(enc.encode('ADBE'));       // 80: profile creator
+    while (p < 128) buf[p++] = 0; // pad to 128
+
+    // Tag table
+    wr(u32be(numTags));
+    for (let i = 0; i < numTags; i++) {
+        wr(enc.encode(tags[i].sig));
+        wr(u32be(offsets[i]));
+        wr(u32be(tags[i].data.length));
+    }
+
+    // Tag data
+    for (let i = 0; i < tags.length; i++) {
+        const start = offsets[i];
+        buf.set(tags[i].data, start);
+        // zero-pad to alignment
+        const end = start + tags[i].data.length;
+        const pad = aligned(tags[i].data.length) - tags[i].data.length;
+        for (let j = 0; j < pad; j++) buf[end+j] = 0;
+    }
+    // Fix p to end
+    return buf;
+}
+
+// Build and cache the sRGB ICC profile bytes once
+let _iccProfile = null;
+function getSRGBProfile() {
+    if (!_iccProfile) _iccProfile = buildSRGBProfile();
+    return _iccProfile;
+}
+
+// Inject ICC profile as APP2 marker into a JPEG data URL.
+// APP2 = 0xFFE2. The ICC chunk starts with 'ICC_PROFILE\0' + chunk#(1) + totalChunks(1).
+function injectIccIntoJpeg(dataUrl) {
+    try {
+        const icc = getSRGBProfile();
+        const prefix = new TextEncoder().encode('ICC_PROFILE\0');
+        // APP2 payload: prefix(12) + chunk#(1) + total(1) + icc data
+        const payload = new Uint8Array(prefix.length + 2 + icc.length);
+        payload.set(prefix, 0);
+        payload[prefix.length]   = 1; // chunk 1
+        payload[prefix.length+1] = 1; // of 1
+        payload.set(icc, prefix.length + 2);
+
+        const segLen = payload.length + 2; // length field includes itself
+        const app2 = new Uint8Array(2 + 2 + payload.length);
+        app2[0] = 0xFF; app2[1] = 0xE2;
+        app2[2] = (segLen >> 8) & 0xFF; app2[3] = segLen & 0xFF;
+        app2.set(payload, 4);
+
+        const b64 = dataUrl.split(',')[1];
+        const bin = atob(b64);
+        const src = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) src[i] = bin.charCodeAt(i);
+        if (src[0] !== 0xFF || src[1] !== 0xD8) return dataUrl;
+
+        // Insert APP2 right after SOI (before anything else, so after byte 2)
+        const out = new Uint8Array(src.length + app2.length);
+        out[0] = 0xFF; out[1] = 0xD8;
+        out.set(app2, 2);
+        out.set(src.subarray(2), 2 + app2.length);
+
+        let s = '';
+        const chunk = 8192;
+        for (let i = 0; i < out.length; i += chunk)
+            s += String.fromCharCode.apply(null, out.subarray(i, i + chunk));
+        return 'data:image/jpeg;base64,' + btoa(s);
+    } catch(e) { return dataUrl; }
+}
+
+// Inject sRGB ICC chunk into a PNG data URL.
+// Adds an 'sRGB' chunk (rendering intent = 0 = perceptual) after IHDR.
+function injectIccIntoPng(dataUrl) {
+    try {
+        const b64 = dataUrl.split(',')[1];
+        const bin = atob(b64);
+        const src = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) src[i] = bin.charCodeAt(i);
+
+        // PNG signature = 8 bytes, IHDR chunk = 4(len)+4(type)+13(data)+4(crc) = 25 bytes
+        const insertAt = 8 + 25; // after IHDR
+
+        // sRGB chunk: data = 1 byte (rendering intent 0=perceptual)
+        function crc32(buf, off, len) {
+            let c = 0xFFFFFFFF;
+            const t = new Uint32Array(256);
+            for (let n=0;n<256;n++){let v=n;for(let k=0;k<8;k++)v=v&1?(0xEDB88320^(v>>>1)):(v>>>1);t[n]=v;}
+            for (let i=off;i<off+len;i++) c=t[(c^buf[i])&0xFF]^(c>>>8);
+            return (c^0xFFFFFFFF)>>>0;
+        }
+        const srgbData = new Uint8Array([0]); // perceptual
+        const chunkType = new TextEncoder().encode('sRGB');
+        const chunkLen = srgbData.length; // 1
+        const crcBuf = new Uint8Array(4 + srgbData.length);
+        crcBuf.set(chunkType, 0); crcBuf.set(srgbData, 4);
+        const crcVal = crc32(crcBuf, 0, crcBuf.length);
+
+        const chunk = new Uint8Array(4 + 4 + srgbData.length + 4);
+        chunk[0]=0;chunk[1]=0;chunk[2]=0;chunk[3]=chunkLen; // length field
+        chunk.set(chunkType, 4);
+        chunk.set(srgbData, 8);
+        chunk[9]=(crcVal>>>24)&0xFF;chunk[10]=(crcVal>>>16)&0xFF;
+        chunk[11]=(crcVal>>>8)&0xFF;chunk[12]=crcVal&0xFF;
+
+        const out = new Uint8Array(src.length + chunk.length);
+        out.set(src.subarray(0, insertAt), 0);
+        out.set(chunk, insertAt);
+        out.set(src.subarray(insertAt), insertAt + chunk.length);
+
+        let s = '';
+        const chunkSz = 8192;
+        for (let i = 0; i < out.length; i += chunkSz)
+            s += String.fromCharCode.apply(null, out.subarray(i, i + chunkSz));
+        return 'data:image/png;base64,' + btoa(s);
+    } catch(e) { return dataUrl; }
+}
+
 // Inject an EXIF APP1 segment into a JPEG data URL, replacing any existing APP1.
 // Returns a new data URL with EXIF embedded, or the original if anything fails.
 function injectExifIntoJpeg(dataUrl, exifSeg) {
@@ -3531,6 +3799,12 @@ function downloadImage() {
         exportCanvas = ec;
     }
     let dataURL = exportCanvas.toDataURL('image/' + fmt, quality);
+    // Inject ICC sRGB profile for colour-accurate display across apps
+    if (fmt === 'jpeg') {
+        dataURL = injectIccIntoJpeg(dataURL);
+    } else if (fmt === 'png') {
+        dataURL = injectIccIntoPng(dataURL);
+    }
     // Inject original EXIF metadata (with orientation corrected to 1) for JPEG exports
     if (fmt === 'jpeg' && rawExifSegment) {
         dataURL = injectExifIntoJpeg(dataURL, fixExifOrientation(rawExifSegment));
@@ -4746,7 +5020,13 @@ function monotoneCubic(xs,ys) {
 }
 let _curveLUTCache = null;
 function buildCurveLUT() {
-    const key = JSON.stringify([curvePoints, curvePointsR, curvePointsG, curvePointsB]);
+    // Read levels controls
+    const inBlack  = parseInt(document.getElementById('sl-in-black')?.value  ?? 0);
+    const inWhite  = parseInt(document.getElementById('sl-in-white')?.value  ?? 255);
+    const outBlack = parseInt(document.getElementById('sl-out-black')?.value ?? 0);
+    const outWhite = parseInt(document.getElementById('sl-out-white')?.value ?? 255);
+
+    const key = JSON.stringify([curvePoints, curvePointsR, curvePointsG, curvePointsB, inBlack, inWhite, outBlack, outWhite]);
     if (_curveLUTCache && _curveLUTCache.key === key) return _curveLUTCache.lut;
     const buildLUT1 = pts => {
         const sorted=[...pts].sort((a,b)=>a.x-b.x);
@@ -4759,12 +5039,25 @@ function buildCurveLUT() {
     const rL=buildLUT1(curvePointsR);
     const gL=buildLUT1(curvePointsG);
     const bL=buildLUT1(curvePointsB);
+
+    // Input range: remap i from [inBlack, inWhite] → [0,255] before curve lookup
+    const inRange  = Math.max(1, inWhite - inBlack);
+    // Output range: remap curve output from [0,255] → [outBlack, outWhite]
+    const outRange = outWhite - outBlack;
+
     const out=new Uint8Array(256*4);
     for(let i=0;i<256;i++){
-        out[i*4+0]=comp[rL[i]];
-        out[i*4+1]=comp[gL[i]];
-        out[i*4+2]=comp[bL[i]];
-        out[i*4+3]=255;
+        // Input clamp: map pixel value into normalised curve input
+        const mapped = Math.max(0, Math.min(255, Math.round((i - inBlack) / inRange * 255)));
+        // Per-channel curves
+        const rv = comp[rL[mapped]];
+        const gv = comp[gL[mapped]];
+        const bv = comp[bL[mapped]];
+        // Output clamp: rescale into [outBlack, outWhite]
+        out[i*4+0] = Math.round(outBlack + rv / 255 * outRange);
+        out[i*4+1] = Math.round(outBlack + gv / 255 * outRange);
+        out[i*4+2] = Math.round(outBlack + bv / 255 * outRange);
+        out[i*4+3] = 255;
     }
     _curveLUTCache = { key, lut: out };
     return out;
@@ -4859,7 +5152,36 @@ function resetAllCurves() {
     curvePointsR=[{x:0,y:0},{x:255,y:255}];
     curvePointsG=[{x:0,y:0},{x:255,y:255}];
     curvePointsB=[{x:0,y:0},{x:255,y:255}];
+    // also reset levels
+    const ids = {
+        'sl-in-black':0,'v-in-black':0,
+        'sl-in-white':255,'v-in-white':255,
+        'sl-out-black':0,'v-out-black':0,
+        'sl-out-white':255,'v-out-white':255
+    };
+    Object.entries(ids).forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
     drawCurve(); scheduleRender();
+}
+
+// Levels slider sync helpers
+function onLevelSlider(sl, vid) {
+    const v = document.getElementById(vid);
+    if (v) v.value = sl.value;
+    _curveLUTCache = null;
+    scheduleRender();
+}
+function onLevelInput(inp, slid) {
+    const sl = document.getElementById(slid);
+    if (sl) sl.value = inp.value;
+    _curveLUTCache = null;
+    scheduleRender();
+}
+function resetLevelSlider(sl, vid, def) {
+    sl.value = def;
+    const v = document.getElementById(vid);
+    if (v) v.value = def;
+    _curveLUTCache = null;
+    scheduleRender();
 }
 function setCurveChannel(ch) {
     curveChannel=ch; dragPt=null;
