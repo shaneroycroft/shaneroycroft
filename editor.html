@@ -564,6 +564,7 @@
                         <button class="s-btn-ghost" onclick="addMask('radial')">+ radial</button>
                         <button class="s-btn-ghost" onclick="addMask('brush')">+ brush</button>
                         <button class="s-btn-ghost" onclick="addMask('luminosity')">+ luma</button>
+                        <button class="s-btn-ghost" onclick="addMask('colour')">+ colour</button>
                     </div>
                     <div class="mask-list" id="mask-list"></div>
                     <div id="mask-adj-panel" style="display:none">
@@ -578,6 +579,32 @@
                                 <button class="s-btn-ghost" onclick="setLumZone(40,60)" title="midtones">mids</button>
                                 <button class="s-btn-ghost" onclick="setLumZone(45,75)" title="lights">lights</button>
                                 <button class="s-btn-ghost" onclick="setLumZone(70,100)" title="highlights">highlights</button>
+                            </div>
+                        </div>
+                        <!-- colour-range-only controls -->
+                        <div id="mask-colour-tools" style="display:none">
+                            <p class="s-note" style="margin-bottom:0.55rem;">select a target hue and range to mask. hover the image to preview in red.</p>
+                            <div class="s-row">
+                                <label>hue <span id="mask-hue-swatch" style="display:inline-block;width:1em;height:1em;border-radius:2px;vertical-align:middle;border:1px solid var(--border);background:hsl(180,80%,50%)"></span> <input type="number" class="val-input" id="v-mask-huecenter" value="180" min="0" max="359" step="1" oninput="syncMaskColour('hueCenter',this)"></label>
+                                <input type="range" id="sl-mask-huecenter" min="0" max="359" value="180" oninput="onMaskColourSlider('hueCenter','v-mask-huecenter')">
+                            </div>
+                            <div class="s-row">
+                                <label>range <input type="number" class="val-input" id="v-mask-huewidth" value="30" min="1" max="180" step="1" oninput="syncMaskColour('hueWidth',this)"></label>
+                                <input type="range" id="sl-mask-huewidth" min="1" max="180" value="30" oninput="onMaskColourSlider('hueWidth','v-mask-huewidth')">
+                            </div>
+                            <div class="s-row" style="margin-bottom:0.6rem;">
+                                <label>min sat <input type="number" class="val-input" id="v-mask-satmin" value="10" min="0" max="100" step="1" oninput="syncMaskColour('satMin',this)"></label>
+                                <input type="range" id="sl-mask-satmin" min="0" max="100" value="10" oninput="onMaskColourSlider('satMin','v-mask-satmin')">
+                            </div>
+                            <div class="s-row-btns" style="margin-bottom:0.6rem;">
+                                <button class="s-btn-ghost" onclick="setColourHue(0)"   title="reds">red</button>
+                                <button class="s-btn-ghost" onclick="setColourHue(30)"  title="oranges">orange</button>
+                                <button class="s-btn-ghost" onclick="setColourHue(60)"  title="yellows">yellow</button>
+                                <button class="s-btn-ghost" onclick="setColourHue(120)" title="greens">green</button>
+                                <button class="s-btn-ghost" onclick="setColourHue(200)" title="cyans">cyan</button>
+                                <button class="s-btn-ghost" onclick="setColourHue(240)" title="blues">blue</button>
+                                <button class="s-btn-ghost" onclick="setColourHue(280)" title="purples">purple</button>
+                                <button class="s-btn-ghost" onclick="setColourHue(320)" title="magentas">magenta</button>
                             </div>
                         </div>
                         <!-- brush-only tools -->
@@ -3225,6 +3252,9 @@ function addMask(type) {
     if (type === 'luminosity') {
         m.lumLo = 0; m.lumHi = 100; m.feather = 30;
     }
+    if (type === 'colour') {
+        m.hueCenter = 180; m.hueWidth = 30; m.satMin = 10; m.feather = 30;
+    }
     masks.push(m);
     const sec = document.getElementById('masks-sec');
     if (sec && !sec.open) sec.open = true;
@@ -3360,6 +3390,52 @@ function drawLumMaskOverlay(ctx, mask) {
     ctx.putImageData(imgd, x1o, y1o);
 }
 
+function drawColourMaskOverlay(ctx, mask) {
+    if (!imageBounds) return;
+    const out  = document.getElementById('output-canvas');
+    const x1o  = Math.round(imageBounds.x1), y1o = Math.round(imageBounds.y1);
+    const IW   = Math.round(imageBounds.x2 - imageBounds.x1);
+    const IH   = Math.round(imageBounds.y2 - imageBounds.y1);
+    if (IW <= 0 || IH <= 0) return;
+    const outData = out.getContext('2d').getImageData(x1o, y1o, IW, IH);
+    const imgd    = ctx.createImageData(IW, IH);
+    const dd      = imgd.data;
+    const hc      = mask.hueCenter || 0;
+    const hw      = mask.hueWidth  || 30;
+    const hf      = (mask.feather / 100) * hw;
+    const smn     = (mask.satMin || 0) / 100;
+    for (let i = 0; i < IW * IH; i++) {
+        const r = outData.data[i*4], g = outData.data[i*4+1], b = outData.data[i*4+2];
+        const rn = r/255, gn = g/255, bn = b/255;
+        const mx = Math.max(rn, gn, bn), mn = Math.min(rn, gn, bn);
+        const dv = mx - mn;
+        const sv = mx > 0 ? dv / mx : 0;
+        let v;
+        if (sv < smn) {
+            v = mask.inverted ? 1 : 0;
+        } else {
+            let hv = 0;
+            if (dv > 0) {
+                if (mx === rn)      hv = ((gn - bn) / dv % 6) * 60;
+                else if (mx === gn) hv = ((bn - rn) / dv + 2) * 60;
+                else                hv = ((rn - gn) / dv + 4) * 60;
+                if (hv < 0) hv += 360;
+            }
+            let dist = Math.abs(hv - hc);
+            if (dist > 180) dist = 360 - dist;
+            if (dist > hw + hf)  { v = 0; }
+            else if (dist <= hw) { v = 1; }
+            else { const t = hf > 0 ? ((hw + hf) - dist) / hf : 0; v = t*t*(3-2*t); }
+            if (mask.inverted) v = 1 - v;
+        }
+        dd[i*4]   = 220;
+        dd[i*4+1] = 40;
+        dd[i*4+2] = 40;
+        dd[i*4+3] = Math.round(v * 150);
+    }
+    ctx.putImageData(imgd, x1o, y1o);
+}
+
 function deleteMask(id) {
     masks = masks.filter(m => m.id !== id);
     if (activeMaskId === id) selectMask(null);
@@ -3402,6 +3478,19 @@ function selectMask(id) {
             if (shi) shi.value = mask.lumHi; if (vhi) vhi.value = mask.lumHi;
         }
     }
+    const colourTools = document.getElementById('mask-colour-tools');
+    if (colourTools) {
+        colourTools.style.display = mask.type === 'colour' ? '' : 'none';
+        if (mask.type === 'colour') {
+            const shc = document.getElementById('sl-mask-huecenter'), vhc = document.getElementById('v-mask-huecenter');
+            const shw = document.getElementById('sl-mask-huewidth'),  vhw = document.getElementById('v-mask-huewidth');
+            const ssm = document.getElementById('sl-mask-satmin'),    vsm = document.getElementById('v-mask-satmin');
+            if (shc) shc.value = mask.hueCenter; if (vhc) vhc.value = mask.hueCenter;
+            if (shw) shw.value = mask.hueWidth;  if (vhw) vhw.value = mask.hueWidth;
+            if (ssm) ssm.value = mask.satMin;    if (vsm) vsm.value = mask.satMin;
+            _updateHueSwatch(mask.hueCenter);
+        }
+    }
     document.getElementById('mask-invert').checked = mask.inverted;
     ['feather','exposure','highlights','shadows','saturation','temperature'].forEach(f => {
         const val = f === 'feather' ? mask.feather : mask.adj[f];
@@ -3418,7 +3507,7 @@ function renderMaskList() {
     if (!el) return;
     el.innerHTML = '';
     masks.forEach((mask, i) => {
-        const icon = mask.type === 'gradient' ? '▬' : mask.type === 'brush' ? '✏' : mask.type === 'luminosity' ? '◑' : '◎';
+        const icon = mask.type === 'gradient' ? '▬' : mask.type === 'brush' ? '✏' : mask.type === 'luminosity' ? '◑' : mask.type === 'colour' ? '◉' : '◎';
         const div = document.createElement('div');
         div.className = 'mask-item' + (mask.id === activeMaskId ? ' active' : '');
         div.innerHTML = `<input type="checkbox" class="mask-enable" ${mask.enabled ? 'checked' : ''}
@@ -3497,6 +3586,54 @@ function setLumZone(lo, hi) {
     renderOverlay();
 }
 
+function _updateHueSwatch(hue) {
+    const sw = document.getElementById('mask-hue-swatch');
+    if (sw) sw.style.background = `hsl(${hue},80%,50%)`;
+}
+
+function onMaskColourSlider(field, inputId) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'colour') return;
+    const slIdMap = { hueCenter: 'sl-mask-huecenter', hueWidth: 'sl-mask-huewidth', satMin: 'sl-mask-satmin' };
+    const slEl = document.getElementById(slIdMap[field]);
+    if (!slEl) return;
+    const val = parseFloat(slEl.value);
+    mask[field] = val;
+    const vi = document.getElementById(inputId);
+    if (vi) vi.value = val;
+    if (field === 'hueCenter') _updateHueSwatch(val);
+    beginAdjust();
+    renderOverlay();
+}
+
+function syncMaskColour(field, input) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'colour') return;
+    const limits = { hueCenter: [0, 359], hueWidth: [1, 180], satMin: [0, 100] };
+    const [mn, mx] = limits[field] || [0, 360];
+    const val = Math.max(mn, Math.min(mx, parseFloat(input.value)));
+    if (isNaN(val)) return;
+    input.value = val;
+    mask[field] = val;
+    const slIdMap = { hueCenter: 'sl-mask-huecenter', hueWidth: 'sl-mask-huewidth', satMin: 'sl-mask-satmin' };
+    const slEl = document.getElementById(slIdMap[field]);
+    if (slEl) slEl.value = val;
+    if (field === 'hueCenter') _updateHueSwatch(val);
+    beginAdjust();
+    renderOverlay();
+}
+
+function setColourHue(hue) {
+    const mask = masks.find(m => m.id === activeMaskId);
+    if (!mask || mask.type !== 'colour') return;
+    mask.hueCenter = hue;
+    const shc = document.getElementById('sl-mask-huecenter'), vhc = document.getElementById('v-mask-huecenter');
+    if (shc) shc.value = hue; if (vhc) vhc.value = hue;
+    _updateHueSwatch(hue);
+    beginAdjust();
+    renderOverlay();
+}
+
 // Normalized image coords ↔ overlay canvas pixel coords
 function maskN2O(nx, ny) {
     const IW = imageBounds.x2 - imageBounds.x1, IH = imageBounds.y2 - imageBounds.y1;
@@ -3560,10 +3697,16 @@ function applyMasks(canvas) {
         const satF   = 1 + a.saturation  / 100;
         const tShift = a.temperature / 100 * 0.12;
         // Pre-compute luminosity mask params (only used for type='luminosity')
-        const isLumMask = mask.type === 'luminosity';
-        const lumF = isLumMask ? (mask.feather / 100) * 30 : 0; // feather width in luma units (0-100)
-        const lumLo = isLumMask ? (mask.lumLo || 0)  : 0;
-        const lumHi = isLumMask ? (mask.lumHi || 100) : 100;
+        const isLumMask    = mask.type === 'luminosity';
+        const isColourMask = mask.type === 'colour';
+        const lumF  = isLumMask ? (mask.feather / 100) * 30 : 0;
+        const lumLo = isLumMask ? (mask.lumLo || 0)   : 0;
+        const lumHi = isLumMask ? (mask.lumHi || 100)  : 100;
+        // Pre-compute colour mask params
+        const cHueC = isColourMask ? (mask.hueCenter || 0)  : 0;
+        const cHueW = isColourMask ? (mask.hueWidth  || 30) : 30;
+        const cHueF = isColourMask ? (mask.feather / 100) * cHueW : 0; // feather in degrees
+        const cSatMin = isColourMask ? (mask.satMin || 0) / 100 : 0;
 
         for (let py = 0; py < H; py++) {
             const ny = py / H;
@@ -3578,6 +3721,29 @@ function applyMasks(canvas) {
                     else if (lum < lumLo) { const t = lumF > 0 ? (lum - (lumLo - lumF)) / lumF : 0; alpha = t*t*(3-2*t); }
                     else                  { const t = lumF > 0 ? ((lumHi + lumF) - lum) / lumF : 0; alpha = t*t*(3-2*t); }
                     if (mask.inverted) alpha = 1 - alpha;
+                } else if (isColourMask) {
+                    // RGB→HSV to get hue + saturation
+                    const rn = r/255, gn = g/255, bn = b/255;
+                    const mx = Math.max(rn, gn, bn), mn = Math.min(rn, gn, bn);
+                    const dv = mx - mn;
+                    const sv = mx > 0 ? dv / mx : 0; // HSV saturation
+                    if (sv < cSatMin) {
+                        alpha = mask.inverted ? 1 : 0;
+                    } else {
+                        let hv = 0;
+                        if (dv > 0) {
+                            if (mx === rn)      hv = ((gn - bn) / dv % 6) * 60;
+                            else if (mx === gn) hv = ((bn - rn) / dv + 2) * 60;
+                            else                hv = ((rn - gn) / dv + 4) * 60;
+                            if (hv < 0) hv += 360;
+                        }
+                        let dist = Math.abs(hv - cHueC);
+                        if (dist > 180) dist = 360 - dist;
+                        if (dist > cHueW + cHueF)  { alpha = 0; }
+                        else if (dist <= cHueW)     { alpha = 1; }
+                        else { const t = cHueF > 0 ? ((cHueW + cHueF) - dist) / cHueF : 0; alpha = t*t*(3-2*t); }
+                        if (mask.inverted) alpha = 1 - alpha;
+                    }
                 } else {
                     alpha = computeMaskAlpha(px / W, ny, mask);
                 }
@@ -3614,7 +3780,7 @@ function maskHandleHit(ox, oy) {
     const IW  = imageBounds.x2 - imageBounds.x1;
     const hitR = Math.max(12, IW * 0.022);
     const d2 = (ax, ay) => Math.sqrt((ox-ax)*(ox-ax) + (oy-ay)*(oy-ay));
-    if (mask.type === 'brush' || mask.type === 'luminosity') return null; // no drag handles
+    if (mask.type === 'brush' || mask.type === 'luminosity' || mask.type === 'colour') return null; // no drag handles
     if (mask.type === 'gradient') {
         const p1 = maskN2O(mask.x1, mask.y1);
         const p2 = maskN2O(mask.x2, mask.y2);
@@ -3763,6 +3929,11 @@ function drawMaskOverlay(ctx) {
             // Luminosity mask — show red tint on pixels within range when active
             if (isActive) {
                 drawLumMaskOverlay(ctx, mask);
+            }
+        } else if (mask.type === 'colour') {
+            // Colour range mask — show red tint on matching pixels when active
+            if (isActive) {
+                drawColourMaskOverlay(ctx, mask);
             }
         }
     });
