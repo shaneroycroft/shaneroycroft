@@ -3256,82 +3256,7 @@ function syncCAVal(key, input) {
 
 // ── Auto adjustments ──────────────────────────────────────────
 // Analyses workCanvas in linear light to set tone and white balance.
-function autoAdjust() {
-    if (!workCanvas) return;
-    // Downsample for speed
-    const sW = Math.min(workCanvas.width,  250);
-    const sH = Math.min(workCanvas.height, 250);
-    const sc = document.createElement('canvas');
-    sc.width = sW; sc.height = sH;
-    sc.getContext('2d').drawImage(workCanvas, 0, 0, sW, sH);
-    const d = sc.getContext('2d').getImageData(0, 0, sW, sH).data;
-    const n = sW * sH;
-    const toLin = v => { const f = v / 255; return f <= 0.04045 ? f / 12.92 : Math.pow((f+0.055)/1.055, 2.4); };
-
-    let sumR = 0, sumG = 0, sumB = 0;
-    const lums = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-        const r = toLin(d[i*4]), g = toLin(d[i*4+1]), b = toLin(d[i*4+2]);
-        sumR += r; sumG += g; sumB += b;
-        lums[i] = 0.2126*r + 0.7152*g + 0.0722*b;
-    }
-    const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
-
-    // ── White balance: analytical grey-world inverse of Bradford WB model ──
-    // Convert mean RGB to LMS (Bradford)
-    const lmsL = M_SRGB2LMS[0]*meanR + M_SRGB2LMS[1]*meanG + M_SRGB2LMS[2]*meanB;
-    const lmsM = M_SRGB2LMS[3]*meanR + M_SRGB2LMS[4]*meanG + M_SRGB2LMS[5]*meanB;
-    const lmsS = M_SRGB2LMS[6]*meanR + M_SRGB2LMS[7]*meanG + M_SRGB2LMS[8]*meanB;
-    // Target LMS for D65 white (sum of each M_SRGB2LMS row = LMS of [1,1,1])
-    const lmsW_L = M_SRGB2LMS[0]+M_SRGB2LMS[1]+M_SRGB2LMS[2];
-    const lmsW_M = M_SRGB2LMS[3]+M_SRGB2LMS[4]+M_SRGB2LMS[5];
-    const lmsW_S = M_SRGB2LMS[6]+M_SRGB2LMS[7]+M_SRGB2LMS[8];
-    let autoTemp = 0, autoTint = 0;
-    if (lmsL > 0.001 && lmsM > 0.001 && lmsS > 0.001) {
-        // Desired Ls/Ss ratio for grey world (solve for t = temp/100)
-        const ratioLS = (lmsW_L * lmsS) / (lmsW_S * lmsL);
-        const t = (ratioLS - 1) / (0.266 + ratioLS * 0.687);
-        autoTemp = Math.max(-100, Math.min(100, t * 100));
-        // Desired Ls/Ms ratio (solve for g = tint/100)
-        const ratioLM = (lmsW_L * lmsM) / (lmsW_M * lmsL);
-        const g = (ratioLM - ratioLM*t*0.127 - 1 - t*0.266) / (ratioLM * 0.20);
-        autoTint = Math.max(-100, Math.min(100, g * 100));
-    }
-
-    // ── Tone from luminance histogram ─────────────────────────────────
-    lums.sort();
-    const p01 = lums[Math.max(0, Math.floor(n * 0.01))];
-    const p50 = lums[Math.floor(n * 0.50)];
-    const p99 = lums[Math.min(n-1, Math.floor(n * 0.99))];
-    // Exposure: map median to 18% grey (0.18 linear)
-    const expLinear  = p50 > 0.001 ? 0.18 / p50 : 1;
-    const expEV      = Math.log2(expLinear);
-    const autoExp    = Math.max(-100, Math.min(100, expEV / 3 * 100));
-    // Highlights: pull back if top 1% clips after exposure correction
-    const p99e = p99 * expLinear;
-    const autoHL = Math.max(-100, Math.min(0, Math.round(-(p99e - 0.88) / 0.12 * 100)));
-    // Shadows: lift bottom 1% if very crushed
-    const p01e = p01 * expLinear;
-    const autoSH = Math.max(0, Math.min(100, Math.round((0.04 - p01e) / 0.06 * 100)));
-
-    // Apply to sliders
-    const set = (id, val) => {
-        const sl = document.getElementById('sl-' + id);
-        const vi = document.getElementById('v-'  + id);
-        const v  = Math.round(val * 10) / 10;
-        if (sl) sl.value = v;
-        if (vi) vi.value = Math.round(v);
-    };
-    set('exposure',    autoExp);
-    set('highlights',  autoHL);
-    set('shadows',     autoSH);
-    set('whites',      0);
-    set('blacks',      0);
-    set('temperature', Math.round(autoTemp));
-    set('tint',        Math.round(autoTint));
-    beginAdjust();
-    finishAdjust();
-}
+function autoAdjust() { autoEnhance(); }
 function resetAdjust() {
     ADJUST_KEYS.forEach(k => {
         document.getElementById('sl-'+k).value=0;
@@ -5406,31 +5331,117 @@ function pasteAdjustments() {
 
 // ── Auto-enhance ──────────────────────────────────────────────
 function autoEnhance() {
-    const out = document.getElementById('output-canvas');
-    if (!out.width) return;
-    const {x1,y1,x2,y2} = imageBounds;
-    const iw=Math.max(1,x2-x1), ih=Math.max(1,y2-y1);
-    const sc=mkCanvas(256,Math.max(1,Math.round(256*ih/iw)));
-    sc.getContext('2d').drawImage(out,x1,y1,iw,ih,0,0,sc.width,sc.height);
-    const d=sc.getContext('2d').getImageData(0,0,sc.width,sc.height).data;
-    const lums=[]; let totalSat=0, n=0;
-    for(let i=0;i<d.length;i+=4){
-        const r=d[i],g=d[i+1],b=d[i+2];
-        lums.push(0.2126*r+0.7152*g+0.0722*b);
-        const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
-        totalSat+=mx>0?(mx-mn)/mx:0; n++;
+    if (!workCanvas) return;
+
+    // Sample workCanvas (pre-adjustment original) in linear light
+    const sW = Math.min(workCanvas.width, 400);
+    const sH = Math.min(workCanvas.height, Math.round(400 * workCanvas.height / workCanvas.width));
+    const sc = mkCanvas(sW, sH);
+    sc.getContext('2d').drawImage(workCanvas, 0, 0, sW, sH);
+    const d = sc.getContext('2d').getImageData(0, 0, sW, sH).data;
+    const n = sW * sH;
+
+    const toLin = v => { const f = v / 255; return f <= 0.04045 ? f / 12.92 : Math.pow((f + 0.055) / 1.055, 2.4); };
+
+    let sumR = 0, sumG = 0, sumB = 0, totalSat = 0;
+    const lums = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        const r = toLin(d[i*4]), g = toLin(d[i*4+1]), b = toLin(d[i*4+2]);
+        sumR += r; sumG += g; sumB += b;
+        lums[i] = 0.2126*r + 0.7152*g + 0.0722*b;
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        totalSat += mx > 0.001 ? (mx - mn) / mx : 0;
     }
-    lums.sort((a,b)=>a-b);
-    const lo=lums[Math.floor(lums.length*0.02)], hi=lums[Math.floor(lums.length*0.98)];
-    const avgSat=totalSat/n;
-    const blacksAdj=Math.round(Math.max(-60,Math.min(0,-(lo/255)*60)));
-    const whitesAdj=Math.round(Math.max(0,Math.min(60,(1-hi/255)*60)));
-    const vibAdj=Math.round(Math.max(0,Math.min(30,(0.35-avgSat)*80)));
-    const expAdj=Math.round(Math.max(-30,Math.min(30,(128-(lo+hi)/2)/255*40)));
-    const setSl=(id,v)=>{ const s=document.getElementById(id); if(!s)return; s.value=v; const vi=document.getElementById(id.replace('sl-','v-')); if(vi) vi.value=v; };
-    setSl('sl-blacks',blacksAdj); setSl('sl-whites',whitesAdj);
-    setSl('sl-vibrance',vibAdj); setSl('sl-exposure',expAdj);
-    scheduleRender();
+    lums.sort();
+
+    // Key percentiles in linear light
+    const p002 = lums[Math.max(0, Math.floor(n * 0.002))];
+    const p01  = lums[Math.max(0, Math.floor(n * 0.01))];
+    const p50  = lums[Math.floor(n * 0.50)];
+    const p99  = lums[Math.min(n-1, Math.floor(n * 0.99))];
+    const p998 = lums[Math.min(n-1, Math.floor(n * 0.998))];
+
+    // Exposure: map median → 18% grey
+    const expScale = p50 > 0.001 ? 0.18 / p50 : 1;
+    const expEV    = Math.log2(expScale);
+    const autoExp  = Math.max(-80, Math.min(80, expEV / 3 * 100));
+
+    // Highlights: pull back if scaled p99 threatens clipping
+    const p99s    = p99 * expScale;
+    const autoHL  = p99s > 0.82 ? Math.max(-80, Math.round(-(p99s - 0.82) / 0.18 * 90)) : 0;
+
+    // Shadows: lift if scaled p01 is crushed
+    const p01s    = p01 * expScale;
+    const autoSH  = p01s < 0.04 ? Math.min(70, Math.round((0.04 - p01s) / 0.05 * 70)) : 0;
+
+    // Whites: expand upper range if scaled p99.8 has headroom
+    const p998s      = p998 * expScale;
+    const autoWhites = p998s < 0.72 ? Math.min(50, Math.round((0.80 - p998s) / 0.25 * 50)) : 0;
+
+    // Blacks: deepen if scaled p0.2 is lifted (foggy/hazy blacks)
+    const p002s      = p002 * expScale;
+    const autoBlacks = p002s > 0.025 ? Math.max(-40, -Math.round((p002s / 0.04) * 25)) : 0;
+
+    // Contrast: mild boost for low-dynamic-range scenes
+    const dynRange    = p99 > 0.001 ? Math.log2(p99 / Math.max(p01, 0.0001)) : 0;
+    const autoContrast = dynRange < 5 ? Math.round((5 - dynRange) / 5 * 20) : 0;
+
+    // White balance: grey-world Bradford
+    const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
+    let autoTemp = 0, autoTint = 0;
+    if (meanR > 0.001 && meanG > 0.001 && meanB > 0.001) {
+        const lmsL  = M_SRGB2LMS[0]*meanR + M_SRGB2LMS[1]*meanG + M_SRGB2LMS[2]*meanB;
+        const lmsM  = M_SRGB2LMS[3]*meanR + M_SRGB2LMS[4]*meanG + M_SRGB2LMS[5]*meanB;
+        const lmsS  = M_SRGB2LMS[6]*meanR + M_SRGB2LMS[7]*meanG + M_SRGB2LMS[8]*meanB;
+        const lmsWL = M_SRGB2LMS[0]+M_SRGB2LMS[1]+M_SRGB2LMS[2];
+        const lmsWM = M_SRGB2LMS[3]+M_SRGB2LMS[4]+M_SRGB2LMS[5];
+        const lmsWS = M_SRGB2LMS[6]+M_SRGB2LMS[7]+M_SRGB2LMS[8];
+        const ratioLS = (lmsWL * lmsS) / (lmsWS * lmsL);
+        const t = (ratioLS - 1) / (0.266 + ratioLS * 0.687);
+        autoTemp = Math.max(-80, Math.min(80, t * 100));
+        const ratioLM = (lmsWL * lmsM) / (lmsWM * lmsL);
+        const g = (ratioLM - ratioLM*t*0.127 - 1 - t*0.266) / (ratioLM * 0.20);
+        autoTint = Math.max(-50, Math.min(50, g * 100));
+    }
+
+    // Vibrance: boost muted images
+    const avgSat      = totalSat / n;
+    const autoVibrance = Math.round(Math.max(0, Math.min(35, (0.38 - avgSat) * 80)));
+
+    // Reset all tone/colour sliders to defaults first
+    ADJUST_KEYS.forEach(k => {
+        const sl = document.getElementById('sl-' + k);
+        if (!sl) return;
+        const def = sl.dataset.default !== undefined ? Number(sl.dataset.default) : 0;
+        sl.value = def;
+        const vi = document.getElementById('v-' + k);
+        if (vi) vi.value = def;
+    });
+
+    // Apply computed values
+    const set = (id, val) => {
+        const sl = document.getElementById('sl-' + id);
+        const vi = document.getElementById('v-' + id);
+        const v = Math.round(val);
+        if (sl) sl.value = v;
+        if (vi) vi.value = v;
+    };
+    set('exposure',    autoExp);
+    set('highlights',  autoHL);
+    set('shadows',     autoSH);
+    set('whites',      autoWhites);
+    set('blacks',      autoBlacks);
+    set('contrast',    autoContrast);
+    set('temperature', autoTemp);
+    set('tint',        autoTint);
+    set('vibrance',    autoVibrance);
+
+    beginAdjust();
+    finishAdjust();
+
+    // Open the adjust panel so the user can see what changed
+    const adjDetails = document.getElementById('sl-exposure') && document.getElementById('sl-exposure').closest('details');
+    if (adjDetails && !adjDetails.open) adjDetails.open = true;
 }
 
 function renderPresetList() {
