@@ -682,6 +682,7 @@ let origCanvas = null;
 let workCanvas = null;
 let origName   = 'photo';
 let sourceUrl  = null; // set when editor is opened via ?url= from admin
+let rawExifSegment = null; // Uint8Array of the APP1 EXIF segment extracted from the input JPEG
 
 // History
 let history    = [];
@@ -1134,7 +1135,14 @@ function loadFile(file) {
         updateDimsDisplay();
     };
     img.src = url;
-    // Parse EXIF asynchronously
+    rawExifSegment = null; // clear on new load
+    // Extract raw EXIF bytes for passthrough on JPEG export
+    if (file && file.type === 'image/jpeg') {
+        file.arrayBuffer().then(ab => {
+            rawExifSegment = extractExifSegment(new Uint8Array(ab));
+        }).catch(() => {});
+    }
+    // Parse EXIF asynchronously for display
     if (typeof exifr !== 'undefined') {
         exifr.parse(file, {
             tiff: true, exif: true, gps: false, interop: false,
@@ -3126,6 +3134,91 @@ function updateDimsDisplay() {
     if (el && out && out.width) el.textContent = out.width + ' × ' + out.height + ' px';
 }
 
+// ── EXIF passthrough helpers ───────────────────────────────────
+// Extract the APP1 EXIF segment (marker + length + data) from a JPEG Uint8Array.
+// Returns a Uint8Array slice, or null if none found.
+function extractExifSegment(bytes) {
+    if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return null;
+    let i = 2;
+    while (i < bytes.length - 4) {
+        if (bytes[i] !== 0xFF) return null;
+        const marker = (bytes[i] << 8) | bytes[i+1];
+        const segLen = (bytes[i+2] << 8) | bytes[i+3];
+        if (marker === 0xFFE1) {
+            // Must start with 'Exif\0\0'
+            if (i + 9 < bytes.length &&
+                bytes[i+4]===0x45 && bytes[i+5]===0x78 && bytes[i+6]===0x69 &&
+                bytes[i+7]===0x66 && bytes[i+8]===0x00 && bytes[i+9]===0x00) {
+                return bytes.slice(i, i + 2 + segLen);
+            }
+        }
+        if (marker === 0xFFDA) return null; // SOS — past header area
+        if (segLen < 2) return null;
+        i += 2 + segLen;
+    }
+    return null;
+}
+
+// Set the EXIF orientation tag to 1 (already-applied) to prevent double rotation.
+function fixExifOrientation(seg) {
+    const tiffOff = 10; // APP1 header (2 marker + 2 len + 6 'Exif\0\0')
+    if (seg.length < tiffOff + 8) return seg;
+    const le = seg[tiffOff] === 0x49; // 'II' = little-endian
+    const r16 = (o) => le ? seg[o]|(seg[o+1]<<8) : (seg[o]<<8)|seg[o+1];
+    const r32 = (o) => le ? seg[o]|(seg[o+1]<<8)|(seg[o+2]<<16)|(seg[o+3]<<24)
+                           : (seg[o]<<24)|(seg[o+1]<<16)|(seg[o+2]<<8)|seg[o+3];
+    const ifd0 = tiffOff + r32(tiffOff + 4);
+    if (ifd0 + 2 > seg.length) return seg;
+    const entries = r16(ifd0);
+    for (let e = 0; e < entries; e++) {
+        const ep = ifd0 + 2 + e * 12;
+        if (ep + 12 > seg.length) break;
+        if (r16(ep) === 0x0112) { // Orientation tag
+            const out = new Uint8Array(seg);
+            if (le) { out[ep+8] = 1; out[ep+9] = 0; }
+            else    { out[ep+8] = 0; out[ep+9] = 1; }
+            return out;
+        }
+    }
+    return seg;
+}
+
+// Inject an EXIF APP1 segment into a JPEG data URL, replacing any existing APP1.
+// Returns a new data URL with EXIF embedded, or the original if anything fails.
+function injectExifIntoJpeg(dataUrl, exifSeg) {
+    try {
+        const b64   = dataUrl.split(',')[1];
+        const bin   = atob(b64);
+        const src   = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) src[i] = bin.charCodeAt(i);
+        if (src[0] !== 0xFF || src[1] !== 0xD8) return dataUrl;
+        // Skip past SOI + any existing APP1 segments in the source JPEG
+        let skip = 2;
+        while (skip < src.length - 4) {
+            if (src[skip] !== 0xFF) break;
+            const mk = (src[skip] << 8) | src[skip+1];
+            if (mk === 0xFFE1) { // APP1 — skip to remove existing EXIF/XMP
+                const sl = (src[skip+2] << 8) | src[skip+3];
+                skip += 2 + sl;
+            } else break;
+        }
+        // Build: SOI + exifSeg + rest of original (after skipped APP1s)
+        const out = new Uint8Array(2 + exifSeg.length + (src.length - skip));
+        out[0] = 0xFF; out[1] = 0xD8;
+        out.set(exifSeg, 2);
+        out.set(src.subarray(skip), 2 + exifSeg.length);
+        // Encode to base64 in chunks to avoid call-stack overflow on large arrays
+        let s = '';
+        const chunk = 8192;
+        for (let i = 0; i < out.length; i += chunk) {
+            s += String.fromCharCode.apply(null, out.subarray(i, i + chunk));
+        }
+        return 'data:image/jpeg;base64,' + btoa(s);
+    } catch(e) {
+        return dataUrl; // fallback: return without EXIF rather than failing
+    }
+}
+
 // ── Download ──────────────────────────────────────────────────
 function downloadImage() {
     if (isAdjusting) {
@@ -3155,7 +3248,11 @@ function downloadImage() {
         applySharpening(ec.getContext('2d'), ec.width, ec.height, outSharpen, 0);
         exportCanvas = ec;
     }
-    const dataURL = exportCanvas.toDataURL('image/' + fmt, quality);
+    let dataURL = exportCanvas.toDataURL('image/' + fmt, quality);
+    // Inject original EXIF metadata (with orientation corrected to 1) for JPEG exports
+    if (fmt === 'jpeg' && rawExifSegment) {
+        dataURL = injectExifIntoJpeg(dataURL, fixExifOrientation(rawExifSegment));
+    }
     const a = document.createElement('a');
     a.download = origName + '_edited.' + ext;
     a.href = dataURL;
