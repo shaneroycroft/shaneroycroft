@@ -1698,36 +1698,62 @@ function applyEdits(src) {
     return out;
 }
 
+// Luma NR: luminance-only smoothing with edge protection
+// Radius scales with image resolution so slider feels consistent at any megapixel count.
+// Three box-blur passes approximate a Gaussian. Only luminance is modified — chroma is
+// untouched — preventing the colour smearing typical of naive RGB blurring.
 function applyNoiseReduction(ctx, w, h, amount) {
     if (amount <= 0) return;
-    const id  = ctx.getImageData(0, 0, w, h);
+    const id   = ctx.getImageData(0, 0, w, h);
     const orig = new Uint8ClampedArray(id.data);
-    const blurred = new Uint8ClampedArray(orig);
-    const radius = Math.round(1 + amount / 100 * 2); // 1–3px
-    boxBlur(blurred, w, h, radius);
-    const str = amount / 100;
-    const thresh = 25; // lum diff threshold — protect edges
+
+    // Resolution-aware radius (same philosophy as sharpening radius)
+    const baseR  = Math.max(w, h) / 1000;
+    const radius = Math.max(1, Math.round(baseR * (amount / 100) * 3.5));
+
+    // Extract luminance into Float32 arrays; blur one copy 3× for Gaussian approx
+    const lumOrig = new Float32Array(w * h);
+    const lumBlur = new Float32Array(w * h);
     for (let i = 0; i < orig.length; i += 4) {
-        const lumO = 0.2126*orig[i] + 0.7152*orig[i+1] + 0.0722*orig[i+2];
-        const lumB = 0.2126*blurred[i] + 0.7152*blurred[i+1] + 0.0722*blurred[i+2];
-        const edge  = Math.min(1, Math.abs(lumO - lumB) / thresh);
-        const blend = str * (1 - edge);
-        id.data[i]   = Math.round(orig[i]   + blend * (blurred[i]   - orig[i]));
-        id.data[i+1] = Math.round(orig[i+1] + blend * (blurred[i+1] - orig[i+1]));
-        id.data[i+2] = Math.round(orig[i+2] + blend * (blurred[i+2] - orig[i+2]));
+        const L = 0.2126 * orig[i] + 0.7152 * orig[i+1] + 0.0722 * orig[i+2];
+        lumOrig[i >> 2] = L;
+        lumBlur[i >> 2] = L;
+    }
+    boxBlurFloat(lumBlur, w, h, radius);
+    boxBlurFloat(lumBlur, w, h, radius);
+    boxBlurFloat(lumBlur, w, h, radius);
+
+    // Edge threshold: looser at high amounts (accept more smoothing near weak edges)
+    const edgeThresh = 15 + (1 - amount / 100) * 35; // 15 – 50
+    const str = amount / 100;
+    for (let i = 0; i < orig.length; i += 4) {
+        const idx  = i >> 2;
+        const diff = Math.abs(lumOrig[idx] - lumBlur[idx]);
+        const edge = Math.min(1, diff / edgeThresh);
+        const blend = str * (1 - edge * edge); // quadratic — hard edge protection
+        const dL = blend * (lumBlur[idx] - lumOrig[idx]);
+        id.data[i]   = Math.max(0, Math.min(255, orig[i]   + dL));
+        id.data[i+1] = Math.max(0, Math.min(255, orig[i+1] + dL));
+        id.data[i+2] = Math.max(0, Math.min(255, orig[i+2] + dL));
     }
     ctx.putImageData(id, 0, 0);
 }
 
-// Color NR: blur only chrominance (U/V), preserving luminance detail
+// Color NR: blur only chrominance (U/V), preserving all luminance detail
+// Uses resolution-aware radius and 3-pass Gaussian approximation.
 function applyColorNR(ctx, w, h, amount) {
     if (amount <= 0) return;
-    const id = ctx.getImageData(0, 0, w, h);
-    const orig = new Uint8ClampedArray(id.data);
+    const id      = ctx.getImageData(0, 0, w, h);
+    const orig    = new Uint8ClampedArray(id.data);
     const blurred = new Uint8ClampedArray(orig);
-    const radius = Math.round(1 + amount / 100 * 4);
+
+    const baseR  = Math.max(w, h) / 1000;
+    const radius = Math.max(2, Math.round(baseR * (amount / 100) * 5.5));
     boxBlur(blurred, w, h, radius);
-    // Keep original luminance, take chroma from blurred version
+    boxBlur(blurred, w, h, radius);
+    boxBlur(blurred, w, h, radius);
+
+    // Keep original luminance; take chrominance from blurred
     for (let i = 0; i < orig.length; i += 4) {
         const y  = 0.2126*orig[i]    + 0.7152*orig[i+1]    + 0.0722*orig[i+2];
         const yB = 0.2126*blurred[i] + 0.7152*blurred[i+1] + 0.0722*blurred[i+2];
