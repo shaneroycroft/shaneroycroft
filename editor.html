@@ -667,6 +667,7 @@ let imageBounds = {x1:0,y1:0,x2:0,y2:0};
 let zoom = 1, panX = 0, panY = 0;
 let panDragging = false, panLastX = 0, panLastY = 0;
 let touchStartState = null; // two-finger pinch state
+let spaceHeld = false; // Space-bar temporary pan override (Lightroom/Photoshop standard)
 
 function clampPan() {
     if (zoom <= 1) { panX = 0; panY = 0; return; }
@@ -685,7 +686,7 @@ function applyZoom() {
     const btn = document.getElementById('zoom-reset-btn');
     if (btn) btn.style.display = zoom !== 1 ? '' : 'none';
     const em = document.getElementById('e-main');
-    if (!panDragging) em.style.cursor = zoom > 1 && !cropMode ? 'grab' : '';
+    if (!panDragging) em.style.cursor = (zoom > 1 || spaceHeld) && !cropMode ? (spaceHeld ? 'grab' : 'grab') : '';
 }
 function resetZoom() { zoom = 1; panX = 0; panY = 0; applyZoom(); }
 function zoomTo100() {
@@ -962,6 +963,13 @@ document.addEventListener('keydown', e => {
             return;
         }
     }
+    // ── Space: temporary pan override (Lightroom/Photoshop standard) ─
+    if (e.key === ' ' && !isInput) {
+        e.preventDefault();
+        if (!spaceHeld) { spaceHeld = true; applyZoom(); }
+        return;
+    }
+
     if (isInput) return; // don't steal keys while typing
 
     // ── Arrow keys: nudge focused slider ±1 (Shift = ±10) ──────
@@ -1029,6 +1037,11 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => {
     if ((e.key === 'y' || e.key === 'Y') && !e.ctrlKey && !e.metaKey) {
         showOriginal(false);
+    }
+    if (e.key === ' ') {
+        spaceHeld = false;
+        if (panDragging) { panDragging = false; document.getElementById('e-main').style.cursor = ''; }
+        applyZoom();
     }
 });
 
@@ -1233,11 +1246,18 @@ uniform float uWhitesStr,uBlacksStr;
 uniform float uDoHSL,uHslH[8],uHslS[8],uHslL[8],uHslW[8];
 uniform float uDoSplit,uShadowHue,uShadowStr,uHighlightHue,uHighlightStr,uSplitBalance,uMidHue,uMidStr;
 uniform float uDehazeF;
-uniform float uLMFloor,uLMCeil,uLMFeather; // luminosity mask (0-1 range)
+uniform float uLMFloor,uLMCeil,uLMFeather;
 
+// IEC 61966-2-1 sRGB transfer functions (correct, not gamma 2.2 approximation)
+float srgbToLinear1(float v){return v<=0.04045?v/12.92:pow((v+0.055)/1.055,2.4);}
+float linearToSrgb1(float v){return v<=0.0031308?v*12.92:1.055*pow(v,1.0/2.4)-0.055;}
+vec3 srgbToLinear(vec3 c){return vec3(srgbToLinear1(c.r),srgbToLinear1(c.g),srgbToLinear1(c.b));}
+vec3 linearToSrgb(vec3 c){return vec3(linearToSrgb1(c.r),linearToSrgb1(c.g),linearToSrgb1(c.b));}
+
+// HSL band mask — linear falloff, zero outside width
 float hmask(float h,float c,float w){float d=abs(h-c);if(d>180.0)d=360.0-d;return d>=w?0.0:1.0-d/w;}
 
-// Smooth luminosity mask weight: 1 inside [floor,ceil], cosine rolloff in feather zone
+// Luminosity mask: 1 inside [floor,ceil], cosine rolloff in feather zone
 float lumMask(float lum){
     float lo=uLMFloor,hi=uLMCeil,f=uLMFeather;
     if(lum<lo-f||lum>hi+f)return 0.0;
@@ -1267,58 +1287,77 @@ vec3 hsl2rgb(float h,float s,float l){
     float q=l<0.5?l*(1.0+s):l+s-l*s,p2=2.0*l-q,h1=h/360.0;
     return vec3(h2r(p2,q,h1+1.0/3.0),h2r(p2,q,h1),h2r(p2,q,h1-1.0/3.0));
 }
+
 void main(){
-    vec4 px=texture2D(uImg,vUV); vec3 c=px.rgb*255.0;
-    // Linearise from sRGB to linear light for tone ops
-    vec3 cOrig=pow(clamp(c/255.0,0.0,1.0),vec3(2.2))*255.0; // keep original linear for LM blend
-    vec3 cL=cOrig;
+    vec4 px=texture2D(uImg,vUV);
+
+    // ── 1. sRGB → linear light (proper IEC 61966-2-1) ────────────
+    vec3 cL=srgbToLinear(px.rgb)*255.0;
+    vec3 cOrig=cL; // snapshot for luminosity mask blend
+
+    // ── 2. White balance (Bradford CA, linear light) ─────────────
+    // Applied first so all subsequent tone ops work on WB-corrected values
+    cL=uWBMat*cL;
+
+    // ── 3. Exposure (linear light, in stops) ─────────────────────
     cL*=uExpF;
-    cL=uCF*(cL-128.0)+128.0;
+
+    // ── 4. Highlights / Shadows (linear, luminance-weighted) ─────
     float lm=dot(cL,vec3(0.2126,0.7152,0.0722));
     cL+=uHlStr*pow(clamp(lm/255.0,0.0,1.0),1.8)+uShStr*pow(clamp(1.0-lm/255.0,0.0,1.0),1.8);
+
+    // ── 5. Whites / Blacks (linear, steep luminance mask) ────────
     float lm2=dot(cL,vec3(0.2126,0.7152,0.0722));
     cL+=uWhitesStr*pow(clamp(lm2/255.0,0.0,1.0),3.5)+uBlacksStr*pow(clamp(1.0-lm2/255.0,0.0,1.0),3.5);
-    // Clipping-aware highlight recovery: reconstruct blown channels from uncapped neighbours
+
+    // ── 6. Highlight recovery ────────────────────────────────────
     float mx=max(cL.r,max(cL.g,cL.b));
-    if(mx>255.0){
-        float avg=(cL.r+cL.g+cL.b)/3.0;
-        float over=max(0.0,mx-255.0);
-        float blend=clamp(over/64.0,0.0,1.0); // soft transition up to 64 stops over
-        vec3 recovered=vec3(avg); // neutral grey fallback
-        // weight toward least-clipped channel direction
-        float minC=min(cL.r,min(cL.g,cL.b));
-        if(minC<255.0) recovered=cL*(255.0/mx); // scale to fit
-        cL=mix(cL,clamp(recovered,0.0,255.0),blend);
-    }
+    if(mx>255.0){float blend=clamp((mx-255.0)/64.0,0.0,1.0);vec3 rec=cL*(255.0/mx);cL=mix(cL,clamp(rec,0.0,255.0),blend);}
+
+    // ── 7. Dehaze (linear) ───────────────────────────────────────
     if(uDehazeF>0.0){float dk=min(cL.r,min(cL.g,cL.b))/255.0;float haze=dk*uDehazeF*0.85;cL=(cL-haze*255.0)/max(1.0-haze,0.01);float gr5=dot(cL,vec3(0.2126,0.7152,0.0722));cL=clamp(gr5+(1.0+uDehazeF*0.5)*(cL-gr5),0.0,255.0);}
-    if(uFadeFloor>0.0)cL=uFadeFloor+cL*(255.0-uFadeFloor)/255.0;
-    float gr=dot(cL,vec3(0.2126,0.7152,0.0722));cL=gr+uSatF*(cL-gr);
-    if(uVibF!=0.0){
-        float gr2=dot(cL,vec3(0.2126,0.7152,0.0722));
-        float sat=max(max(abs(cL.r-gr2),abs(cL.g-gr2)),abs(cL.b-gr2))/255.0;
-        cL=gr2+(1.0+uVibF*(1.0-min(1.0,sat*2.0)))*(cL-gr2);
-    }
-    // White balance: Bradford chromatic adaptation in linear light
-    cL = uWBMat * cL;
-    // Luminosity mask: blend adjusted linear back toward original based on input luma
+
+    // ── 8. Luminosity mask blend (linear space) ──────────────────
     if(uLMFloor>0.0||uLMCeil<1.0||uLMFeather<0.5){
         float inputLum=dot(cOrig/255.0,vec3(0.2126,0.7152,0.0722));
-        float w=lumMask(inputLum);
-        cL=mix(cOrig,cL,w);
+        cL=mix(cOrig,cL,lumMask(inputLum));
     }
-    // Re-encode back to sRGB before colour/HSL ops
-    c=pow(clamp(cL/255.0,0.0,1.0),vec3(1.0/2.2))*255.0;
+
+    // ── 9. Linear → sRGB (proper IEC 61966-2-1) ─────────────────
+    // All perceptual operations below operate in sRGB space
+    vec3 c=linearToSrgb(clamp(cL/255.0,0.0,1.0))*255.0;
+
+    // ── 10. Fade (sRGB space — lifts black point perceptually) ───
+    if(uFadeFloor>0.0)c=uFadeFloor+c*(255.0-uFadeFloor)/255.0;
+
+    // ── 11. Contrast (sRGB space, centred on perceptual midpoint)
+    c=uCF*(c-128.0)+128.0;
+
+    // ── 12. Saturation (sRGB space) ──────────────────────────────
+    float gr=dot(c,vec3(0.2126,0.7152,0.0722));c=gr+uSatF*(c-gr);
+
+    // ── 13. Vibrance (sRGB space, protects already-saturated hues)
+    if(uVibF!=0.0){
+        float gr2=dot(c,vec3(0.2126,0.7152,0.0722));
+        float sat=max(max(abs(c.r-gr2),abs(c.g-gr2)),abs(c.b-gr2))/255.0;
+        c=gr2+(1.0+uVibF*(1.0-min(1.0,sat*2.0)))*(c-gr2);
+    }
+
+    // ── 14. HSL + Split tone (sRGB / perceptual space) ───────────
     if(uDoHSL>0.5){
         c=clamp(c,0.0,255.0);
-        vec3 hsl=rgb2hsl(c/255.0);float h=hsl.x,s=hsl.y,l=hsl.z,dH=0.0,dS=0.0,dL=0.0;
-        dH+=hmask(h,  0.0,uHslW[0])*uHslH[0];dS+=hmask(h,  0.0,uHslW[0])*uHslS[0];dL+=hmask(h,  0.0,uHslW[0])*uHslL[0];
-        dH+=hmask(h, 30.0,uHslW[1])*uHslH[1];dS+=hmask(h, 30.0,uHslW[1])*uHslS[1];dL+=hmask(h, 30.0,uHslW[1])*uHslL[1];
-        dH+=hmask(h, 60.0,uHslW[2])*uHslH[2];dS+=hmask(h, 60.0,uHslW[2])*uHslS[2];dL+=hmask(h, 60.0,uHslW[2])*uHslL[2];
-        dH+=hmask(h,120.0,uHslW[3])*uHslH[3];dS+=hmask(h,120.0,uHslW[3])*uHslS[3];dL+=hmask(h,120.0,uHslW[3])*uHslL[3];
-        dH+=hmask(h,195.0,uHslW[4])*uHslH[4];dS+=hmask(h,195.0,uHslW[4])*uHslS[4];dL+=hmask(h,195.0,uHslW[4])*uHslL[4];
-        dH+=hmask(h,248.0,uHslW[5])*uHslH[5];dS+=hmask(h,248.0,uHslW[5])*uHslS[5];dL+=hmask(h,248.0,uHslW[5])*uHslL[5];
-        dH+=hmask(h,285.0,uHslW[6])*uHslH[6];dS+=hmask(h,285.0,uHslW[6])*uHslS[6];dL+=hmask(h,285.0,uHslW[6])*uHslL[6];
-        dH+=hmask(h,323.0,uHslW[7])*uHslH[7];dS+=hmask(h,323.0,uHslW[7])*uHslS[7];dL+=hmask(h,323.0,uHslW[7])*uHslL[7];
+        vec3 hsl=rgb2hsl(c/255.0);float h=hsl.x,s=hsl.y,l=hsl.z;
+        float dH=0.0,dS=0.0,dL=0.0,wSum=0.0;
+        float m0=hmask(h,  0.0,uHslW[0]);dH+=m0*uHslH[0];dS+=m0*uHslS[0];dL+=m0*uHslL[0];wSum+=m0;
+        float m1=hmask(h, 30.0,uHslW[1]);dH+=m1*uHslH[1];dS+=m1*uHslS[1];dL+=m1*uHslL[1];wSum+=m1;
+        float m2=hmask(h, 60.0,uHslW[2]);dH+=m2*uHslH[2];dS+=m2*uHslS[2];dL+=m2*uHslL[2];wSum+=m2;
+        float m3=hmask(h,120.0,uHslW[3]);dH+=m3*uHslH[3];dS+=m3*uHslS[3];dL+=m3*uHslL[3];wSum+=m3;
+        float m4=hmask(h,195.0,uHslW[4]);dH+=m4*uHslH[4];dS+=m4*uHslS[4];dL+=m4*uHslL[4];wSum+=m4;
+        float m5=hmask(h,248.0,uHslW[5]);dH+=m5*uHslH[5];dS+=m5*uHslS[5];dL+=m5*uHslL[5];wSum+=m5;
+        float m6=hmask(h,285.0,uHslW[6]);dH+=m6*uHslH[6];dS+=m6*uHslS[6];dL+=m6*uHslL[6];wSum+=m6;
+        float m7=hmask(h,323.0,uHslW[7]);dH+=m7*uHslH[7];dS+=m7*uHslS[7];dL+=m7*uHslL[7];wSum+=m7;
+        // Normalise: prevent >1× total weight at hue-band boundaries
+        if(wSum>1.0){dH/=wSum;dS/=wSum;dL/=wSum;}
         h=mod(mod(h+dH,360.0)+360.0,360.0);
         s=clamp(s*(1.0+dS/100.0),0.0,1.0);
         l=clamp(l+dL/100.0*0.5,0.0,1.0);
@@ -1333,6 +1372,8 @@ void main(){
         }
         c=hsl2rgb(h,s,l)*255.0;
     }
+
+    // ── 15. Curve LUT ────────────────────────────────────────────
     c=clamp(c,0.0,255.0);
     gl_FragColor=vec4(
         texture2D(uLUT,vec2((c.r+0.5)/256.0,0.5)).r,
@@ -1498,9 +1539,9 @@ function applyEdits(src) {
         return Math.min(wLo, wHi);
     }
 
-    // sRGB linearisation helpers (matches GPU shader gamma 2.2 path)
-    const toLinear = v => Math.pow(Math.max(0, v) / 255, 2.2) * 255;
-    const toSRGB   = v => Math.pow(Math.max(0, Math.min(255, v)) / 255, 1 / 2.2) * 255;
+    // IEC 61966-2-1 sRGB transfer functions (matches GPU shader)
+    const toLinear = v => { const n = Math.max(0, v) / 255; return (n <= 0.04045 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4)) * 255; };
+    const toSRGB   = v => { const n = Math.max(0, Math.min(255, v)) / 255; return (n <= 0.0031308 ? n * 12.92 : 1.055 * Math.pow(n, 1 / 2.4) - 0.055) * 255; };
 
     const hue2rgb = (p, q, t) => {
         if (t < 0) t += 1; if (t > 1) t -= 1;
@@ -1517,72 +1558,49 @@ function applyEdits(src) {
     const d  = id.data;
 
     for (let i = 0; i < d.length; i += 4) {
-        // Linearise from sRGB before tone ops (matches GPU shader)
+        // 1. sRGB → linear (IEC 61966-2-1)
         const rOrig=toLinear(d[i]), gOrig=toLinear(d[i+1]), bOrig=toLinear(d[i+2]);
         let r=rOrig, g=gOrig, b=bOrig;
+        // 2. White balance (Bradford CA, linear, applied first)
+        { const wr=wbMat[0]*r+wbMat[1]*g+wbMat[2]*b,wg=wbMat[3]*r+wbMat[4]*g+wbMat[5]*b,wb=wbMat[6]*r+wbMat[7]*g+wbMat[8]*b; r=wr;g=wg;b=wb; }
+        // 3. Exposure
         r*=expF; g*=expF; b*=expF;
-        r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
+        // 4. Highlights / Shadows
         const lum = 0.2126*r + 0.7152*g + 0.0722*b;
-        const hlMask = Math.pow(Math.max(0, lum/255), 1.8);
-        const shMask = Math.pow(Math.max(0, 1-lum/255), 1.8);
-        const hlAdj = hStr*hlMask + sStr*shMask;
+        const hlAdj = hStr*Math.pow(Math.max(0,lum/255),1.8) + sStr*Math.pow(Math.max(0,1-lum/255),1.8);
         r+=hlAdj; g+=hlAdj; b+=hlAdj;
-        // Whites/Blacks — steep power mask targets near-white / near-black tones only
+        // 5. Whites / Blacks
         const lum2 = 0.2126*r + 0.7152*g + 0.0722*b;
-        const wMask = Math.pow(Math.max(0, lum2/255), 3.5);
-        const bMask = Math.pow(Math.max(0, 1-lum2/255), 3.5);
-        const wbAdj = whitesStr*wMask + blacksStr*bMask;
+        const wbAdj = whitesStr*Math.pow(Math.max(0,lum2/255),3.5) + blacksStr*Math.pow(Math.max(0,1-lum2/255),3.5);
         r+=wbAdj; g+=wbAdj; b+=wbAdj;
-        if (dehazeF > 0) {
-            const dk = Math.min(r, Math.min(g, b)) / 255;
-            const haze = dk * dehazeF * 0.85;
-            const inv = Math.max(1 - haze, 0.01);
-            r = (r - haze*255) / inv;
-            g = (g - haze*255) / inv;
-            b = (b - haze*255) / inv;
-            const gr5 = 0.2126*r + 0.7152*g + 0.0722*b;
-            const satBoost = 1 + dehazeF * 0.5;
-            r = gr5 + satBoost*(r - gr5);
-            g = gr5 + satBoost*(g - gr5);
-            b = gr5 + satBoost*(b - gr5);
-        }
-        if (fadeFloor > 0) {
-            r = fadeFloor + r*(255-fadeFloor)/255;
-            g = fadeFloor + g*(255-fadeFloor)/255;
-            b = fadeFloor + b*(255-fadeFloor)/255;
-        }
-        const gr = 0.2126*r + 0.7152*g + 0.0722*b;
-        r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr);
-        if (vibF !== 0) {
-            const gr2 = 0.2126*r + 0.7152*g + 0.0722*b;
-            const sat = Math.max(Math.abs(r-gr2), Math.abs(g-gr2), Math.abs(b-gr2)) / 255;
-            const vb = 1 + vibF * (1 - Math.min(1, sat * 2));
-            r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
-        }
-        // Highlight recovery: scale down if any channel blown
+        // 6. Highlight recovery
         const mxC = Math.max(r, g, b);
-        if (mxC > 255) {
-            const blend = Math.min(1, (mxC - 255) / 64);
-            const rr = r * (255 / mxC), gr2 = g * (255 / mxC), br = b * (255 / mxC);
-            r = r + (rr - r) * blend;
-            g = g + (gr2 - g) * blend;
-            b = b + (br - b) * blend;
+        if (mxC > 255) { const blend=Math.min(1,(mxC-255)/64),rr=r*(255/mxC),gr2=g*(255/mxC),br=b*(255/mxC); r+=blend*(rr-r); g+=blend*(gr2-g); b+=blend*(br-b); }
+        // 7. Dehaze
+        if (dehazeF > 0) {
+            const dk=Math.min(r,Math.min(g,b))/255,haze=dk*dehazeF*0.85,inv=Math.max(1-haze,0.01);
+            r=(r-haze*255)/inv; g=(g-haze*255)/inv; b=(b-haze*255)/inv;
+            const gr5=0.2126*r+0.7152*g+0.0722*b,satB=1+dehazeF*0.5;
+            r=gr5+satB*(r-gr5); g=gr5+satB*(g-gr5); b=gr5+satB*(b-gr5);
         }
-        // White balance: Bradford chromatic adaptation in linear light (matches GPU shader)
-        const wr = wbMat[0]*r + wbMat[1]*g + wbMat[2]*b;
-        const wg = wbMat[3]*r + wbMat[4]*g + wbMat[5]*b;
-        const wb = wbMat[6]*r + wbMat[7]*g + wbMat[8]*b;
-        r = wr; g = wg; b = wb;
-        // Luminosity mask: blend toward original linear based on input luma
+        // 8. Luminosity mask blend (linear)
         if (useLM) {
-            const inputLum = (0.2126*rOrig + 0.7152*gOrig + 0.0722*bOrig) / 255;
-            const w = cpuLumMask(inputLum);
-            r = rOrig + (r - rOrig) * w;
-            g = gOrig + (g - gOrig) * w;
-            b = bOrig + (b - bOrig) * w;
+            const inputLum=(0.2126*rOrig+0.7152*gOrig+0.0722*bOrig)/255,w=cpuLumMask(inputLum);
+            r=rOrig+(r-rOrig)*w; g=gOrig+(g-gOrig)*w; b=bOrig+(b-bOrig)*w;
         }
-        // Re-encode to sRGB before colour ops (matches GPU shader)
+        // 9. linear → sRGB (IEC 61966-2-1) — perceptual ops below
         r=toSRGB(r); g=toSRGB(g); b=toSRGB(b);
+        // 10. Fade (sRGB)
+        if (fadeFloor > 0) { r=fadeFloor+r*(255-fadeFloor)/255; g=fadeFloor+g*(255-fadeFloor)/255; b=fadeFloor+b*(255-fadeFloor)/255; }
+        // 11. Contrast (sRGB, centred on perceptual midpoint)
+        r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
+        // 12. Saturation (sRGB)
+        { const gr=0.2126*r+0.7152*g+0.0722*b; r=gr+satF*(r-gr); g=gr+satF*(g-gr); b=gr+satF*(b-gr); }
+        // 13. Vibrance (sRGB)
+        if (vibF !== 0) {
+            const gr2=0.2126*r+0.7152*g+0.0722*b,sat=Math.max(Math.abs(r-gr2),Math.abs(g-gr2),Math.abs(b-gr2))/255;
+            const vb=1+vibF*(1-Math.min(1,sat*2)); r=gr2+vb*(r-gr2); g=gr2+vb*(g-gr2); b=gr2+vb*(b-gr2);
+        }
         if (doHSL) {
             r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
             const rn=r/255, gn=g/255, bn=b/255;
@@ -1597,11 +1615,13 @@ function applyEdits(src) {
                 hh=hh/6*360;
             }
             if (hslActive) {
-                let dH=0, dS=0, dL=0;
+                let dH=0, dS=0, dL=0, wSum=0;
                 for (let bi=0; bi<8; bi++) {
                     const w=hueMask(hh,HSL_CENTERS[bi],HSL_WIDTHS[bi]);
-                    if(w>0){dH+=hslH[bi]*w; dS+=hslS[bi]*w; dL+=hslL[bi]*w;}
+                    if(w>0){dH+=hslH[bi]*w; dS+=hslS[bi]*w; dL+=hslL[bi]*w; wSum+=w;}
                 }
+                // Normalise: prevent >1× total weight at hue-band boundaries
+                if (wSum > 1) { dH/=wSum; dS/=wSum; dL/=wSum; }
                 hh=((hh+dH)%360+360)%360;
                 sh=Math.max(0,Math.min(1,sh*(1+dS/100)));
                 lh=Math.max(0,Math.min(1,lh+dL/100*0.5));
@@ -2592,6 +2612,7 @@ function ovCoords(e) {
 }
 
 ovEl.addEventListener('mousedown', e => {
+    if (spaceHeld) return; // Space = pan override; let eMain handler take it
     if (splitMode && e.button === 0) {
         const {x} = ovCoords(e);
         if (Math.abs(x - splitX * ovEl.width) < 28) { splitDragging = true; e.preventDefault(); }
@@ -2834,7 +2855,9 @@ eMain.addEventListener('wheel', e => {
 
 // Mouse drag pan (when zoom > 1 and not over crop overlay)
 eMain.addEventListener('mousedown', e => {
-    if (zoom <= 1 || !workCanvas || ((cropMode || activeTool) && e.target === ovEl)) return;
+    // Space held = temporary pan override regardless of active tool (Lightroom/Photoshop standard)
+    const spacePan = spaceHeld && workCanvas && e.button === 0;
+    if (!spacePan && (zoom <= 1 || !workCanvas || ((cropMode || activeTool || maskBrushMode) && e.target === ovEl))) return;
     panDragging = true; panLastX = e.clientX; panLastY = e.clientY;
     eMain.style.cursor = 'grabbing'; e.preventDefault();
 });
