@@ -6220,11 +6220,19 @@ renderPresetList();
             <div class="info-section-title">local adjustments</div>
             <div class="info-item">
                 <span class="info-item-key">dodge &amp; burn</span>
-                <span class="info-item-desc">paint directly on the image to lighten (dodge), darken (burn), or restore (erase). erase blends pixels back toward the state before any dodge/burn was applied. adjust size with [ and ], tonal range with the shadows / midtones / highlights buttons.</span>
+                <span class="info-item-desc">paint directly on the image to lighten (dodge), darken (burn), or restore (erase). erase blends pixels back toward the state before any dodge/burn was applied. adjust size with <span class="info-kbd">[ ]</span>, tonal range with the shadows / midtones / highlights buttons.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">masks</span>
-                <span class="info-item-desc">non-destructive local adjustments. gradient masks apply from a full-effect line to a zero-effect line. radial masks apply inside an ellipse. each mask has its own exposure, highlights, shadows, saturation, and temperature. drag handles on the canvas to reposition. invert to flip the affected area. feather softens the edge.</span>
+                <span class="info-item-desc">non-destructive local adjustments. gradient, radial, brush, luminosity, and colour-range types. each mask has its own exposure, highlights, shadows, saturation, and temperature. drag handles on the canvas to reposition. invert to flip the affected area. feather softens the edge.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">ai select</span>
+                <span class="info-item-desc">click any point on the image to select the object under your cursor using a local AI model (~94 MB, downloaded once and cached). shift+click to mark exclusion points and refine the edge. click "undo point" or press <span class="info-kbd">Backspace</span> to remove the last point. click "use selection" to convert the result into a brush mask for local adjustments. press <span class="info-kbd">Esc</span> to cancel.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">layers</span>
+                <span class="info-item-desc">composite a second image over the base — sky replacement, texture overlay, double exposure. add an image, set opacity and blend mode (normal, multiply, screen, overlay, soft light, and more). for sky replacement: run ai select on the sky first, then click "use AI mask" on the layer so it only shows through the selected region. invert the mask if needed.</span>
             </div>
         </div>
 
@@ -6252,11 +6260,19 @@ renderPresetList();
             </div>
             <div class="info-item">
                 <span class="info-item-key">before / after</span>
-                <span class="info-item-desc">hold <span class="info-kbd">Y</span> to temporarily view the original. release to return to edited.</span>
+                <span class="info-item-desc">hold <span class="info-kbd">Y</span> to temporarily view the original. press <span class="info-kbd">\</span> to sticky-toggle (stays until you press again).</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">minimap</span>
+                <span class="info-item-desc">appears in the bottom-right corner when you are zoomed in. shows where you are in the full image. click or drag on the minimap to pan to that position.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">draw horizon</span>
+                <span class="info-item-desc">in the transform panel, click "draw horizon" then click two points along any horizontal or vertical reference line — a roofline, horizon, door frame. the straighten angle is calculated automatically. press <span class="info-kbd">Esc</span> to cancel.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">clipping</span>
-                <span class="info-item-desc">red zebra = blown highlights. blue zebra = crushed shadows. toggle with <span class="info-kbd">\</span> or the checkbox in the top bar.</span>
+                <span class="info-item-desc">red zebra = blown highlights. blue zebra = crushed shadows. toggle with the checkbox in the top bar.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">color sampler</span>
@@ -6264,7 +6280,7 @@ renderPresetList();
             </div>
             <div class="info-item">
                 <span class="info-item-key">histogram</span>
-                <span class="info-item-desc">live RGB histogram in the sidebar. auto-enhance button sets blacks, whites, and exposure based on the 2nd and 98th percentile of the image.</span>
+                <span class="info-item-desc">live RGB histogram in the sidebar. auto enhance sets exposure, contrast, highlights, shadows, whites, blacks, and white balance based on the image content.</span>
             </div>
         </div>
 
@@ -6272,7 +6288,11 @@ renderPresetList();
             <div class="info-section-title">export</div>
             <div class="info-item">
                 <span class="info-item-key">format</span>
-                <span class="info-item-desc">PNG for lossless; JPEG with quality 60–100 for sharing. scale sets the output resolution (25–100% of full size).</span>
+                <span class="info-item-desc">PNG for lossless; JPEG with quality 60–100 for sharing; WebP for smaller file sizes. ICC sRGB profile is embedded so colours display accurately in browsers and apps.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">size</span>
+                <span class="info-item-desc">choose 100/75/50/25% of full resolution, or select "custom px" and type an exact output width in pixels — height is scaled proportionally.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">output sharpening</span>
@@ -6283,20 +6303,28 @@ renderPresetList();
         <div class="info-section">
             <div class="info-section-title">keyboard shortcuts</div>
             <div class="info-item">
-                <span class="info-item-key"><span class="info-kbd">Ctrl Z / Y</span></span>
+                <span class="info-item-key"><span class="info-kbd">Ctrl Z</span> / <span class="info-kbd">Ctrl Y</span></span>
                 <span class="info-item-desc">undo / redo</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">Y</span> (hold)</span>
-                <span class="info-item-desc">before / after toggle</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key"><span class="info-kbd">W</span></span>
-                <span class="info-item-desc">split compare</span>
+                <span class="info-item-desc">before / after — hold to view original, release to return</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">\</span></span>
-                <span class="info-item-desc">clipping indicators</span>
+                <span class="info-item-desc">sticky before / after toggle</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">W</span></span>
+                <span class="info-item-desc">toggle split compare</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">Z</span></span>
+                <span class="info-item-desc">toggle 1:1 zoom</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">Space</span> + drag</span>
+                <span class="info-item-desc">pan the canvas while zoomed (any tool)</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">D</span> / <span class="info-kbd">B</span></span>
@@ -6307,12 +6335,16 @@ renderPresetList();
                 <span class="info-item-desc">brush size −/+ (Shift = larger steps)</span>
             </div>
             <div class="info-item">
-                <span class="info-item-key"><span class="info-kbd">← →</span> on slider</span>
-                <span class="info-item-desc">nudge focused slider ±1 (Shift = ±10)</span>
+                <span class="info-item-key"><span class="info-kbd">Backspace</span></span>
+                <span class="info-item-desc">undo last AI select point (while AI select is active)</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">Esc</span></span>
-                <span class="info-item-desc">deactivate current tool</span>
+                <span class="info-item-desc">cancel AI select / horizon draw / deactivate tool</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">← →</span> on slider</span>
+                <span class="info-item-desc">nudge focused slider ±1 (Shift = ±10)</span>
             </div>
         </div>
 
@@ -6363,8 +6395,8 @@ renderPresetList();
 
         <div class="workflow-step">
             <div class="workflow-step-num">06 · local adjustments</div>
-            <div class="workflow-step-title">dodge, burn, and masks</div>
-            <div class="workflow-step-body">These are your most powerful and time-consuming tools — apply them after global edits are settled. Dodge and burn guide the viewer's eye: lighten where you want attention, darken what's competing. Use the tonal range selector to limit strokes to highlights, midtones, or shadows. Gradient and radial masks let you apply targeted exposure or colour corrections — darkening a blown sky, warming a foreground, isolating the subject from the background.</div>
+            <div class="workflow-step-title">dodge, burn, masks, and layers</div>
+            <div class="workflow-step-body">These are your most powerful and time-consuming tools — apply them after global edits are settled. Dodge and burn guide the viewer's eye: lighten where you want attention, darken what's competing. Gradient and radial masks let you apply targeted exposure or colour corrections. Use AI select to click an object and instantly generate a precise brush mask — great for isolating a subject, sky, or specific element. For sky replacement or compositing, add an overlay layer, then use an AI-selected sky mask to confine it to exactly the right region.</div>
         </div>
 
         <div class="workflow-step">
