@@ -1568,7 +1568,127 @@ void main(){
     gl_FragColor=vec4(clamp(c,0.0,255.0)/255.0,px.a);
 }`;
 
+// ── Bilateral NR shader (GPU pass, runs after main pipeline) ──
+// 7×7 bilateral filter in YCbCr — luma and chroma filtered separately.
+// Edge-preserving: nearby pixels with similar luminance are smoothed together;
+// strong edges are left intact. Significantly better than box-blur NR.
+const _BILATERAL_FRAG = `precision mediump float;
+uniform sampler2D uImg;
+uniform vec2  uSize;    // image dimensions in pixels
+uniform float uSigmaS;  // spatial sigma
+uniform float uSigmaRL; // range sigma — luma (tighter = more edge-aware)
+uniform float uSigmaRC; // range sigma — chroma (wider for colour noise)
+uniform float uLumNR;   // luma NR blend 0-1
+uniform float uColNR;   // chroma NR blend 0-1
+varying vec2 vUV;
+
+vec3 toYCC(vec3 rgb){
+    return vec3(
+        0.2126*rgb.r+0.7152*rgb.g+0.0722*rgb.b,
+       -0.1146*rgb.r-0.3854*rgb.g+0.5000*rgb.b,
+        0.5000*rgb.r-0.4542*rgb.g-0.0458*rgb.b);
+}
+vec3 toRGB(vec3 y){
+    return clamp(vec3(
+        y.x+1.5748*y.z,
+        y.x-0.1873*y.y-0.4681*y.z,
+        y.x+1.8556*y.y),0.0,1.0);
+}
+void main(){
+    vec4 px   = texture2D(uImg,vUV);
+    vec3 cYCC = toYCC(px.rgb);
+    vec2 st   = 1.0/uSize;
+    float ss2  = 2.0*uSigmaS *uSigmaS;
+    float srl2 = 2.0*uSigmaRL*uSigmaRL;
+    float src2 = 2.0*uSigmaRC*uSigmaRC;
+    float sumWL=0.0, fY=0.0, sumWC=0.0;
+    vec2  fCC=vec2(0.0);
+    for(int dy=-3;dy<=3;dy++){
+        for(int dx=-3;dx<=3;dx++){
+            vec3 sYCC=toYCC(texture2D(uImg,vUV+vec2(float(dx),float(dy))*st).rgb);
+            float spW=exp(-float(dx*dx+dy*dy)/ss2);
+            float dL=cYCC.x-sYCC.x;
+            float wL=spW*exp(-(dL*dL)/srl2);
+            fY+=sYCC.x*wL; sumWL+=wL;
+            vec2 dC=cYCC.yz-sYCC.yz;
+            float wC=spW*exp(-dot(dC,dC)/src2);
+            fCC+=sYCC.yz*wC; sumWC+=wC;
+        }
+    }
+    float fYf    = mix(cYCC.x,  fY /sumWL, uLumNR);
+    vec2  fCCf   = mix(cYCC.yz, fCC/sumWC, uColNR);
+    gl_FragColor = vec4(toRGB(vec3(fYf,fCCf)),px.a);
+}`;
+
 let _glState = null;
+let _bilGLState = null;
+
+// Lazy-init a second GL context used only for the bilateral NR pass
+function _initBilGL() {
+    if (_bilGLState !== null) return _bilGLState;
+    try {
+        const cv = document.createElement('canvas');
+        const gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
+        if (!gl) { _bilGLState = false; return false; }
+        const mkSh = (t, src) => {
+            const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn('Bilateral shader:', gl.getShaderInfoLog(s)); return null; }
+            return s;
+        };
+        const vs = mkSh(gl.VERTEX_SHADER, _VERT), fs = mkSh(gl.FRAGMENT_SHADER, _BILATERAL_FRAG);
+        if (!vs || !fs) { _bilGLState = false; return false; }
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { _bilGLState = false; return false; }
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+        const aPos = gl.getAttribLocation(prog, 'aPos');
+        const tex  = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(p => gl.texParameteri(gl.TEXTURE_2D, p, gl.LINEAR));
+        [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(p => gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE));
+        gl.useProgram(prog);
+        const L = {};
+        ['uImg','uSize','uSigmaS','uSigmaRL','uSigmaRC','uLumNR','uColNR'].forEach(n => L[n] = gl.getUniformLocation(prog, n));
+        _bilGLState = { gl, cv, prog, buf, aPos, tex, L, maxTex: gl.getParameter(gl.MAX_TEXTURE_SIZE) };
+        return _bilGLState;
+    } catch(e) { console.warn('Bilateral GL init failed:', e); _bilGLState = false; return false; }
+}
+
+// Apply bilateral NR to a 2D canvas in-place using GPU.
+// lumanrF and colornrF are 0-1 strength values.
+// Returns true on success; caller should fall back to CPU NR on false.
+function _applyBilateralGL(canvas, lumanrF, colornrF) {
+    if (lumanrF <= 0 && colornrF <= 0) return true;
+    const st = _initBilGL(); if (!st) return false;
+    const { gl, cv, buf, aPos, tex, L } = st;
+    const W = canvas.width, H = canvas.height;
+    if (W > st.maxTex || H > st.maxTex) return false;
+    cv.width = W; cv.height = H;
+    gl.viewport(0, 0, W, H);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.uniform1i(L.uImg, 0);
+    gl.uniform2f(L.uSize, W, H);
+    // Spatial sigma: resolution-aware so the filter covers a consistent physical area
+    const sigmaS = Math.max(1.5, Math.min(4.0, Math.max(W, H) / 1200.0));
+    gl.uniform1f(L.uSigmaS,  sigmaS);
+    // Range sigmas: controls edge sensitivity — smaller = sharper edges preserved
+    gl.uniform1f(L.uSigmaRL, 0.04 + lumanrF  * 0.10); // luma:   0.04–0.14
+    gl.uniform1f(L.uSigmaRC, 0.06 + colornrF * 0.14); // chroma: 0.06–0.20
+    gl.uniform1f(L.uLumNR,   lumanrF);
+    gl.uniform1f(L.uColNR,   colornrF);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    canvas.getContext('2d').drawImage(cv, 0, 0);
+    return true;
+}
 function _initGL() {
     if (_glState !== null) return _glState;
     try {
@@ -1711,8 +1831,14 @@ function applyEdits(src) {
             const ctx = glOut.getContext('2d');
             if (distortion !== 0) applyDistortion(ctx, glOut.width, glOut.height, distortion);
             if (caRed !== 0 || caBlue !== 0) applyCA(ctx, glOut.width, glOut.height, caRed, caBlue);
-            if (lumanr  > 0) applyNoiseReduction(ctx, glOut.width, glOut.height, lumanr);
-            if (colornr > 0) applyColorNR(ctx, glOut.width, glOut.height, colornr);
+            // GPU bilateral NR — edge-preserving; falls back to CPU box-blur if WebGL unavailable
+            if (lumanr > 0 || colornr > 0) {
+                const bilOk = _applyBilateralGL(glOut, lumanr / 100, colornr / 100);
+                if (!bilOk) {
+                    if (lumanr  > 0) applyNoiseReduction(ctx, glOut.width, glOut.height, lumanr);
+                    if (colornr > 0) applyColorNR(ctx, glOut.width, glOut.height, colornr);
+                }
+            }
             if (clarity > 0) applyClarity(ctx, glOut.width, glOut.height, clarity);
             if (texture > 0) applyTexture(ctx, glOut.width, glOut.height, texture);
             if (sharpen > 0) applySharpening(ctx, glOut.width, glOut.height, sharpen, sharpmask, sharpenRadius, sharpenDetail);
@@ -1882,8 +2008,13 @@ function applyEdits(src) {
     if (!isAdjusting) {
         if (distortion !== 0) applyDistortion(ctx, out.width, out.height, distortion);
         if (caRed !== 0 || caBlue !== 0) applyCA(ctx, out.width, out.height, caRed, caBlue);
-        if (lumanr  > 0) applyNoiseReduction(ctx, out.width, out.height, lumanr);
-        if (colornr > 0) applyColorNR(ctx, out.width, out.height, colornr);
+        if (lumanr > 0 || colornr > 0) {
+            const bilOk = _applyBilateralGL(out, lumanr / 100, colornr / 100);
+            if (!bilOk) {
+                if (lumanr  > 0) applyNoiseReduction(ctx, out.width, out.height, lumanr);
+                if (colornr > 0) applyColorNR(ctx, out.width, out.height, colornr);
+            }
+        }
         if (clarity > 0) applyClarity(ctx, out.width, out.height, clarity);
         if (texture > 0) applyTexture(ctx, out.width, out.height, texture);
         if (sharpen > 0) applySharpening(ctx, out.width, out.height, sharpen, sharpmask, sharpenRadius, sharpenDetail);
@@ -4512,8 +4643,16 @@ function selectMask(id) {
     if (_maskEyedropperActive) _stopMaskEyedropper();
     activeMaskId = id;
     renderMaskList();
-    if (id) ovEl.classList.add('mask-mode');
-    else    ovEl.classList.remove('mask-mode');
+    if (id) {
+        ovEl.classList.add('mask-mode');
+        // Scroll the mask card into view within the sidebar
+        setTimeout(() => {
+            const card = document.getElementById('mask-card-' + id);
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 40);
+    } else {
+        ovEl.classList.remove('mask-mode');
+    }
     renderOverlay();
 }
 
@@ -4590,7 +4729,8 @@ function renderMaskList() {
             </div>
             <div class="mask-body">
                 ${typeTools}
-                <span class="mask-section-label">adjustments</span>
+                <span class="mask-section-label">adjustments — applied only to this selection</span>
+                <p class="s-note" style="margin:0 0 0.4rem;font-size:0.61rem;">move sliders to see the effect · press <strong>O</strong> to hide/show the red overlay</p>
                 ${adjRows}
                 ${featherRow}
             </div>`;
@@ -4848,6 +4988,9 @@ function confirmAISelect() {
     selectMask(id);
     cancelAISelect();
     scheduleRender();
+    // Brief top-bar hint so the user knows what to do next
+    setPushStatus('selection saved — adjust with sliders in sidebar · press O to hide red overlay', false);
+    setTimeout(() => setPushStatus('', false), 6000);
 }
 
 async function _loadSAM() {
@@ -5147,17 +5290,21 @@ function renderLayerList() {
                 <span style="font-size:0.68rem;color:var(--secondary);min-width:30px;text-align:right;">${layer.offsetY}</span>
             </div>
             <div style="border-top:1px solid var(--border);padding-top:0.4rem;margin-top:0.1rem;">
-                <div style="font-size:0.65rem;color:var(--secondary);margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.5px;">mask</div>
                 ${layer.maskPixels
-                    ? `<div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
-                         <button class="s-btn-ghost" style="font-size:0.68rem;" onclick="overlayLayers[${idx}].maskInverted=!overlayLayers[${idx}].maskInverted;renderLayerList();scheduleRender()">${layer.maskInverted ? 'inverted ↺' : 'normal ↺'}</button>
-                         <button class="s-btn-ghost" style="font-size:0.68rem;" onclick="clearLayerMask('${layer.id}')">remove mask</button>
+                    ? `<div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.35rem;">
+                         <span style="font-size:0.62rem;color:#3a8a3a;font-weight:500;">✓ mask applied</span>
+                         <span style="flex:1;"></span>
+                         <button class="s-btn-ghost" style="font-size:0.65rem;" onclick="overlayLayers[${idx}].maskInverted=!overlayLayers[${idx}].maskInverted;renderLayerList();scheduleRender()" title="flip which area shows through">${layer.maskInverted ? 'invert ↺' : 'invert ↺'}</button>
+                         <button class="s-btn-ghost" style="font-size:0.65rem;" onclick="clearLayerMask('${layer.id}')">remove</button>
                        </div>`
-                    : `<div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
-                         <button class="s-btn-ghost" style="font-size:0.68rem;" onclick="setLayerMaskFromAI('${layer.id}')" title="use the current AI selection or last brush mask">from AI / brush</button>
-                         ${brushMasks.map(m => `<button class="s-btn-ghost" style="font-size:0.68rem;" onclick="setLayerMaskFromMaskId('${layer.id}','${m.id}')" title="use mask: ${m.id}">from mask ${masks.indexOf(m)+1}</button>`).join('')}
+                    : `<div style="font-size:0.62rem;color:var(--secondary);margin-bottom:0.35rem;">
+                         <span style="opacity:0.5;">① position ✓</span> &nbsp;→&nbsp; <strong style="color:var(--text);">② assign a mask</strong>
+                         <span style="display:block;margin-top:0.2rem;font-size:0.6rem;">use AI select or a brush mask to define where this layer blends in</span>
                        </div>
-                       <p class="s-note" style="margin:0.3rem 0 0;">run AI select on the area you want to show through (e.g. the sky), then click "from AI / brush".</p>`
+                       <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+                         <button class="s-btn" style="font-size:0.68rem;" onclick="setLayerMaskFromAI('${layer.id}')" title="use the current AI selection or last brush mask">assign from AI / brush</button>
+                         ${brushMasks.map(m => `<button class="s-btn-ghost" style="font-size:0.68rem;" onclick="setLayerMaskFromMaskId('${layer.id}','${m.id}')" title="use mask ${masks.indexOf(m)+1}">mask ${masks.indexOf(m)+1}</button>`).join('')}
+                       </div>`
                 }
             </div>
         </div>`).join('');
@@ -6641,7 +6788,7 @@ renderPresetList();
         <div class="workflow-step">
             <div class="workflow-step-num">05 · detail</div>
             <div class="workflow-step-title">sharpening and noise reduction</div>
-            <div class="workflow-step-body">Apply noise reduction before sharpening — NR smooths out sensor noise; sharpening then enhances real edges rather than amplifying noise. Use the masking slider with sharpen to limit it to edges only, protecting smooth areas like skin and sky. Clarity adds localised contrast at a mid-frequency scale. Texture is subtler and great for preserving fine detail like fabric or bark.</div>
+            <div class="workflow-step-body">Apply noise reduction before sharpening — NR smooths out sensor noise; sharpening then enhances real edges rather than amplifying noise. Luma NR and Color NR use a GPU bilateral filter: edge-preserving smoothing that reduces noise in flat areas while keeping detail in edges and textures — significantly better quality than a simple blur. Use the masking slider with sharpen to limit it to edges only, protecting smooth areas like skin and sky.</div>
         </div>
 
         <div class="workflow-step">
