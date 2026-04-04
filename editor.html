@@ -233,7 +233,7 @@
             position: fixed; bottom: 0.85rem; right: 0.85rem;
             width: 156px; border: 1px solid rgba(128,128,128,0.45);
             box-shadow: 0 2px 10px rgba(0,0,0,0.35);
-            pointer-events: none; z-index: 200; display: none;
+            pointer-events: auto; cursor: crosshair; z-index: 200; display: none;
             background: #111;
         }
         #minimap { display: block; width: 100%; height: auto; }
@@ -742,6 +742,7 @@ let imageBounds = {x1:0,y1:0,x2:0,y2:0};
 // ── Zoom / Pan ────────────────────────────────────────────────
 let zoom = 1, panX = 0, panY = 0;
 let panDragging = false, panLastX = 0, panLastY = 0;
+let mmDragging = false;
 let touchStartState = null; // two-finger pinch state
 let spaceHeld = false; // Space-bar temporary pan override (Lightroom/Photoshop standard)
 
@@ -784,22 +785,21 @@ function updateMinimap() {
     ctx.clearRect(0, 0, mmW, mmH);
     ctx.drawImage(out, 0, 0, mmW, mmH);
 
-    // Compute visible viewport rect in output-canvas pixel space.
-    // canvas-wrap is centered in e-main and scaled via CSS transform(panX,panY) scale(zoom).
-    // Natural canvas-wrap size equals output-canvas CSS display size.
+    // Compute visible viewport rect.
+    // canvas-wrap is centered in e-main and transformed via translate(panX,panY) scale(zoom).
     const wrap = document.getElementById('canvas-wrap');
     const main = document.getElementById('e-main');
     const eW = main.clientWidth, eH = main.clientHeight;
     const W0 = wrap.offsetWidth,  H0 = wrap.offsetHeight;
 
-    // Visible region in canvas-wrap natural coordinates
+    // Visible region in canvas-wrap CSS px (natural coords at zoom=1)
     const vl = (-eW / 2 - panX) / zoom + W0 / 2;
     const vr = ( eW / 2 - panX) / zoom + W0 / 2;
     const vt = (-eH / 2 - panY) / zoom + H0 / 2;
     const vb = ( eH / 2 - panY) / zoom + H0 / 2;
 
-    // Map to minimap pixels (canvas-wrap natural px === output-canvas px)
-    const sx = mmW / out.width, sy = mmH / out.height;
+    // Map CSS px → minimap px  (W0 CSS px spans the full minimap width)
+    const sx = mmW / W0, sy = mmH / H0;
     const rx = Math.max(0, vl * sx), ry = Math.max(0, vt * sy);
     const rw = Math.min(mmW, vr * sx) - rx;
     const rh = Math.min(mmH, vb * sy) - ry;
@@ -807,6 +807,35 @@ function updateMinimap() {
     ctx.fillStyle   = 'rgba(255,255,255,0.1)';  ctx.fillRect(rx, ry, rw, rh);
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';  ctx.lineWidth = 1.5; ctx.strokeRect(rx, ry, rw, rh);
 }
+
+// Minimap drag-to-pan
+function _mmPanTo(e) {
+    const mm   = document.getElementById('minimap');
+    const rect = mm.getBoundingClientRect();
+    const mx   = Math.max(0, Math.min(rect.width,  e.clientX - rect.left));
+    const my   = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+    const wrap = document.getElementById('canvas-wrap');
+    const W0   = wrap.offsetWidth, H0 = wrap.offsetHeight;
+    // Convert minimap position → canvas-wrap CSS coords, then center viewport there
+    const imgX = mx / rect.width  * W0;
+    const imgY = my / rect.height * H0;
+    panX = (W0 / 2 - imgX) * zoom;
+    panY = (H0 / 2 - imgY) * zoom;
+    clampPan(); applyZoom();
+}
+document.getElementById('minimap').addEventListener('mousedown', e => {
+    if (!workCanvas || zoom <= 1) return;
+    mmDragging = true; _mmPanTo(e); e.preventDefault();
+});
+window.addEventListener('mousemove', e => { if (mmDragging) _mmPanTo(e); });
+window.addEventListener('mouseup',   () => { mmDragging = false; });
+document.getElementById('minimap').addEventListener('touchstart', e => {
+    if (!workCanvas || zoom <= 1) return;
+    mmDragging = true; _mmPanTo(e.touches[0]); e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchmove',  e => { if (mmDragging) _mmPanTo(e.touches[0]); }, { passive: false });
+window.addEventListener('touchend',   () => { mmDragging = false; });
+
 function resetZoom() { zoom = 1; panX = 0; panY = 0; applyZoom(); }
 function zoomTo100() {
     if (!workCanvas) return;
