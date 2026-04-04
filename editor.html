@@ -1530,8 +1530,8 @@ void main(){
     // ── 10. Fade (sRGB space — lifts black point perceptually) ───
     if(uFadeFloor>0.0)c=uFadeFloor+c*(255.0-uFadeFloor)/255.0;
 
-    // ── 11. Contrast (sRGB space, centred on perceptual midpoint)
-    c=uCF*(c-128.0)+128.0;
+    // ── 11. Contrast (sRGB space, pivot at 18% grey = sRGB 118)
+    c=uCF*(c-118.0)+118.0;
 
     // ── 12+13. Saturation + Vibrance (Oklab — hue-preserving, no yellow→green shift)
     if(uSatF!=1.0||uVibF!=0.0){
@@ -1546,7 +1546,15 @@ void main(){
         c=clamp(fromOklab(lab),0.0,255.0);
     }
 
-    // ── 14. HSL + Split tone (sRGB / perceptual space) ───────────
+    // ── 14. Curve LUT (before HSL — matches Lightroom pipeline order) ──
+    c=clamp(c,0.0,255.0);
+    c=vec3(
+        texture2D(uLUT,vec2((c.r+0.5)/256.0,0.5)).r,
+        texture2D(uLUT,vec2((c.g+0.5)/256.0,0.5)).g,
+        texture2D(uLUT,vec2((c.b+0.5)/256.0,0.5)).b
+    )*255.0;
+
+    // ── 15. HSL + Split tone (sRGB / perceptual space) ───────────
     if(uDoHSL>0.5){
         c=clamp(c,0.0,255.0);
         vec3 hsl=rgb2hsl(c/255.0);float h=hsl.x,s=hsl.y,l=hsl.z;
@@ -1559,7 +1567,6 @@ void main(){
         float m5=hmask(h,248.0,uHslW[5]);dH+=m5*uHslH[5];dS+=m5*uHslS[5];dL+=m5*uHslL[5];wSum+=m5;
         float m6=hmask(h,285.0,uHslW[6]);dH+=m6*uHslH[6];dS+=m6*uHslS[6];dL+=m6*uHslL[6];wSum+=m6;
         float m7=hmask(h,323.0,uHslW[7]);dH+=m7*uHslH[7];dS+=m7*uHslS[7];dL+=m7*uHslL[7];wSum+=m7;
-        // Normalise: prevent >1× total weight at hue-band boundaries
         if(wSum>1.0){dH/=wSum;dS/=wSum;dL/=wSum;}
         h=mod(mod(h+dH,360.0)+360.0,360.0);
         s=clamp(s*(1.0+dS/100.0),0.0,1.0);
@@ -1576,13 +1583,7 @@ void main(){
         c=hsl2rgb(h,s,l)*255.0;
     }
 
-    // ── 15. Curve LUT ────────────────────────────────────────────
-    c=clamp(c,0.0,255.0);
-    gl_FragColor=vec4(
-        texture2D(uLUT,vec2((c.r+0.5)/256.0,0.5)).r,
-        texture2D(uLUT,vec2((c.g+0.5)/256.0,0.5)).g,
-        texture2D(uLUT,vec2((c.b+0.5)/256.0,0.5)).b,
-        px.a);
+    gl_FragColor=vec4(clamp(c,0.0,255.0)/255.0,px.a);
 }`;
 
 let _glState = null;
@@ -1802,8 +1803,8 @@ function applyEdits(src) {
         r=toSRGB(r); g=toSRGB(g); b=toSRGB(b);
         // 10. Fade (sRGB)
         if (fadeFloor > 0) { r=fadeFloor+r*(255-fadeFloor)/255; g=fadeFloor+g*(255-fadeFloor)/255; b=fadeFloor+b*(255-fadeFloor)/255; }
-        // 11. Contrast (sRGB, centred on perceptual midpoint)
-        r=cF*(r-128)+128; g=cF*(g-128)+128; b=cF*(b-128)+128;
+        // 11. Contrast (sRGB, pivot at 18% grey = sRGB 118)
+        r=cF*(r-118)+118; g=cF*(g-118)+118; b=cF*(b-118)+118;
         // 12+13. Saturation + Vibrance (Oklab — hue-preserving)
         if (satF !== 1 || vibF !== 0) {
             // sRGB [0-255] → linear → Oklab
@@ -1831,6 +1832,11 @@ function applyEdits(src) {
             g=toSRGB(Math.max(0,Math.min(1,gl2))*255);
             b=toSRGB(Math.max(0,Math.min(1,bl2))*255);
         }
+        // 14. Curve LUT (before HSL — matches Lightroom pipeline order)
+        r=lut[Math.max(0,Math.min(255,r|0))*4+0];
+        g=lut[Math.max(0,Math.min(255,g|0))*4+1];
+        b=lut[Math.max(0,Math.min(255,b|0))*4+2];
+        // 15. HSL + Split tone
         if (doHSL) {
             r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
             const rn=r/255, gn=g/255, bn=b/255;
@@ -1886,9 +1892,9 @@ function applyEdits(src) {
                 b=hue2rgb(p2,q2,hh01-1/3)*255;
             }
         }
-        d[i]  =lut[Math.max(0,Math.min(255,r|0))*4+0];
-        d[i+1]=lut[Math.max(0,Math.min(255,g|0))*4+1];
-        d[i+2]=lut[Math.max(0,Math.min(255,b|0))*4+2];
+        d[i]  =Math.max(0,Math.min(255,r|0));
+        d[i+1]=Math.max(0,Math.min(255,g|0));
+        d[i+2]=Math.max(0,Math.min(255,b|0));
     }
     ctx.putImageData(id, 0, 0);
     if (!isAdjusting) {
