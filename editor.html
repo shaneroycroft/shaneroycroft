@@ -584,8 +584,9 @@
                         <button class="s-btn-ghost" onclick="addMask('brush')">+ brush</button>
                         <button class="s-btn-ghost" onclick="addMask('luminosity')">+ luma</button>
                         <button class="s-btn-ghost" onclick="addMask('colour')">+ colour</button>
-                        <button class="s-btn" id="ai-select-btn" onclick="startAISelect()">+ ai select</button>
+                        <button class="s-btn" id="ai-select-btn" onclick="startAISelect()" title="click a point on the image to select an object — downloads ~94mb on first use">+ ai select</button>
                     </div>
+                    <p class="s-note" id="ai-select-note">ai select uses a local model — first use downloads ~94mb (cached after)</p>
                     <!-- AI select panel -->
                     <div id="ai-select-panel" style="display:none;margin-bottom:0.75rem;">
                         <div id="ai-status" class="ai-status"></div>
@@ -4347,9 +4348,10 @@ async function startAISelect() {
     _aiMaskPixels = null;
     document.getElementById('ai-select-panel').style.display = '';
     document.getElementById('ai-select-btn').style.display = 'none';
+    document.getElementById('ai-select-note').style.display = 'none';
     document.getElementById('ai-confirm-btn').disabled = true;
     ovEl.classList.add('ai-select-mode');
-    setAIStatus('loading model…');
+    setAIStatus(_samModel ? 'encoding image…' : 'downloading model (~94mb) — only needed once…');
     renderOverlay();
     try {
         await _loadSAM();
@@ -4367,6 +4369,7 @@ function cancelAISelect() {
     _aiMaskPixels = null;
     document.getElementById('ai-select-panel').style.display = 'none';
     document.getElementById('ai-select-btn').style.display = '';
+    document.getElementById('ai-select-note').style.display = '';
     ovEl.classList.remove('ai-select-mode');
     renderOverlay();
 }
@@ -4401,7 +4404,6 @@ function confirmAISelect() {
 
 async function _loadSAM() {
     if (_samModel) return;
-    setAIStatus('loading model… (first load ~94 mb, cached after)');
     const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js');
     _samProcessor = await mod.AutoProcessor.from_pretrained('Xenova/sam-vit-base');
     _samModel     = await mod.SamModel.from_pretrained('Xenova/sam-vit-base', { dtype: 'q8' });
