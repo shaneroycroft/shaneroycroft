@@ -773,7 +773,7 @@ function updateMinimap() {
     if (!mmWrap || !mm || !out || !out.width) { if (mmWrap) mmWrap.style.display = 'none'; return; }
 
     if (zoom <= 1) { mmWrap.style.display = 'none'; return; }
-    mmWrap.style.display = '';
+    mmWrap.style.display = 'block';
 
     // Size minimap to match image aspect ratio (max 156px wide)
     const aspect = out.height / out.width;
