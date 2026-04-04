@@ -4838,6 +4838,9 @@ function addOverlayLayer(input) {
             opacity: 100,
             blendMode: 'source-over',
             visible: true,
+            offsetX: 0,     // horizontal offset in % of canvas width (-100..100)
+            offsetY: 0,     // vertical offset in % of canvas height (-100..100)
+            scale: 100,     // scale in % (50..200)
             maskPixels: null,
             maskWidth: 0,
             maskHeight: 0,
@@ -4858,13 +4861,50 @@ function removeOverlayLayer(id) {
     scheduleRender();
 }
 
+function moveLayer(id, dir) {
+    const i = overlayLayers.findIndex(l => l.id === id);
+    if (i < 0) return;
+    const j = i + dir;
+    if (j < 0 || j >= overlayLayers.length) return;
+    [overlayLayers[i], overlayLayers[j]] = [overlayLayers[j], overlayLayers[i]];
+    renderLayerList();
+    scheduleRender();
+}
+
 function setLayerMaskFromAI(id) {
-    if (!_aiMaskPixels || !workCanvas) { alert('Run AI select first, then click "use as layer mask".'); return; }
+    // Use in-progress AI selection if available, otherwise look for a confirmed brush mask
     const layer = overlayLayers.find(l => l.id === id);
     if (!layer) return;
-    layer.maskPixels   = new Float32Array(_aiMaskPixels);
-    layer.maskWidth    = workCanvas.width;
-    layer.maskHeight   = workCanvas.height;
+    if (_aiMaskPixels && workCanvas) {
+        layer.maskPixels   = new Float32Array(_aiMaskPixels);
+        layer.maskWidth    = workCanvas.width;
+        layer.maskHeight   = workCanvas.height;
+        layer.maskInverted = false;
+        renderLayerList();
+        scheduleRender();
+        return;
+    }
+    // Fall back: pick the first available brush mask
+    const brushMask = masks.find(m => m.type === 'brush' && m.pixels);
+    if (brushMask) {
+        layer.maskPixels   = new Float32Array(brushMask.pixels);
+        layer.maskWidth    = brushMask.width;
+        layer.maskHeight   = brushMask.height;
+        layer.maskInverted = false;
+        renderLayerList();
+        scheduleRender();
+        return;
+    }
+    alert('No selection available. Run AI select or create a brush mask first.');
+}
+
+function setLayerMaskFromMaskId(layerId, maskId) {
+    const layer = overlayLayers.find(l => l.id === layerId);
+    const src   = masks.find(m => m.id === maskId && m.pixels);
+    if (!layer || !src) return;
+    layer.maskPixels   = new Float32Array(src.pixels);
+    layer.maskWidth    = src.width;
+    layer.maskHeight   = src.height;
     layer.maskInverted = false;
     renderLayerList();
     scheduleRender();
@@ -4881,40 +4921,58 @@ function clearLayerMask(id) {
 function renderLayerList() {
     const list = document.getElementById('layer-list');
     if (!list) return;
-    if (!overlayLayers.length) { list.innerHTML = ''; return; }
+    if (!overlayLayers.length) { list.innerHTML = '<p class="s-note">no layers yet — click + add image to start.</p>'; return; }
+    const brushMasks = masks.filter(m => m.type === 'brush' && m.pixels);
     list.innerHTML = overlayLayers.map((layer, idx) => `
-        <div class="mask-item" style="margin-bottom:0.65rem;padding:0.5rem 0.55rem;background:var(--bg);border:1px solid var(--border);">
-            <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.4rem;">
-                <input type="checkbox" ${layer.visible ? 'checked' : ''} onchange="overlayLayers[${idx}].visible=this.checked;scheduleRender()" title="visible">
-                <span style="flex:1;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${layer.name}">${layer.name}</span>
-                <button class="s-link" onclick="removeOverlayLayer('${layer.id}')" style="color:var(--secondary);font-size:0.68rem;">✕</button>
+        <div class="mask-item" style="margin-bottom:0.75rem;padding:0.55rem;background:var(--bg);border:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:0.35rem;margin-bottom:0.45rem;">
+                <input type="checkbox" ${layer.visible ? 'checked' : ''} onchange="overlayLayers[${idx}].visible=this.checked;scheduleRender()" title="show/hide layer">
+                <span style="flex:1;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;" title="${layer.name}">${layer.name}</span>
+                <button class="s-link" title="move up" style="font-size:0.7rem;padding:0 0.2rem;" onclick="moveLayer('${layer.id}',-1)">↑</button>
+                <button class="s-link" title="move down" style="font-size:0.7rem;padding:0 0.2rem;" onclick="moveLayer('${layer.id}',1)">↓</button>
+                <button class="s-link" onclick="removeOverlayLayer('${layer.id}')" style="color:var(--secondary);font-size:0.68rem;padding:0 0.2rem;">✕</button>
             </div>
             <div class="s-row" style="margin-bottom:0.3rem;">
-                <label style="min-width:60px;font-size:0.7rem;">opacity</label>
-                <input type="range" min="0" max="100" value="${layer.opacity}" style="flex:1;" oninput="overlayLayers[${idx}].opacity=+this.value;scheduleRender()">
-                <span style="font-size:0.68rem;color:var(--secondary);min-width:28px;text-align:right;">${layer.opacity}%</span>
+                <label style="min-width:52px;font-size:0.7rem;">opacity</label>
+                <input type="range" min="0" max="100" value="${layer.opacity}" style="flex:1;" oninput="overlayLayers[${idx}].opacity=+this.value;this.nextElementSibling.textContent=this.value+'%';scheduleRender()">
+                <span style="font-size:0.68rem;color:var(--secondary);min-width:30px;text-align:right;">${layer.opacity}%</span>
             </div>
             <div class="s-row" style="margin-bottom:0.3rem;">
-                <label style="min-width:60px;font-size:0.7rem;">blend</label>
+                <label style="min-width:52px;font-size:0.7rem;">blend</label>
                 <select style="flex:1;font-family:inherit;font-size:0.7rem;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:0.15rem;" onchange="overlayLayers[${idx}].blendMode=this.value;scheduleRender()">
                     ${[['source-over','normal'],['multiply','multiply'],['screen','screen'],['overlay','overlay'],['soft-light','soft light'],['hard-light','hard light'],['darken','darken'],['lighten','lighten'],['color-dodge','dodge'],['color-burn','burn'],['luminosity','luminosity'],['color','colour'],['hue','hue'],['saturation','saturation']].map(([v,l])=>`<option value="${v}"${layer.blendMode===v?' selected':''}>${l}</option>`).join('')}
                 </select>
             </div>
-            <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.25rem;">
+            <div class="s-row" style="margin-bottom:0.3rem;">
+                <label style="min-width:52px;font-size:0.7rem;">scale</label>
+                <input type="range" min="20" max="300" value="${layer.scale}" style="flex:1;" oninput="overlayLayers[${idx}].scale=+this.value;this.nextElementSibling.textContent=this.value+'%';scheduleRender()">
+                <span style="font-size:0.68rem;color:var(--secondary);min-width:30px;text-align:right;">${layer.scale}%</span>
+            </div>
+            <div class="s-row" style="margin-bottom:0.3rem;">
+                <label style="min-width:52px;font-size:0.7rem;">offset x</label>
+                <input type="range" min="-100" max="100" value="${layer.offsetX}" style="flex:1;" oninput="overlayLayers[${idx}].offsetX=+this.value;this.nextElementSibling.textContent=this.value;scheduleRender()">
+                <span style="font-size:0.68rem;color:var(--secondary);min-width:30px;text-align:right;">${layer.offsetX}</span>
+            </div>
+            <div class="s-row" style="margin-bottom:0.4rem;">
+                <label style="min-width:52px;font-size:0.7rem;">offset y</label>
+                <input type="range" min="-100" max="100" value="${layer.offsetY}" style="flex:1;" oninput="overlayLayers[${idx}].offsetY=+this.value;this.nextElementSibling.textContent=this.value;scheduleRender()">
+                <span style="font-size:0.68rem;color:var(--secondary);min-width:30px;text-align:right;">${layer.offsetY}</span>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:0.4rem;margin-top:0.1rem;">
+                <div style="font-size:0.65rem;color:var(--secondary);margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.5px;">mask</div>
                 ${layer.maskPixels
-                    ? `<button class="s-btn-ghost" style="font-size:0.68rem;" onclick="overlayLayers[${idx}].maskInverted=!overlayLayers[${idx}].maskInverted;scheduleRender()">${layer.maskInverted?'mask: inverted':'mask: normal'}</button>
-                       <button class="s-btn-ghost" style="font-size:0.68rem;" onclick="clearLayerMask('${layer.id}')">clear mask</button>`
-                    : `<button class="s-btn-ghost" style="font-size:0.68rem;" onclick="setLayerMaskFromAI('${layer.id}')" title="use current AI selection as mask">use AI mask</button>`
+                    ? `<div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+                         <button class="s-btn-ghost" style="font-size:0.68rem;" onclick="overlayLayers[${idx}].maskInverted=!overlayLayers[${idx}].maskInverted;renderLayerList();scheduleRender()">${layer.maskInverted ? 'inverted ↺' : 'normal ↺'}</button>
+                         <button class="s-btn-ghost" style="font-size:0.68rem;" onclick="clearLayerMask('${layer.id}')">remove mask</button>
+                       </div>`
+                    : `<div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+                         <button class="s-btn-ghost" style="font-size:0.68rem;" onclick="setLayerMaskFromAI('${layer.id}')" title="use the current AI selection or last brush mask">from AI / brush</button>
+                         ${brushMasks.map(m => `<button class="s-btn-ghost" style="font-size:0.68rem;" onclick="setLayerMaskFromMaskId('${layer.id}','${m.id}')" title="use mask: ${m.id}">from mask ${masks.indexOf(m)+1}</button>`).join('')}
+                       </div>
+                       <p class="s-note" style="margin:0.3rem 0 0;">run AI select on the area you want to show through (e.g. the sky), then click "from AI / brush".</p>`
                 }
             </div>
         </div>`).join('');
-    // Re-attach live opacity label update
-    list.querySelectorAll('input[type=range]').forEach((sl, i) => {
-        sl.addEventListener('input', () => {
-            const span = sl.nextElementSibling;
-            if (span) span.textContent = sl.value + '%';
-        });
-    });
 }
 
 function compositeOverlayLayers(canvas) {
@@ -4923,11 +4981,12 @@ function compositeOverlayLayers(canvas) {
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
     for (const layer of active) {
-        // Draw layer image scaled to cover the canvas
+        // Scale to cover, then apply user scale + offset
         const iw = layer.img.naturalWidth, ih = layer.img.naturalHeight;
-        const scale = Math.max(W / iw, H / ih);
-        const dw = iw * scale, dh = ih * scale;
-        const dx = (W - dw) / 2, dy = (H - dh) / 2;
+        const coverScale = Math.max(W / iw, H / ih) * (layer.scale / 100);
+        const dw = iw * coverScale, dh = ih * coverScale;
+        const dx = (W - dw) / 2 + (layer.offsetX / 100) * W;
+        const dy = (H - dh) / 2 + (layer.offsetY / 100) * H;
 
         // Build a temp canvas for this layer (respects mask)
         const tmp = mkCanvas(W, H);
