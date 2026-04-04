@@ -227,6 +227,16 @@
         #overlay-canvas.split-mode { pointer-events: auto; cursor: col-resize; }
         #overlay-canvas.mask-mode     { pointer-events: auto; cursor: default; }
         #overlay-canvas.ai-select-mode { pointer-events: auto; cursor: crosshair; }
+
+        /* Mini-map */
+        #minimap-wrap {
+            position: absolute; bottom: 0.85rem; right: 0.85rem;
+            width: 156px; border: 1px solid rgba(128,128,128,0.45);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+            pointer-events: none; z-index: 20; display: none;
+            background: #111;
+        }
+        #minimap { display: block; width: 100%; height: auto; }
         .ai-status { font-size: 0.65rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.55rem; min-height: 1.1em; }
         .ai-point-row { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
         #split-btn.active { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
@@ -399,10 +409,9 @@
             </details>
 
 
-            <details class="e-sec" open>
+            <details class="e-sec">
                 <summary>adjust <span class="sec-reset" onclick="event.stopPropagation();resetAdjust()">reset</span></summary>
                 <div class="e-body">
-                    <div class="s-row-btns" style="margin-bottom:0.9rem;"><button class="s-btn-ghost" onclick="autoAdjust()" title="auto tone and white balance from image statistics">auto</button></div>
                     <div class="adj-group">light</div>
                     <div class="s-row"><label>exposure <input type="number" class="val-input" id="v-exposure" value="0" min="-100" max="100" step="1" data-key="exposure" oninput="syncVal(this)"></label><input type="range" id="sl-exposure" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>contrast <input type="number" class="val-input" id="v-contrast" value="0" min="-100" max="100" step="1" data-key="contrast" oninput="syncVal(this)"></label><input type="range" id="sl-contrast" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -697,7 +706,8 @@
 
         </div>
 
-        <div class="e-main" id="e-main">
+        <div class="e-main" id="e-main" style="position:relative;">
+            <div id="minimap-wrap"><canvas id="minimap"></canvas></div>
             <div id="drop-hint" onclick="document.getElementById('open-input').click()">
                 <p>open an image to start editing</p>
                 <p>or drop it here</p>
@@ -751,6 +761,49 @@ function applyZoom() {
     if (btn) btn.style.display = zoom !== 1 ? '' : 'none';
     const em = document.getElementById('e-main');
     if (!panDragging) em.style.cursor = (zoom > 1 || spaceHeld) && !cropMode ? (spaceHeld ? 'grab' : 'grab') : '';
+    updateMinimap();
+}
+
+function updateMinimap() {
+    const mmWrap = document.getElementById('minimap-wrap');
+    const mm     = document.getElementById('minimap');
+    const out    = document.getElementById('output-canvas');
+    if (!mmWrap || !mm || !out || !out.width) { if (mmWrap) mmWrap.style.display = 'none'; return; }
+
+    if (zoom <= 1) { mmWrap.style.display = 'none'; return; }
+    mmWrap.style.display = '';
+
+    // Size minimap to match image aspect ratio (max 156px wide)
+    const aspect = out.height / out.width;
+    const mmW = 156, mmH = Math.round(mmW * aspect);
+    if (mm.width !== mmW || mm.height !== mmH) { mm.width = mmW; mm.height = mmH; }
+
+    const ctx = mm.getContext('2d');
+    ctx.clearRect(0, 0, mmW, mmH);
+    ctx.drawImage(out, 0, 0, mmW, mmH);
+
+    // Compute visible viewport rect in output-canvas pixel space.
+    // canvas-wrap is centered in e-main and scaled via CSS transform(panX,panY) scale(zoom).
+    // Natural canvas-wrap size equals output-canvas CSS display size.
+    const wrap = document.getElementById('canvas-wrap');
+    const main = document.getElementById('e-main');
+    const eW = main.clientWidth, eH = main.clientHeight;
+    const W0 = wrap.offsetWidth,  H0 = wrap.offsetHeight;
+
+    // Visible region in canvas-wrap natural coordinates
+    const vl = (-eW / 2 - panX) / zoom + W0 / 2;
+    const vr = ( eW / 2 - panX) / zoom + W0 / 2;
+    const vt = (-eH / 2 - panY) / zoom + H0 / 2;
+    const vb = ( eH / 2 - panY) / zoom + H0 / 2;
+
+    // Map to minimap pixels (canvas-wrap natural px === output-canvas px)
+    const sx = mmW / out.width, sy = mmH / out.height;
+    const rx = Math.max(0, vl * sx), ry = Math.max(0, vt * sy);
+    const rw = Math.min(mmW, vr * sx) - rx;
+    const rh = Math.min(mmH, vb * sy) - ry;
+
+    ctx.fillStyle   = 'rgba(255,255,255,0.1)';  ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';  ctx.lineWidth = 1.5; ctx.strokeRect(rx, ry, rw, rh);
 }
 function resetZoom() { zoom = 1; panX = 0; panY = 0; applyZoom(); }
 function zoomTo100() {
@@ -1316,6 +1369,7 @@ function render() {
     drawHistogram();
     drawCurve();
     if (!isAdjusting) updateDimsDisplay();
+    updateMinimap();
 }
 
 // ── WebGL pipeline ─────────────────────────────────────────────
