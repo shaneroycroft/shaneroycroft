@@ -198,6 +198,7 @@
         .mask-thumb { width: 28px; height: 22px; border-radius: 2px; border: 1px solid var(--border); flex-shrink: 0; background: #888; image-rendering: pixelated; }
         .mask-name { font-size: 0.7rem; color: var(--secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .mask-card.active .mask-name { color: var(--text); font-weight: 500; }
+        .mask-eye-btn:hover { color: var(--text) !important; opacity: 1 !important; }
         .mask-has-edits { width: 6px; height: 6px; border-radius: 50%; background: #4a9eff; flex-shrink: 0; }
         .mask-enable { accent-color: var(--text); cursor: pointer; flex-shrink: 0; }
         .mask-del-btn { background: none; border: none; cursor: pointer; font-size: 0.95rem; color: var(--secondary); padding: 0 0.1rem; line-height: 1; opacity: 0.55; flex-shrink: 0; }
@@ -884,7 +885,8 @@ let healMaskPixels = null; // Float32Array at workCanvas res — painted while t
 let masks          = [];
 let overlayLayers  = [];
 let _layerIdCtr    = 0;
-let activeMaskId   = null;
+let activeMaskId      = null;
+let maskOverlayVisible = true; // toggle with O key or eye button
 let maskDragHandle = null; // {handle:'p1'|'p2'|'center'|'n'|'s'|'e'|'w', id:string}
 let _maskIdCtr     = 0;
 
@@ -1147,6 +1149,18 @@ document.addEventListener('keydown', e => {
             e.preventDefault(); setTool(null); if (maskBrushMode) setMaskBrush(null); return;
         }
         if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); zoomTo100();     return; }
+
+        // ── Mask overlay toggle (Lightroom standard) ────────────
+        if (e.key === 'o' || e.key === 'O') {
+            e.preventDefault();
+            maskOverlayVisible = !maskOverlayVisible;
+            document.querySelectorAll('.mask-eye-btn').forEach(b => {
+                b.style.opacity = maskOverlayVisible ? '1' : '0.35';
+                b.title = maskOverlayVisible ? 'hide overlay (O)' : 'show overlay (O)';
+            });
+            renderOverlay();
+            return;
+        }
 
         // ── Before/after toggle ─────────────────────────────────
         if (e.key === 'y' || e.key === 'Y') {
@@ -4334,7 +4348,7 @@ function drawBrushMaskOverlay(ctx, mask) {
             dd[i]   = 220;
             dd[i+1] = 40;
             dd[i+2] = 40;
-            dd[i+3] = Math.round(v * 150);
+            dd[i+3] = Math.round(v * 110);
         }
     }
     ctx.putImageData(imgd, x1o, y1o);
@@ -4571,6 +4585,7 @@ function renderMaskList() {
                 <label style="font-size:0.65rem;color:var(--secondary);display:flex;align-items:center;gap:0.2rem;cursor:pointer;" onclick="event.stopPropagation()">
                     <input type="checkbox" id="mi-invert-${mask.id}" ${mask.inverted ? 'checked' : ''} onchange="_mInvert('${mask.id}',this.checked)"> inv
                 </label>
+                <button class="mask-eye-btn" onclick="event.stopPropagation();maskOverlayVisible=!maskOverlayVisible;document.querySelectorAll('.mask-eye-btn').forEach(b=>{b.style.opacity=maskOverlayVisible?'1':'0.35';b.title=maskOverlayVisible?'hide overlay (O)':'show overlay (O)'});renderOverlay()" title="hide overlay (O)" style="background:none;border:none;cursor:pointer;font-size:0.78rem;padding:0 0.1rem;color:var(--secondary);opacity:${maskOverlayVisible?'1':'0.35'}">◉</button>
                 <button class="mask-del-btn" onclick="event.stopPropagation();deleteMask('${mask.id}')" title="delete">×</button>
             </div>
             <div class="mask-body">
@@ -5436,17 +5451,17 @@ function drawMaskOverlay(ctx) {
             }
         } else if (mask.type === 'brush') {
             // Brush mask — show red tint overlay of painted area when active
-            if (isActive) {
+            if (isActive && maskOverlayVisible) {
                 drawBrushMaskOverlay(ctx, mask);
             }
         } else if (mask.type === 'luminosity') {
             // Luminosity mask — show red tint on pixels within range when active
-            if (isActive) {
+            if (isActive && maskOverlayVisible) {
                 drawLumMaskOverlay(ctx, mask);
             }
         } else if (mask.type === 'colour') {
             // Colour range mask — show red tint on matching pixels when active
-            if (isActive) {
+            if (isActive && maskOverlayVisible) {
                 drawColourMaskOverlay(ctx, mask);
             }
         }
@@ -6549,6 +6564,10 @@ renderPresetList();
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">W</span></span>
                 <span class="info-item-desc">toggle split compare</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">O</span></span>
+                <span class="info-item-desc">toggle mask overlay visibility — press to hide the red tint and see adjustments, press again to bring it back</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">Z</span></span>
