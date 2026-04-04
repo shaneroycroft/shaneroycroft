@@ -243,11 +243,16 @@
             background: #111;
         }
         #minimap { display: block; width: 100%; height: auto; }
-        .ai-status { font-size: 0.65rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.55rem; min-height: 1.1em; }
+        .ai-status { font-size: 0.65rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.4rem; min-height: 1.1em; }
+        .ai-status.working { animation: ai-pulse 1.3s ease-in-out infinite; }
+        @keyframes ai-pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+        #ai-progress-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 0.6rem; display: none; overflow: hidden; }
+        #ai-progress-bar  { height: 100%; background: var(--text); border-radius: 2px; width: 0%; transition: width 0.35s ease; }
         .ai-point-row { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
         #split-btn.active { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
         /* Zoom indicator in top bar */
         #zoom-ind { font-size: 0.68rem; color: var(--secondary); min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
+        #img-info  { font-size: 0.65rem; color: var(--secondary); white-space: nowrap; display: none; }
     </style>
 </head>
 <body>
@@ -278,6 +283,8 @@
         <button class="e-bar-btn" id="zoom-100-btn" onclick="zoomTo100()" style="display:none" title="toggle 1:1 pixel view (Z)">1:1</button>
         <button class="e-bar-btn" id="zoom-reset-btn" onclick="resetZoom()" style="display:none" title="fit to window">fit</button>
         <span class="e-bar-sep">|</span>
+        <span id="img-info"></span>
+        <span class="e-bar-sep" id="img-info-sep" style="display:none;">|</span>
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
         <span class="e-bar-sep">|</span>
@@ -322,7 +329,7 @@
             </div>
 
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-presets">
                 <summary>presets</summary>
                 <div class="e-body">
                     <div class="preset-group-label">built-in</div>
@@ -341,7 +348,7 @@
                     </div>
                 </div>
             </details>
-            <details class="e-sec">
+            <details class="e-sec" id="sec-crop">
                 <summary>crop</summary>
                 <div class="e-body">
                     <p class="s-note">drag on the image to select region. applied before adjustments.</p>
@@ -383,7 +390,7 @@
                 </div>
             </details>
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-transform">
                 <summary>transform</summary>
                 <div class="e-body">
                     <div class="transform-grid">
@@ -409,7 +416,7 @@
                     </div>
                 </div>
             </details>
-            <details class="e-sec">
+            <details class="e-sec" id="sec-lens">
                 <summary>lens corrections <span class="sec-reset" onclick="event.stopPropagation();['sl-distortion','sl-ca-red','sl-ca-blue'].forEach(id=>{const sl=document.getElementById(id),vi=document.getElementById(id.replace('sl-','v-'));if(sl){sl.value=0;if(vi)vi.value=0;}});scheduleRender()">reset</span></summary>
                 <div class="e-body">
                     <p class="s-note">correct barrel (+) or pincushion (−) distortion, and colour fringing from chromatic aberration.</p>
@@ -420,7 +427,7 @@
             </details>
 
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-adjust">
                 <summary>adjust <span class="sec-reset" onclick="event.stopPropagation();resetAdjust()">reset</span></summary>
                 <div class="e-body">
                     <div class="adj-group">light</div>
@@ -456,7 +463,7 @@
             </details>
 
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-curve">
                 <summary>curve <span class="sec-reset" onclick="event.stopPropagation();resetAllCurves()">reset</span></summary>
                 <div class="e-body">
                     <div class="hsl-tabs" style="margin-bottom:0.35rem;">
@@ -483,7 +490,7 @@
                 </div>
             </details>
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-hsl">
                 <summary>hsl <span class="sec-reset" onclick="event.stopPropagation();resetHSL()">reset</span></summary>
                 <div class="e-body">
                     <div class="hsl-tabs">
@@ -524,7 +531,7 @@
                 </div>
             </details>
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-colorgrade">
                 <summary>color grading <span class="sec-reset" onclick="event.stopPropagation();resetColorGrading()">reset</span></summary>
                 <div class="e-body">
                     <div class="cg-wheels">
@@ -545,7 +552,7 @@
                 </div>
             </details>
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-vignette">
                 <summary>vignette <span class="sec-reset" onclick="event.stopPropagation();['sl-vignette','sl-vig-feather','sl-vig-round'].forEach(id=>{const sl=document.getElementById(id),vi=document.getElementById(id.replace('sl-','v-'));if(sl){sl.value=sl.dataset.default||0;if(vi)vi.value=sl.value;}});scheduleRender()">reset</span></summary>
                 <div class="e-body">
                     <div class="s-row"><label>strength <input type="number" class="val-input" id="v-vignette" value="0" min="0" max="100" step="1" data-key="vignette" oninput="syncVal(this)"></label><input type="range" id="sl-vignette" min="0" max="100" value="0" data-default="0" oninput="onVignette()" ondblclick="resetSlider(this)"></div>
@@ -569,7 +576,7 @@
             </details>
 
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-tools">
                 <summary>dodge, burn &amp; clone</summary>
                 <div class="e-body">
                     <p class="s-note">paint directly on the image to locally lighten (dodge), darken (burn), restore (erase), copy pixels (clone — <strong>alt+click</strong> to set source), or remove distractions (heal — paint area then release).</p>
@@ -622,19 +629,20 @@
                     <!-- AI select panel -->
                     <div id="ai-select-panel" style="display:none;margin-bottom:0.75rem;">
                         <div id="ai-status" class="ai-status"></div>
-                        <div class="ai-point-row">
+                        <div id="ai-progress-wrap"><div id="ai-progress-bar"></div></div>
+                        <div id="ai-action-row" class="ai-point-row" style="display:none;">
                             <button class="s-btn" onclick="confirmAISelect()" id="ai-confirm-btn" disabled>use selection</button>
-                            <button class="s-btn-ghost" onclick="undoLastAIPoint()" id="ai-undo-btn" disabled>undo point</button>
+                            <button class="s-btn-ghost" onclick="undoLastAIPoint()" id="ai-undo-btn" disabled>undo</button>
                             <button class="s-btn-ghost" onclick="clearAIPoints()">clear</button>
-                            <button class="s-btn-ghost" onclick="cancelAISelect()">cancel</button>
                         </div>
-                        <p class="s-note" style="margin-bottom:0;">click = add &nbsp;·&nbsp; shift+click = exclude &nbsp;·&nbsp; backspace = undo</p>
+                        <button class="s-btn-ghost" onclick="cancelAISelect()" style="margin-bottom:0.4rem;">cancel</button>
+                        <p class="s-note" id="ai-hint-note" style="margin-bottom:0;display:none;">click = add &nbsp;·&nbsp; shift+click = exclude &nbsp;·&nbsp; backspace = undo</p>
                     </div>
                     <div class="mask-list" id="mask-list"></div>
                 </div>
             </details>
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-border">
                 <summary>border</summary>
                 <div class="e-body">
                     <div class="lock-row">
@@ -647,7 +655,7 @@
                 </div>
             </details>
 
-            <details class="e-sec">
+            <details class="e-sec" id="sec-label">
                 <summary>label</summary>
                 <div class="e-body">
                     <div class="lock-row" style="margin-bottom:0.75rem;">
@@ -2659,10 +2667,14 @@ function drawHistogram() {
     const rl=toLog(r),gl=toLog(g),bl2=toLog(b),ll=toLog(lm);
     const maxV = Math.max(...ll,...rl,...gl,...bl2,1);
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle='#f4f4f4'; ctx.fillRect(0,0,W,H);
+    // Use theme-aware background instead of hardcoded light grey
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    ctx.fillStyle = isDark ? '#1a1a1a' : '#f4f4f4';
+    ctx.fillRect(0,0,W,H);
+    const lumCol = isDark ? 'rgba(200,200,200,0.5)' : 'rgba(30,30,30,0.45)';
     const draw=(data,col)=>{ ctx.fillStyle=col; data.forEach((v,i)=>{ const bh=Math.round((v/maxV)*H); ctx.fillRect(i,H-bh,1,bh); }); };
     draw(rl,'rgba(220,60,60,0.6)'); draw(gl,'rgba(40,160,40,0.6)');
-    draw(bl2,'rgba(60,80,220,0.6)'); draw(ll,'rgba(30,30,30,0.45)');
+    draw(bl2,'rgba(60,80,220,0.6)'); draw(ll,lumCol);
     // Clipping indicators: red stripe on right if highlights blown, blue on left if blacks clipped
     if (r[BINS-1]>0 || g[BINS-1]>0 || b[BINS-1]>0) {
         ctx.fillStyle='rgba(220,40,40,0.9)'; ctx.fillRect(W-3,0,3,H);
@@ -2670,7 +2682,8 @@ function drawHistogram() {
     if (r[0]>0 || g[0]>0 || b[0]>0) {
         ctx.fillStyle='rgba(50,100,230,0.9)'; ctx.fillRect(0,0,3,H);
     }
-    ctx.strokeStyle='rgba(0,0,0,0.1)'; ctx.lineWidth=1; ctx.strokeRect(0.5,0.5,W-1,H-1);
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+    ctx.lineWidth=1; ctx.strokeRect(0.5,0.5,W-1,H-1);
 }
 
 // ── Overlay ───────────────────────────────────────────────────
@@ -3617,6 +3630,30 @@ function resetLM() {
 // Initialise fill on load
 document.addEventListener('DOMContentLoaded', updateLMRangeFill);
 
+// ── Sidebar accordion state persistence ──────────────────────
+(function() {
+    const KEY = 'sr_sec_open';
+    function _saveAccordion() {
+        const open = [];
+        document.querySelectorAll('.e-sec[id]').forEach(el => { if (el.open) open.push(el.id); });
+        try { localStorage.setItem(KEY, JSON.stringify(open)); } catch(e) {}
+    }
+    function _restoreAccordion() {
+        let open;
+        try { open = JSON.parse(localStorage.getItem(KEY)); } catch(e) {}
+        if (!Array.isArray(open)) return; // no saved state — leave defaults
+        document.querySelectorAll('.e-sec[id]').forEach(el => {
+            el.open = open.includes(el.id);
+        });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        _restoreAccordion();
+        document.querySelectorAll('.e-sec[id]').forEach(el => {
+            el.addEventListener('toggle', _saveAccordion);
+        });
+    });
+})();
+
 // ── White Balance Eyedropper ───────────────────────────────────
 let wbEyedropperActive = false;
 function toggleWBEyedropper() {
@@ -3675,8 +3712,19 @@ function onLabelSlider(id, vid) {
 // ── Dimensions display ────────────────────────────────────────
 function updateDimsDisplay() {
     const out = document.getElementById('output-canvas');
-    const el  = document.getElementById('img-dims');
-    if (el && out && out.width) el.textContent = out.width + ' × ' + out.height + ' px';
+    if (!out || !out.width) return;
+    const W = out.width, H = out.height;
+    const mp = (W * H / 1e6).toFixed(1);
+    const dimText = W + ' × ' + H;
+    const el = document.getElementById('img-dims');
+    if (el) el.textContent = dimText + ' px';
+    const info = document.getElementById('img-info');
+    const sep  = document.getElementById('img-info-sep');
+    if (info) {
+        info.textContent = dimText + ' · ' + mp + ' MP';
+        info.style.display = '';
+    }
+    if (sep) sep.style.display = '';
 }
 
 // ── EXIF passthrough helpers ───────────────────────────────────
@@ -3984,6 +4032,16 @@ function downloadImage() {
         out.style.width = ''; out.style.height = '';
         render();
     }
+    const btn = document.getElementById('dl-btn');
+    if (btn) { btn.textContent = 'saving…'; btn.disabled = true; }
+    // Defer actual export one frame so the button label repaints first
+    setTimeout(() => {
+        try { _doDownload(); } finally {
+            if (btn) { btn.textContent = 'download'; btn.disabled = false; }
+        }
+    }, 0);
+}
+function _doDownload() {
     const fmt        = document.getElementById('dl-format').value;
     const quality    = parseInt(document.getElementById('dl-quality').value) / 100;
     const scale      = _getExportScale();
@@ -4670,11 +4728,20 @@ let aiSelectActive = false;
 let aiPoints       = [];   // [{x, y, label}] in workCanvas pixel coords
 let _aiMaskPixels  = null; // Float32Array preview, workCanvas dims
 
-function setAIStatus(msg, isErr) {
+function setAIStatus(msg, isErr, isWorking) {
     const el = document.getElementById('ai-status');
     if (!el) return;
     el.textContent = msg;
     el.style.color = isErr ? '#c0392b' : 'var(--secondary)';
+    el.classList.toggle('working', !!isWorking && !isErr);
+}
+function setAIProgress(pct) {
+    const wrap = document.getElementById('ai-progress-wrap');
+    const bar  = document.getElementById('ai-progress-bar');
+    if (!wrap || !bar) return;
+    if (pct < 0) { wrap.style.display = 'none'; bar.style.width = '0%'; return; }
+    wrap.style.display = '';
+    bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
 }
 
 async function startAISelect() {
@@ -4686,14 +4753,28 @@ async function startAISelect() {
     document.getElementById('ai-select-btn').style.display = 'none';
     document.getElementById('ai-select-note').style.display = 'none';
     document.getElementById('ai-confirm-btn').disabled = true;
-    ovEl.classList.add('ai-select-mode');
-    setAIStatus(_samModel ? 'encoding image…' : 'downloading model (~94mb) — only needed once…');
+    document.getElementById('ai-action-row').style.display = 'none';
+    document.getElementById('ai-hint-note').style.display = 'none';
+    ovEl.classList.remove('ai-select-mode'); // clicks disabled until ready
+    const firstLoad = !_samModel;
+    if (firstLoad) {
+        setAIStatus('downloading AI model — first use only (~94mb)…', false, true);
+        setAIProgress(0);
+    } else {
+        setAIStatus('preparing image…', false, true);
+    }
     renderOverlay();
     try {
         await _loadSAM();
+        setAIProgress(-1);
         await _encodeSAMImage();
-        setAIStatus('click to select  ·  shift+click to exclude');
+        // Ready — enable image clicks and show controls
+        ovEl.classList.add('ai-select-mode');
+        document.getElementById('ai-action-row').style.display = '';
+        document.getElementById('ai-hint-note').style.display = '';
+        setAIStatus('click an object to select it');
     } catch (err) {
+        setAIProgress(-1);
         setAIStatus('failed: ' + (err.message || err), true);
         console.error('[SAM]', err);
     }
@@ -4707,6 +4788,7 @@ function cancelAISelect() {
     document.getElementById('ai-select-btn').style.display = '';
     document.getElementById('ai-select-note').style.display = '';
     document.getElementById('ai-undo-btn').disabled = true;
+    setAIProgress(-1);
     ovEl.classList.remove('ai-select-mode');
     renderOverlay();
 }
@@ -4758,8 +4840,23 @@ async function _loadSAM() {
     const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js');
     // Proxy WASM inference to a Web Worker so the main thread never freezes
     mod.env.backends.onnx.wasm.proxy = true;
-    _samProcessor = await mod.AutoProcessor.from_pretrained('Xenova/sam-vit-base');
-    _samModel     = await mod.SamModel.from_pretrained('Xenova/sam-vit-base', { dtype: 'q8' });
+    // Track per-file download progress and show aggregate percentage
+    const _dlProgress = {};
+    const onProgress = (p) => {
+        if (p.status === 'progress' && (p.file || p.name)) {
+            _dlProgress[p.file || p.name] = p.progress || 0;
+            const vals = Object.values(_dlProgress);
+            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            setAIStatus(`downloading model… ${Math.round(avg)}%`, false, true);
+            setAIProgress(avg);
+        } else if (p.status === 'initiate') {
+            setAIStatus('downloading model…', false, true);
+        } else if (p.status === 'ready') {
+            setAIStatus('loading model…', false, true);
+        }
+    };
+    _samProcessor = await mod.AutoProcessor.from_pretrained('Xenova/sam-vit-base', { progress_callback: onProgress });
+    _samModel     = await mod.SamModel.from_pretrained('Xenova/sam-vit-base', { dtype: 'q8', progress_callback: onProgress });
     _samModule_RawImage = mod.RawImage;
 }
 
@@ -4783,7 +4880,7 @@ async function _encodeSAMImage() {
     _samEncW = encCanvas.width;
     _samEncH = encCanvas.height;
 
-    setAIStatus('analysing image… (may take a few seconds)');
+    setAIStatus('preparing image…', false, true);
     await new Promise(r => setTimeout(r, 30)); // yield so status text repaints before WASM blocks
 
     _samRawImage   = await _samModule_RawImage.fromCanvas(encCanvas);
@@ -4799,7 +4896,7 @@ async function _runSAMDecode() {
         renderOverlay();
         return;
     }
-    setAIStatus('selecting…');
+    setAIStatus('selecting…', false, true);
     try {
         // Scale point coords from workCanvas space → encoded canvas space
         const scaleX = _samEncW / workCanvas.width;
@@ -4844,7 +4941,7 @@ async function _runSAMDecode() {
             }
         }
         document.getElementById('ai-confirm-btn').disabled = false;
-        setAIStatus('click to refine  ·  shift+click to exclude  ·  confirm when ready');
+        setAIStatus('click to refine  ·  shift+click to exclude  ·  confirm when ready', false, false);
     } catch (err) {
         setAIStatus('inference error: ' + (err.message || err), true);
         console.error('[SAM decode]', err);
