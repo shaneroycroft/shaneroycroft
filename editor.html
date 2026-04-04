@@ -225,7 +225,10 @@
         #overlay-canvas.brush-mode { pointer-events: auto; cursor: none; }
         #overlay-canvas.persp-mode { pointer-events: auto; cursor: default; }
         #overlay-canvas.split-mode { pointer-events: auto; cursor: col-resize; }
-        #overlay-canvas.mask-mode  { pointer-events: auto; cursor: default; }
+        #overlay-canvas.mask-mode     { pointer-events: auto; cursor: default; }
+        #overlay-canvas.ai-select-mode { pointer-events: auto; cursor: crosshair; }
+        .ai-status { font-size: 0.65rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.55rem; min-height: 1.1em; }
+        .ai-point-row { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
         #split-btn.active { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
         /* Zoom indicator in top bar */
         #zoom-ind { font-size: 0.68rem; color: var(--secondary); min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -581,6 +584,17 @@
                         <button class="s-btn-ghost" onclick="addMask('brush')">+ brush</button>
                         <button class="s-btn-ghost" onclick="addMask('luminosity')">+ luma</button>
                         <button class="s-btn-ghost" onclick="addMask('colour')">+ colour</button>
+                        <button class="s-btn" id="ai-select-btn" onclick="startAISelect()">+ ai select</button>
+                    </div>
+                    <!-- AI select panel -->
+                    <div id="ai-select-panel" style="display:none;margin-bottom:0.75rem;">
+                        <div id="ai-status" class="ai-status"></div>
+                        <div class="ai-point-row">
+                            <button class="s-btn" onclick="confirmAISelect()" id="ai-confirm-btn" disabled>use selection</button>
+                            <button class="s-btn-ghost" onclick="clearAIPoints()">clear points</button>
+                            <button class="s-btn-ghost" onclick="cancelAISelect()">cancel</button>
+                        </div>
+                        <p class="s-note" style="margin-bottom:0;">click = add to selection &nbsp;·&nbsp; shift+click = exclude</p>
                     </div>
                     <div class="mask-list" id="mask-list"></div>
                     <div id="mask-adj-panel" style="display:none">
@@ -2567,7 +2581,48 @@ function renderOverlay() {
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
     if (activeTool === 'heal' && healMaskPixels) drawHealOverlay(ctx);
     if ((activeTool || maskBrushMode) && brushCursorPos) drawBrushCursor(ctx);
+    if (aiSelectActive) drawAISelectOverlay(ctx);
     drawMaskOverlay(ctx);
+}
+
+function drawAISelectOverlay(ctx) {
+    if (!imageBounds) return;
+    const x1o = Math.round(imageBounds.x1), y1o = Math.round(imageBounds.y1);
+    const IW  = Math.round(imageBounds.x2 - imageBounds.x1);
+    const IH  = Math.round(imageBounds.y2 - imageBounds.y1);
+    // Blue-tint mask preview
+    if (_aiMaskPixels && IW > 0 && IH > 0) {
+        const imgd = ctx.createImageData(IW, IH);
+        const dd   = imgd.data;
+        const mW   = workCanvas.width, mH = workCanvas.height;
+        for (let sy = 0; sy < IH; sy++) {
+            const my = Math.round(sy / IH * (mH - 1));
+            const rowBase = my * mW;
+            for (let sx = 0; sx < IW; sx++) {
+                const mx = Math.round(sx / IW * (mW - 1));
+                const v  = _aiMaskPixels[rowBase + mx];
+                const i  = (sy * IW + sx) * 4;
+                dd[i] = 80; dd[i+1] = 160; dd[i+2] = 255;
+                dd[i+3] = Math.round(v * 145);
+            }
+        }
+        ctx.putImageData(imgd, x1o, y1o);
+    }
+    // Point markers — green (+) for foreground, red (−) for background
+    const scX = IW / workCanvas.width, scY = IH / workCanvas.height;
+    for (const pt of aiPoints) {
+        const cx = x1o + pt.x * scX, cy = y1o + pt.y * scY;
+        ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+        ctx.fillStyle = pt.label ? 'rgba(60,210,100,0.92)' : 'rgba(220,55,55,0.92)';
+        ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        // + or − symbol
+        ctx.beginPath(); ctx.moveTo(cx - 4.5, cy); ctx.lineTo(cx + 4.5, cy);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        if (pt.label) {
+            ctx.beginPath(); ctx.moveTo(cx, cy - 4.5); ctx.lineTo(cx, cy + 4.5); ctx.stroke();
+        }
+    }
 }
 
 function drawClippingZebra(ctx, W, H) {
@@ -2911,6 +2966,16 @@ function ovCoords(e) {
 
 ovEl.addEventListener('mousedown', e => {
     if (spaceHeld) return; // Space = pan override; let eMain handler take it
+    // AI select: place foreground (click) or background (shift+click) point
+    if (aiSelectActive && e.button === 0) {
+        e.preventDefault();
+        const oc  = clientToOverlayCanvas(e.clientX, e.clientY);
+        const pos = overlayToWorkCanvas(oc.x, oc.y);
+        if (!pos) return;
+        aiPoints.push({ x: Math.round(pos.x), y: Math.round(pos.y), label: e.shiftKey ? 0 : 1 });
+        _runSAMDecode();
+        return;
+    }
     if (splitMode && e.button === 0) {
         const {x} = ovCoords(e);
         if (Math.abs(x - splitX * ovEl.width) < 28) { splitDragging = true; e.preventDefault(); }
@@ -4255,6 +4320,153 @@ function setColourHue(hue) {
     beginAdjust();
     renderOverlay();
 }
+
+// ── AI Select (SAM via Transformers.js) ──────────────────────────────────────
+let _samProcessor       = null;
+let _samModel           = null;
+let _samModule_RawImage = null; // RawImage class from the lazy-loaded module
+let _samRawImage        = null; // cached RawImage for the current workCanvas
+let _samInputCache      = null; // cached processor inputs (sizes etc.)
+let _samEmbeddings      = null; // cached image embeddings
+let _samEmbedKey        = null; // invalidation key
+let aiSelectActive = false;
+let aiPoints       = [];   // [{x, y, label}] in workCanvas pixel coords
+let _aiMaskPixels  = null; // Float32Array preview, workCanvas dims
+
+function setAIStatus(msg, isErr) {
+    const el = document.getElementById('ai-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isErr ? '#c0392b' : 'var(--secondary)';
+}
+
+async function startAISelect() {
+    if (!workCanvas) return;
+    aiSelectActive = true;
+    aiPoints = [];
+    _aiMaskPixels = null;
+    document.getElementById('ai-select-panel').style.display = '';
+    document.getElementById('ai-select-btn').style.display = 'none';
+    document.getElementById('ai-confirm-btn').disabled = true;
+    ovEl.classList.add('ai-select-mode');
+    setAIStatus('loading model…');
+    renderOverlay();
+    try {
+        await _loadSAM();
+        await _encodeSAMImage();
+        setAIStatus('click to select  ·  shift+click to exclude');
+    } catch (err) {
+        setAIStatus('failed: ' + (err.message || err), true);
+        console.error('[SAM]', err);
+    }
+}
+
+function cancelAISelect() {
+    aiSelectActive = false;
+    aiPoints = [];
+    _aiMaskPixels = null;
+    document.getElementById('ai-select-panel').style.display = 'none';
+    document.getElementById('ai-select-btn').style.display = '';
+    ovEl.classList.remove('ai-select-mode');
+    renderOverlay();
+}
+
+function clearAIPoints() {
+    aiPoints = [];
+    _aiMaskPixels = null;
+    document.getElementById('ai-confirm-btn').disabled = true;
+    setAIStatus('click to select  ·  shift+click to exclude');
+    renderOverlay();
+}
+
+function confirmAISelect() {
+    if (!_aiMaskPixels || !workCanvas) return;
+    const id = 'mask_' + (++_maskIdCtr);
+    const m = {
+        id, type: 'brush', enabled: true, inverted: false, feather: 0,
+        x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,
+        cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,
+        lumLo: 0, lumHi: 100,
+        width: workCanvas.width, height: workCanvas.height,
+        pixels: new Float32Array(_aiMaskPixels),
+        adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
+    };
+    masks.push(m);
+    const sec = document.getElementById('masks-sec');
+    if (sec && !sec.open) sec.open = true;
+    selectMask(id);
+    cancelAISelect();
+    scheduleRender();
+}
+
+async function _loadSAM() {
+    if (_samModel) return;
+    setAIStatus('loading model… (first load ~94 mb, cached after)');
+    const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js');
+    _samProcessor = await mod.AutoProcessor.from_pretrained('Xenova/sam-vit-base');
+    _samModel     = await mod.SamModel.from_pretrained('Xenova/sam-vit-base', { dtype: 'q8' });
+    // Store RawImage for later use
+    _samModule_RawImage = mod.RawImage;
+}
+
+async function _encodeSAMImage() {
+    // Cheap key: dimensions + a tiny jpeg hash
+    const key = workCanvas.width + 'x' + workCanvas.height + '_' +
+                workCanvas.toDataURL('image/jpeg', 0.05).slice(-32);
+    if (_samEmbedKey === key && _samEmbeddings) return;
+    setAIStatus('encoding image…');
+    _samRawImage   = await _samModule_RawImage.fromCanvas(workCanvas);
+    _samInputCache = await _samProcessor(_samRawImage);
+    const { image_embeddings } = await _samModel.get_image_embeddings(_samInputCache);
+    _samEmbeddings = image_embeddings;
+    _samEmbedKey   = key;
+}
+
+async function _runSAMDecode() {
+    if (!_samEmbeddings || !aiPoints.length) {
+        _aiMaskPixels = null;
+        renderOverlay();
+        return;
+    }
+    setAIStatus('selecting…');
+    try {
+        // Process image again with point prompts (lightweight — just normalises coords)
+        const inputsWithPts = await _samProcessor(_samRawImage, {
+            input_points: [[ aiPoints.map(p => [p.x, p.y]) ]],
+            input_labels: [[ aiPoints.map(p => p.label)    ]],
+        });
+        const out = await _samModel({
+            ..._samInputCache,
+            image_embeddings: _samEmbeddings,
+            input_points: inputsWithPts.input_points,
+            input_labels: inputsWithPts.input_labels,
+        });
+        // Pick best mask by IOU score
+        const scores  = Array.from(out.iou_predictions.data);
+        const bestIdx = scores.indexOf(Math.max(...scores));
+        // Upsample masks to original image size
+        const [maskTensor] = await _samProcessor.post_process_masks(
+            out.pred_masks,
+            _samInputCache.original_sizes,
+            _samInputCache.reshaped_input_sizes,
+        );
+        // maskTensor.data is flat [num_masks × H × W], boolean (0/1)
+        const W = workCanvas.width, H = workCanvas.height;
+        const stride = W * H;
+        const raw = maskTensor.data;
+        _aiMaskPixels = new Float32Array(stride);
+        for (let i = 0; i < stride; i++) _aiMaskPixels[i] = raw[bestIdx * stride + i] ? 1.0 : 0.0;
+        document.getElementById('ai-confirm-btn').disabled = false;
+        setAIStatus('click to refine  ·  shift+click to exclude  ·  confirm when ready');
+    } catch (err) {
+        setAIStatus('inference error: ' + (err.message || err), true);
+        console.error('[SAM decode]', err);
+    }
+    renderOverlay();
+}
+
+// Normalise: invalidate SAM embedding when workCanvas changes (crop/transform committed)
+const _samOrigPushHistory = typeof pushHistory === 'function' ? pushHistory : null;
 
 // Normalized image coords ↔ overlay canvas pixel coords
 function maskN2O(nx, ny) {
