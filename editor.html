@@ -391,6 +391,9 @@
                         <input type="range" id="sl-straighten" min="-15" max="15" value="0" step="0.5" data-default="0" oninput="onStraighten()" ondblclick="resetSlider(this)">
                     </div>
                     <div style="margin-bottom:0.5rem;">
+                        <button class="s-btn-ghost" id="horiz-draw-btn" onclick="startHorizDraw()" title="click two points along a horizon or vertical line to auto-straighten">draw horizon</button>
+                    </div>
+                    <div style="margin-bottom:0.5rem;">
                         <button class="s-link" id="persp-btn" onclick="togglePerspective()">perspective</button>
                     </div>
                     <p class="s-note">drag the 4 corner handles to correct converging lines — pull corners outside the image to fix buildings. commit bakes the transform.</p>
@@ -603,10 +606,11 @@
                         <div id="ai-status" class="ai-status"></div>
                         <div class="ai-point-row">
                             <button class="s-btn" onclick="confirmAISelect()" id="ai-confirm-btn" disabled>use selection</button>
-                            <button class="s-btn-ghost" onclick="clearAIPoints()">clear points</button>
+                            <button class="s-btn-ghost" onclick="undoLastAIPoint()" id="ai-undo-btn" disabled>undo point</button>
+                            <button class="s-btn-ghost" onclick="clearAIPoints()">clear</button>
                             <button class="s-btn-ghost" onclick="cancelAISelect()">cancel</button>
                         </div>
-                        <p class="s-note" style="margin-bottom:0;">click = add to selection &nbsp;·&nbsp; shift+click = exclude</p>
+                        <p class="s-note" style="margin-bottom:0;">click = add &nbsp;·&nbsp; shift+click = exclude &nbsp;·&nbsp; backspace = undo</p>
                     </div>
                     <div class="mask-list" id="mask-list"></div>
                     <div id="mask-adj-panel" style="display:none">
@@ -876,6 +880,7 @@ let dragOrigin = null;
 
 // Transform
 let straightenAngle = 0;
+let horizDrawMode = false, horizP1 = null;
 let showingOriginal = false;
 let compareMode = false; // sticky before/after toggle (\)
 
@@ -1166,9 +1171,14 @@ document.addEventListener('keydown', e => {
 
     // ── Tool shortcuts ──────────────────────────────────────────
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === 'Backspace' && aiSelectActive) { e.preventDefault(); undoLastAIPoint(); return; }
         if (e.key === 'd' || e.key === 'D') { e.preventDefault(); setTool('dodge'); return; }
         if (e.key === 'b' || e.key === 'B') { e.preventDefault(); setTool('burn');  return; }
-        if (e.key === 'Escape')             { e.preventDefault(); setTool(null); if (maskBrushMode) setMaskBrush(null); return; }
+        if (e.key === 'Escape') {
+            if (aiSelectActive)  { e.preventDefault(); cancelAISelect();  return; }
+            if (horizDrawMode)   { e.preventDefault(); cancelHorizDraw(); return; }
+            e.preventDefault(); setTool(null); if (maskBrushMode) setMaskBrush(null); return;
+        }
         if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); zoomTo100();     return; }
 
         // ── Before/after toggle ─────────────────────────────────
@@ -2709,12 +2719,28 @@ function renderOverlay() {
     if (straightenAngle !== 0) drawStraightenGrid(ctx, ov.width, ov.height);
     if (perspCorners) drawPerspHandles(ctx, ov.width, ov.height);
     if (cropMode && cropBox) drawCropUI(ctx, ov.width, ov.height);
+    if (horizDrawMode && horizP1) drawHorizP1(ctx);
     if (activeTool === 'heal' && healMaskPixels) drawHealOverlay(ctx);
     if ((activeTool || maskBrushMode) && brushCursorPos) drawBrushCursor(ctx);
     if (aiSelectActive) drawAISelectOverlay(ctx);
     drawMaskOverlay(ctx);
 }
 
+function drawHorizP1(ctx) {
+    if (!horizP1 || !imageBounds || !workCanvas) return;
+    const IW = Math.round(imageBounds.x2 - imageBounds.x1);
+    const IH = Math.round(imageBounds.y2 - imageBounds.y1);
+    const sx = IW / workCanvas.width, sy = IH / workCanvas.height;
+    const ox = Math.round(imageBounds.x1), oy = Math.round(imageBounds.y1);
+    const px = ox + horizP1.x * sx, py = oy + horizP1.y * sy;
+    const r = 7;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px - r - 4, py); ctx.lineTo(px + r + 4, py); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px, py - r - 4); ctx.lineTo(px, py + r + 4); ctx.stroke();
+}
 function drawAISelectOverlay(ctx) {
     if (!imageBounds) return;
     const x1o = Math.round(imageBounds.x1), y1o = Math.round(imageBounds.y1);
@@ -3109,6 +3135,32 @@ function ovCoords(e) {
 
 ovEl.addEventListener('mousedown', e => {
     if (spaceHeld) return; // Space = pan override; let eMain handler take it
+    // Horizon draw: two clicks define a line, auto-compute straighten angle
+    if (horizDrawMode && e.button === 0) {
+        e.preventDefault();
+        const oc  = clientToOverlayCanvas(e.clientX, e.clientY);
+        const pos = overlayToWorkCanvas(oc.x, oc.y);
+        if (!pos) return;
+        if (!horizP1) {
+            horizP1 = pos;
+            document.getElementById('horiz-draw-btn').textContent = 'click point 2…';
+            renderOverlay();
+        } else {
+            const dx = pos.x - horizP1.x, dy = pos.y - horizP1.y;
+            let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            // Fold into -45..45 so we can handle both near-horizontal and near-vertical refs
+            if (angle >  45) angle -= 90;
+            if (angle < -45) angle += 90;
+            angle = Math.max(-15, Math.min(15, -angle));
+            angle = Math.round(angle * 2) / 2; // snap to 0.5° steps
+            straightenAngle = angle;
+            document.getElementById('sl-straighten').value = angle;
+            document.getElementById('v-straighten').value  = angle;
+            cancelHorizDraw();
+            scheduleRender();
+        }
+        return;
+    }
     // AI select: place foreground (click) or background (shift+click) point
     if (aiSelectActive && e.button === 0) {
         e.preventDefault();
@@ -3116,6 +3168,7 @@ ovEl.addEventListener('mousedown', e => {
         const pos = overlayToWorkCanvas(oc.x, oc.y);
         if (!pos) return;
         aiPoints.push({ x: Math.round(pos.x), y: Math.round(pos.y), label: e.shiftKey ? 0 : 1 });
+        document.getElementById('ai-undo-btn').disabled = false;
         _runSAMDecode();
         return;
     }
@@ -3306,6 +3359,18 @@ ovEl.addEventListener('mouseleave', () => {
 
 // Touch support for brush tools and perspective handles
 ovEl.addEventListener('touchstart', e => {
+    // AI select: single-finger tap places a foreground point
+    if (aiSelectActive && e.touches.length === 1) {
+        e.preventDefault();
+        const t = e.touches[0];
+        const oc  = clientToOverlayCanvas(t.clientX, t.clientY);
+        const pos = overlayToWorkCanvas(oc.x, oc.y);
+        if (!pos) return;
+        aiPoints.push({ x: Math.round(pos.x), y: Math.round(pos.y), label: 1 });
+        document.getElementById('ai-undo-btn').disabled = false;
+        _runSAMDecode();
+        return;
+    }
     if (perspCorners && !activeTool && !cropMode && e.touches.length === 1) {
         const t = e.touches[0];
         const rect = ovEl.getBoundingClientRect();
@@ -3488,6 +3553,20 @@ function onStraighten() {
     document.getElementById('v-straighten').value=straightenAngle;
     renderOverlay();
     beginAdjust();
+}
+function startHorizDraw() {
+    if (!workCanvas) return;
+    horizDrawMode = true; horizP1 = null;
+    document.getElementById('horiz-draw-btn').textContent = 'click point 1…';
+    document.getElementById('horiz-draw-btn').classList.add('active');
+    document.getElementById('overlay-canvas').style.cursor = 'crosshair';
+}
+function cancelHorizDraw() {
+    horizDrawMode = false; horizP1 = null;
+    const btn = document.getElementById('horiz-draw-btn');
+    if (btn) { btn.textContent = 'draw horizon'; btn.classList.remove('active'); }
+    document.getElementById('overlay-canvas').style.cursor = '';
+    renderOverlay();
 }
 function onVignette() {
     document.getElementById('v-vignette').value=document.getElementById('sl-vignette').value;
@@ -4528,14 +4607,29 @@ function cancelAISelect() {
     document.getElementById('ai-select-panel').style.display = 'none';
     document.getElementById('ai-select-btn').style.display = '';
     document.getElementById('ai-select-note').style.display = '';
+    document.getElementById('ai-undo-btn').disabled = true;
     ovEl.classList.remove('ai-select-mode');
     renderOverlay();
 }
 
+function undoLastAIPoint() {
+    if (!aiPoints.length) return;
+    aiPoints.pop();
+    document.getElementById('ai-undo-btn').disabled = aiPoints.length === 0;
+    if (!aiPoints.length) {
+        _aiMaskPixels = null;
+        document.getElementById('ai-confirm-btn').disabled = true;
+        setAIStatus('click to select  ·  shift+click to exclude');
+        renderOverlay();
+    } else {
+        _runSAMDecode();
+    }
+}
 function clearAIPoints() {
     aiPoints = [];
     _aiMaskPixels = null;
     document.getElementById('ai-confirm-btn').disabled = true;
+    document.getElementById('ai-undo-btn').disabled = true;
     setAIStatus('click to select  ·  shift+click to exclude');
     renderOverlay();
 }
