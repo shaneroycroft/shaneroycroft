@@ -1053,24 +1053,105 @@ window.addEventListener('beforeunload', e => {
 });
 
 // ── History ───────────────────────────────────────────────────
+// Capture all adjustment slider/curve/HSL/CG state into a plain object
+function _captureAdjState() {
+    const sliders = {};
+    ADJUST_KEYS.forEach(k => { const sl = document.getElementById('sl-'+k); if (sl) sliders[k] = parseFloat(sl.value); });
+    ['vignette','vig-feather','vig-round'].forEach(k => { const sl = document.getElementById('sl-'+k); if (sl) sliders[k] = parseFloat(sl.value); });
+    return {
+        sliders,
+        curves: {
+            composite: JSON.parse(JSON.stringify(curvePoints)),
+            r: JSON.parse(JSON.stringify(curvePointsR)),
+            g: JSON.parse(JSON.stringify(curvePointsG)),
+            b: JSON.parse(JSON.stringify(curvePointsB)),
+        },
+        hsl: { h: Array.from(hslH), s: Array.from(hslS), l: Array.from(hslL) },
+        cg: { shadowHue, shadowStr, highlightHue, highlightStr, midHue, midStr, splitBalance, splitActive },
+    };
+}
+// Restore all adjustment state from a snapshot
+function _restoreAdjState(snap) {
+    if (!snap) return;
+    if (snap.sliders) {
+        Object.entries(snap.sliders).forEach(([k, v]) => {
+            const sl = document.getElementById('sl-'+k); if (!sl) return;
+            sl.value = v;
+            const vi = document.getElementById('v-'+k); if (vi) vi.value = v;
+        });
+    }
+    if (snap.curves) {
+        curvePoints  = JSON.parse(JSON.stringify(snap.curves.composite));
+        curvePointsR = JSON.parse(JSON.stringify(snap.curves.r));
+        curvePointsG = JSON.parse(JSON.stringify(snap.curves.g));
+        curvePointsB = JSON.parse(JSON.stringify(snap.curves.b));
+        drawCurve();
+    }
+    if (snap.hsl) {
+        snap.hsl.h.forEach((v,i) => { hslH[i]=v; });
+        snap.hsl.s.forEach((v,i) => { hslS[i]=v; });
+        snap.hsl.l.forEach((v,i) => { hslL[i]=v; });
+        hslActive = hslH.some(v=>v!==0)||hslS.some(v=>v!==0)||hslL.some(v=>v!==0);
+        for (let i=0;i<8;i++) ['h','s','l'].forEach(t => {
+            const arr=t==='h'?hslH:t==='s'?hslS:hslL;
+            const sl=document.getElementById(`sl-hsl-${t}-${i}`);
+            const vi=document.getElementById(`v-hsl-${t}-${i}`);
+            if(sl){sl.value=arr[i];if(vi)vi.value=arr[i];}
+        });
+    }
+    if (snap.cg) {
+        shadowHue=snap.cg.shadowHue; shadowStr=snap.cg.shadowStr;
+        highlightHue=snap.cg.highlightHue; highlightStr=snap.cg.highlightStr;
+        midHue=snap.cg.midHue; midStr=snap.cg.midStr;
+        splitBalance=snap.cg.splitBalance; splitActive=snap.cg.splitActive;
+        const balSl=document.getElementById('sl-st-bal'); if(balSl) balSl.value=splitBalance;
+        const balVi=document.getElementById('v-st-bal'); if(balVi) balVi.value=splitBalance;
+        if(typeof drawAllCGWheels==='function') drawAllCGWheels();
+    }
+    scheduleRender();
+}
+
 function pushHistory() {
     if (!workCanvas) return;
     history = history.slice(0, historyIdx + 1);
-    history.push(cloneCanvas(workCanvas));
+    history.push({ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState() });
+    if (history.length > HIST_MAX) history.shift(); else historyIdx++;
+    updateUndoUI();
+}
+function pushAdjHistory() {
+    history = history.slice(0, historyIdx + 1);
+    history.push({ type: 'adj', adj: _captureAdjState() });
     if (history.length > HIST_MAX) history.shift(); else historyIdx++;
     updateUndoUI();
 }
 function undo() {
     if (historyIdx <= 0) return;
     historyIdx--;
-    workCanvas = cloneCanvas(history[historyIdx]);
-    cancelCrop(); render(); updateUndoUI();
+    const entry = history[historyIdx];
+    if (!entry) return;
+    if (entry.type === 'adj') {
+        _restoreAdjState(entry.adj);
+    } else {
+        // canvas entry — restore both canvas and the adj state saved with it
+        workCanvas = cloneCanvas(entry.canvas || entry); // handle legacy plain-canvas entries
+        if (entry.adj) _restoreAdjState(entry.adj);
+        cancelCrop(); render();
+    }
+    updateUndoUI();
 }
 function redo() {
     if (historyIdx >= history.length - 1) return;
     historyIdx++;
-    workCanvas = cloneCanvas(history[historyIdx]);
-    cancelCrop(); render(); updateUndoUI();
+    const entry = history[historyIdx];
+    if (!entry) return;
+    if (entry.type === 'adj') {
+        _restoreAdjState(entry.adj);
+    } else {
+        workCanvas = cloneCanvas(entry.canvas || entry);
+        if (entry.adj) _restoreAdjState(entry.adj);
+        cancelCrop(); render();
+    }
+    updateUndoUI();
 }
 function updateUndoUI() {
     document.getElementById('undo-btn').disabled = historyIdx <= 0;
@@ -1243,7 +1324,7 @@ function loadFile(file) {
         _dbBase = null; // clear erase base on new image load
         const warn = document.getElementById('size-warn');
         if (warn) warn.style.display = img.naturalWidth * img.naturalHeight > 20e6 ? '' : 'none';
-        history = [cloneCanvas(workCanvas)]; historyIdx = 0; updateUndoUI();
+        history = [{ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState() }]; historyIdx = 0; updateUndoUI();
         cancelCrop(); resetZoom();
         document.getElementById('drop-hint').style.display = 'none';
         document.getElementById('canvas-wrap').style.display = 'inline-block';
@@ -3653,7 +3734,7 @@ eMain.addEventListener('touchmove', e => {
 eMain.addEventListener('touchend', e => { if (e.touches.length < 2) touchStartState = null; }, { passive: false });
 
 // ── Sliders ───────────────────────────────────────────────────
-const ADJUST_KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','dehaze','clarity','texture','sharpen','lumanr','colornr','grain'];
+const ADJUST_KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','dehaze','clarity','texture','sharpen','sharpmask','sharpen-radius','sharpen-detail','lumanr','colornr','grain'];
 function onAdjust() {
     ADJUST_KEYS.forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
@@ -3685,8 +3766,10 @@ function syncCAVal(key, input) {
 function autoAdjust() { autoEnhance(); }
 function resetAdjust() {
     ADJUST_KEYS.forEach(k => {
-        document.getElementById('sl-'+k).value=0;
-        const el=document.getElementById('v-'+k); if(el) el.value='0';
+        const sl = document.getElementById('sl-'+k); if (!sl) return;
+        const def = sl.dataset.default !== undefined ? Number(sl.dataset.default) : 0;
+        sl.value = def;
+        const el = document.getElementById('v-'+k); if (el) el.value = def;
     });
     scheduleRender();
 }
@@ -6211,10 +6294,12 @@ const _BUILT_IN_PRESETS = [
 ];
 
 function _applyPreset(preset) {
-    const KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','dehaze','clarity','texture','sharpen','lumanr','colornr','grain'];
+    pushAdjHistory(); // save state before applying so Ctrl+Z can undo
+    const KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','dehaze','clarity','texture','sharpen','sharpmask','sharpen-radius','sharpen-detail','lumanr','colornr','grain'];
     KEYS.forEach(k => {
         const sl = document.getElementById('sl-'+k); if (!sl) return;
-        const v = (preset.s && preset.s[k] !== undefined) ? preset.s[k] : 0;
+        const def = sl.dataset.default !== undefined ? Number(sl.dataset.default) : 0;
+        const v = (preset.s && preset.s[k] !== undefined) ? preset.s[k] : def;
         sl.value = v;
         const vi = document.getElementById('v-'+k); if (vi) vi.value = v;
     });
@@ -6386,6 +6471,7 @@ function pasteAdjustments() {
 // ── Auto-enhance ──────────────────────────────────────────────
 function autoEnhance() {
     if (!workCanvas) return;
+    pushAdjHistory(); // save state before auto-enhance so Ctrl+Z can undo
 
     // Sample workCanvas (pre-adjustment original) in linear light
     const sW = Math.min(workCanvas.width, 400);
