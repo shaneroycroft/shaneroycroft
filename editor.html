@@ -282,12 +282,14 @@
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
-        <select id="dl-scale" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" title="export size">
+        <select id="dl-scale" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" title="export size" onchange="onScaleChange()">
             <option value="1">100%</option>
             <option value="0.75">75%</option>
             <option value="0.5">50%</option>
             <option value="0.25">25%</option>
+            <option value="custom">custom px</option>
         </select>
+        <input type="number" id="dl-custom-w" min="1" max="99999" placeholder="width" style="display:none;width:64px;font-family:inherit;font-size:0.7rem;border:1px solid var(--border);padding:0.15rem 0.3rem;background:var(--bg);color:var(--text);" title="export width in pixels">
         <input type="range" id="dl-outsharpen" min="0" max="100" value="0" style="width:44px;accent-color:var(--text);" title="output sharpening (applied only on export, after downscaling)" oninput="document.getElementById('dl-outsharpen-val').textContent='s:'+this.value">
         <span id="dl-outsharpen-val" style="font-size:0.65rem;color:var(--secondary);min-width:26px;text-align:right;">s:0</span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
@@ -2862,6 +2864,7 @@ function drawGrid(ctx, W, H) {
 }
 
 // ── Crop ──────────────────────────────────────────────────────
+let _cropGridWas = null; // saved grid state before crop mode
 function startCrop() {
     if (!workCanvas) return;
     if (activeTool) setTool(null);
@@ -2870,6 +2873,12 @@ function startCrop() {
     document.getElementById('crop-idle').style.display = 'none';
     document.getElementById('crop-active').style.display = 'block';
     document.getElementById('overlay-canvas').classList.add('crop-mode');
+    // Auto-enable rule-of-thirds grid while cropping
+    const gridTog = document.getElementById('grid-toggle');
+    const gridTyp = document.getElementById('grid-type');
+    _cropGridWas = { checked: gridTog.checked, type: gridTyp.value };
+    gridTog.checked = true;
+    gridTyp.value = 'thirds';
     // If a fixed AR is already selected, place the default box immediately
     const ratio = getARRatio();
     if (ratio) {
@@ -2899,6 +2908,12 @@ function cancelCrop() {
     document.getElementById('crop-info').textContent = '';
     const ov = document.getElementById('overlay-canvas');
     ov.classList.remove('crop-mode'); ov.style.cursor = '';
+    // Restore grid to whatever it was before crop mode
+    if (_cropGridWas !== null) {
+        document.getElementById('grid-toggle').checked = _cropGridWas.checked;
+        document.getElementById('grid-type').value = _cropGridWas.type;
+        _cropGridWas = null;
+    }
     renderOverlay();
 }
 
@@ -3868,7 +3883,7 @@ function downloadImage() {
     }
     const fmt        = document.getElementById('dl-format').value;
     const quality    = parseInt(document.getElementById('dl-quality').value) / 100;
-    const scale      = parseFloat(document.getElementById('dl-scale').value);
+    const scale      = _getExportScale();
     const outSharpen = parseInt(document.getElementById('dl-outsharpen').value);
     const ext        = fmt === 'jpeg' ? 'jpg' : fmt === 'webp' ? 'webp' : 'png';
     const src = document.getElementById('output-canvas');
@@ -3909,6 +3924,22 @@ function onFormatChange() {
     document.getElementById('dl-quality').style.display    = showQ ? '' : 'none';
     document.getElementById('dl-quality-val').style.display = showQ ? '' : 'none';
 }
+function onScaleChange() {
+    const isCustom = document.getElementById('dl-scale').value === 'custom';
+    document.getElementById('dl-custom-w').style.display = isCustom ? '' : 'none';
+    if (isCustom && document.getElementById('output-canvas').width) {
+        document.getElementById('dl-custom-w').value = document.getElementById('output-canvas').width;
+    }
+}
+function _getExportScale() {
+    const sel = document.getElementById('dl-scale').value;
+    if (sel !== 'custom') return parseFloat(sel);
+    const srcW = document.getElementById('output-canvas').width;
+    if (!srcW) return 1;
+    const customW = parseInt(document.getElementById('dl-custom-w').value);
+    if (!customW || customW <= 0) return 1;
+    return customW / srcW;
+}
 
 // ── Push to repo ──────────────────────────────────────────────
 async function pushToRepo() {
@@ -3923,7 +3954,7 @@ async function pushToRepo() {
 
     const fmt     = document.getElementById('dl-format').value;
     const quality = parseInt(document.getElementById('dl-quality').value) / 100;
-    const scale   = parseFloat(document.getElementById('dl-scale').value);
+    const scale   = _getExportScale();
 
     // Render full-res if mid-adjustment
     if (isAdjusting) {
