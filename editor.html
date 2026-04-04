@@ -4573,6 +4573,8 @@ let _samRawImage        = null; // cached RawImage for the current workCanvas
 let _samInputCache      = null; // cached processor inputs (sizes etc.)
 let _samEmbeddings      = null; // cached image embeddings
 let _samEmbedKey        = null; // invalidation key
+let _samEncW            = 0;    // encoded canvas width (may be downsampled)
+let _samEncH            = 0;    // encoded canvas height
 let aiSelectActive = false;
 let aiPoints       = [];   // [{x, y, label}] in workCanvas pixel coords
 let _aiMaskPixels  = null; // Float32Array preview, workCanvas dims
@@ -4670,12 +4672,29 @@ async function _loadSAM() {
 }
 
 async function _encodeSAMImage() {
-    // Cheap key: dimensions + a tiny jpeg hash
+    // Cheap key: dimensions + a tiny jpeg hash of the full canvas
     const key = workCanvas.width + 'x' + workCanvas.height + '_' +
                 workCanvas.toDataURL('image/jpeg', 0.05).slice(-32);
     if (_samEmbedKey === key && _samEmbeddings) return;
-    setAIStatus('encoding image…');
-    _samRawImage   = await _samModule_RawImage.fromCanvas(workCanvas);
+
+    // SAM's ViT encoder resizes input to 1024px internally — downsampling here
+    // avoids passing millions of pixels through the JS<>WASM boundary and
+    // cuts encoding time from ~10s to ~1-2s on large photos.
+    const MAX_ENC = 1024;
+    const W = workCanvas.width, H = workCanvas.height;
+    let encCanvas = workCanvas;
+    if (W > MAX_ENC || H > MAX_ENC) {
+        const s = Math.min(MAX_ENC / W, MAX_ENC / H);
+        encCanvas = mkCanvas(Math.round(W * s), Math.round(H * s));
+        encCanvas.getContext('2d').drawImage(workCanvas, 0, 0, encCanvas.width, encCanvas.height);
+    }
+    _samEncW = encCanvas.width;
+    _samEncH = encCanvas.height;
+
+    setAIStatus('analysing image… (may take a few seconds)');
+    await new Promise(r => setTimeout(r, 30)); // yield so status text repaints before WASM blocks
+
+    _samRawImage   = await _samModule_RawImage.fromCanvas(encCanvas);
     _samInputCache = await _samProcessor(_samRawImage);
     const { image_embeddings } = await _samModel.get_image_embeddings(_samInputCache);
     _samEmbeddings = image_embeddings;
@@ -4690,10 +4709,15 @@ async function _runSAMDecode() {
     }
     setAIStatus('selecting…');
     try {
+        // Scale point coords from workCanvas space → encoded canvas space
+        const scaleX = _samEncW / workCanvas.width;
+        const scaleY = _samEncH / workCanvas.height;
+        const scaledPoints = aiPoints.map(p => [p.x * scaleX, p.y * scaleY]);
+
         // Process image again with point prompts (lightweight — just normalises coords)
         const inputsWithPts = await _samProcessor(_samRawImage, {
-            input_points: [[ aiPoints.map(p => [p.x, p.y]) ]],
-            input_labels: [[ aiPoints.map(p => p.label)    ]],
+            input_points: [[ scaledPoints ]],
+            input_labels: [[ aiPoints.map(p => p.label) ]],
         });
         const out = await _samModel({
             ..._samInputCache,
@@ -4701,21 +4725,32 @@ async function _runSAMDecode() {
             input_points: inputsWithPts.input_points,
             input_labels: inputsWithPts.input_labels,
         });
-        // Pick best mask by IOU score
-        const scores  = Array.from(out.iou_predictions.data);
+
+        // iou_scores in Transformers.js v3, iou_predictions in v2 — handle both
+        const iouTensor = out.iou_scores ?? out.iou_predictions;
+        const scores  = iouTensor ? Array.from(iouTensor.data) : [1, 0, 0];
         const bestIdx = scores.indexOf(Math.max(...scores));
-        // Upsample masks to original image size
-        const [maskTensor] = await _samProcessor.post_process_masks(
+
+        // Upsample masks to encoded canvas size
+        const postProcessed = await _samProcessor.post_process_masks(
             out.pred_masks,
             _samInputCache.original_sizes,
             _samInputCache.reshaped_input_sizes,
         );
-        // maskTensor.data is flat [num_masks × H × W], boolean (0/1)
-        const W = workCanvas.width, H = workCanvas.height;
-        const stride = W * H;
-        const raw = maskTensor.data;
-        _aiMaskPixels = new Float32Array(stride);
-        for (let i = 0; i < stride; i++) _aiMaskPixels[i] = raw[bestIdx * stride + i] ? 1.0 : 0.0;
+        const maskTensor = Array.isArray(postProcessed) ? postProcessed[0] : postProcessed;
+        const raw    = maskTensor.data;
+        const encStride = _samEncW * _samEncH;
+
+        // Upsample mask from encoded dimensions to full workCanvas dimensions
+        const dstW = workCanvas.width, dstH = workCanvas.height;
+        _aiMaskPixels = new Float32Array(dstW * dstH);
+        for (let y = 0; y < dstH; y++) {
+            const sy = Math.round(y * (_samEncH - 1) / (dstH - 1));
+            for (let x = 0; x < dstW; x++) {
+                const sx = Math.round(x * (_samEncW - 1) / (dstW - 1));
+                _aiMaskPixels[y * dstW + x] = raw[bestIdx * encStride + sy * _samEncW + sx] ? 1.0 : 0.0;
+            }
+        }
         document.getElementById('ai-confirm-btn').disabled = false;
         setAIStatus('click to refine  ·  shift+click to exclude  ·  confirm when ready');
     } catch (err) {
