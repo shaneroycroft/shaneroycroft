@@ -7190,18 +7190,21 @@ function autoEnhance() {
     const p99  = lums[Math.min(n-1, Math.floor(n * 0.99))];
     const p998 = lums[Math.min(n-1, Math.floor(n * 0.998))];
 
-    // Exposure: map median → 18% grey
+    // Exposure: map median → 18% grey, dampened for near-correct images
     const expScale = p50 > 0.001 ? 0.18 / p50 : 1;
     const expEV    = Math.log2(expScale);
-    const autoExp  = Math.max(-80, Math.min(80, expEV / 3 * 100));
+    const expRaw   = Math.max(-80, Math.min(80, expEV / 3 * 100));
+    // Dampen more when the image is close to correct — avoid pushing well-exposed photos
+    const expDamp  = Math.abs(expRaw) > 40 ? 0.75 : 0.55;
+    const autoExp  = Math.round(expRaw * expDamp);
 
     // Highlights: pull back if scaled p99 threatens clipping
     const p99s    = p99 * expScale;
     const autoHL  = p99s > 0.82 ? Math.max(-80, Math.round(-(p99s - 0.82) / 0.18 * 85)) : 0;
 
-    // Shadows: lift if scaled p01 is crushed
+    // Shadows: only lift truly clipped/crushed shadows — good blacks (p01 0.003–0.015) must not be touched
     const p01s    = p01 * expScale;
-    const autoSH  = p01s < 0.035 ? Math.min(65, Math.round((0.035 - p01s) / 0.05 * 65)) : 0;
+    const autoSH  = p01s < 0.005 ? Math.min(25, Math.round((0.005 - p01s) / 0.005 * 25)) : 0;
 
     // Whites: expand upper range if scaled p99.8 has headroom
     const p998s      = p998 * expScale;
@@ -7241,9 +7244,9 @@ function autoEnhance() {
     if (Math.abs(autoTemp) < 4) autoTemp = 0;
     if (Math.abs(autoTint)  < 3) autoTint  = 0;
 
-    // Vibrance: boost muted images; minimum 5 for all images, max 45 for very flat ones
+    // Vibrance: boost muted images; skip if already saturated
     const avgSat      = totalSat / n;
-    const autoVibrance = Math.round(Math.max(5, Math.min(45, (0.38 - avgSat) * 90)));
+    const autoVibrance = Math.round(Math.max(0, Math.min(40, (0.32 - avgSat) * 80)));
 
     // Sharpening and clarity: mild defaults applied to nearly all images
     const autoSharpen = 18;
