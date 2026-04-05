@@ -1197,6 +1197,17 @@ function _captureAdjState() {
         },
         hsl: { h: Array.from(hslH), s: Array.from(hslS), l: Array.from(hslL) },
         cg: { shadowHue, shadowStr, highlightHue, highlightStr, midHue, midStr, splitBalance, splitActive },
+        masks: masks.map(m => ({
+            id: m.id, type: m.type, enabled: m.enabled, inverted: m.inverted,
+            feather: m.feather, adj: { ...m.adj },
+            x1: m.x1, y1: m.y1, x2: m.x2, y2: m.y2,
+            cx: m.cx, cy: m.cy, rx: m.rx, ry: m.ry,
+            lumLo: m.lumLo, lumHi: m.lumHi,
+            hueCenter: m.hueCenter, hueWidth: m.hueWidth, satMin: m.satMin,
+            width: m.width, height: m.height,
+            pixels: m.pixels ? new Float32Array(m.pixels) : null,
+        })),
+        activeMaskId,
     };
 }
 // Restore all adjustment state from a snapshot
@@ -1236,6 +1247,14 @@ function _restoreAdjState(snap) {
         const balSl=document.getElementById('sl-st-bal'); if(balSl) balSl.value=splitBalance;
         const balVi=document.getElementById('v-st-bal'); if(balVi) balVi.value=splitBalance;
         if(typeof drawAllCGWheels==='function') drawAllCGWheels();
+    }
+    if (snap.masks !== undefined) {
+        masks = snap.masks.map(m => ({ ...m, pixels: m.pixels ? new Float32Array(m.pixels) : null }));
+        activeMaskId = (snap.activeMaskId && masks.find(m => m.id === snap.activeMaskId))
+            ? snap.activeMaskId
+            : (masks.length ? masks[masks.length - 1].id : null);
+        setMaskBrush(null);
+        if (typeof renderMaskList === 'function') renderMaskList();
     }
     scheduleRender();
 }
@@ -1417,6 +1436,13 @@ document.addEventListener('keydown', e => {
                 sl.value = Math.max(5, Math.min(400, parseInt(sl.value) + delta));
                 onBrushSlider();
                 if (vi) vi.value = sl.value;
+                // Sync mask-card inline size slider if visible
+                if (activeMaskId) {
+                    const msl = document.getElementById('mi-bsize-' + activeMaskId);
+                    const mvi = document.getElementById('mi-bsize-v-' + activeMaskId);
+                    if (msl) msl.value = brushSize;
+                    if (mvi) mvi.value = brushSize;
+                }
                 renderOverlay();
             }
         }
@@ -4785,6 +4811,7 @@ function addMask(type) {
     if (sec && !sec.open) sec.open = true;
     selectMask(id);
     if (type === 'brush') setMaskBrush('add'); // immediately ready to paint
+    pushAdjHistory('add ' + type + ' mask');
     scheduleRender();
 }
 
@@ -4964,8 +4991,9 @@ function drawColourMaskOverlay(ctx, mask) {
 
 function deleteMask(id) {
     masks = masks.filter(m => m.id !== id);
-    if (activeMaskId === id) selectMask(null);
+    if (activeMaskId === id) { activeMaskId = null; renderMaskList(); }
     else renderMaskList();
+    pushAdjHistory('remove mask');
     scheduleRender();
 }
 
@@ -5091,7 +5119,10 @@ function renderMaskList() {
                 <button id="mi-mbtn-sub-${mask.id}"  class="s-btn-ghost${maskBrushMode==='subtract'&&isActive?' painting':''}" onclick="_mBrush('${mask.id}','subtract')">erase</button>
                 <button class="s-btn-ghost" onclick="_mBrushClear('${mask.id}')">clear</button>
             </div>
-            <p class="s-note" style="margin-bottom:0.4rem;">paint on the image. use <span style="font-family:monospace;">[ ]</span> to resize the brush.</p>`;
+            <div class="s-row" style="margin-bottom:0.25rem;">
+                <label style="min-width:70px;">size <input type="number" class="val-input" id="mi-bsize-v-${mask.id}" value="${brushSize}" min="5" max="400" step="1" oninput="_mBrushSize(this.value,'mi-bsize-${mask.id}')"></label>
+                <input type="range" id="mi-bsize-${mask.id}" min="5" max="400" value="${brushSize}" oninput="_mBrushSize(this.value,'mi-bsize-v-${mask.id}')">
+            </div>`;
         } else if (mask.type === 'luminosity') {
             typeTools = `<p class="s-note" style="margin-bottom:0.4rem;">select the tonal zone to affect. hover the image to preview in red.</p>
             <div class="s-row" style="margin-bottom:0.25rem;"><label style="min-width:70px;">shadows</label><input type="range" id="mi-sl-lumlo-${mask.id}" min="0" max="100" value="${mask.lumLo}" oninput="_mLum('${mask.id}','lo',this.value)"><span style="font-size:0.68rem;color:var(--secondary);min-width:24px;text-align:right;" id="mi-v-lumlo-${mask.id}">${mask.lumLo}</span></div>
@@ -5203,6 +5234,17 @@ function _mBrushClear(id) {
     const thumb = document.querySelector('#mask-card-' + id + ' .mask-thumb');
     if (thumb) thumb.src = _makeMaskThumb(mask);
     scheduleRender(); renderOverlay();
+}
+
+function _mBrushSize(val, peerId) {
+    brushSize = Math.max(5, Math.min(400, parseInt(val) || 60));
+    const sl = document.getElementById('sl-brush-size');
+    const vi = document.getElementById('v-brush-size');
+    const peer = document.getElementById(peerId);
+    if (sl) sl.value = brushSize;
+    if (vi) vi.value = brushSize;
+    if (peer) peer.value = brushSize;
+    renderOverlay();
 }
 
 function _mLum(id, which, rawVal) {
@@ -5418,10 +5460,12 @@ function confirmAISelect() {
     const sec = document.getElementById('masks-sec');
     if (sec && !sec.open) sec.open = true;
     selectMask(id);
+    pushAdjHistory('AI select mask');
     cancelAISelect();
+    setMaskBrush('add');
     scheduleRender();
     // Brief top-bar hint so the user knows what to do next
-    setPushStatus('selection saved — adjust with sliders in sidebar · press O to hide red overlay', false);
+    setPushStatus('selection saved — paint/erase to refine · adjust with sliders in sidebar · press O to hide overlay', false);
     setTimeout(() => setPushStatus('', false), 6000);
 }
 
@@ -5655,9 +5699,11 @@ async function _runAISegMask(targetLabel, btnId) {
         const sec = document.getElementById('masks-sec');
         if (sec && !sec.open) sec.open = true;
         selectMask(id);
+        pushAdjHistory('AI ' + targetLabel + ' mask');
+        setMaskBrush('add');
         scheduleRender();
         _hideSegPanel();
-        setPushStatus(targetLabel + ' mask created — adjust with sliders · press O to hide overlay', false);
+        setPushStatus(targetLabel + ' mask created — paint/erase to refine · adjust with sliders · press O to hide overlay', false);
         setTimeout(() => setPushStatus('', false), 5000);
     } catch (err) {
         _setSegStatus('failed: ' + (err.message || err), true);
