@@ -1108,13 +1108,23 @@ function scheduleFullRes() {
     clearTimeout(fullResTimer);
     fullResTimer = setTimeout(() => { isAdjusting = false; render(); }, 600);
 }
+let _adjLabel = 'adjust';
+let _sliderAdjusting = false;
+
 function finishAdjust() {
     if (!isAdjusting) return;
     clearTimeout(fullResTimer);
     isAdjusting = false;
+    if (_sliderAdjusting) {
+        pushAdjHistory(_adjLabel);
+        _sliderAdjusting = false;
+        _adjLabel = 'adjust';
+    }
     render(); // immediate full-res on slider release
 }
-function beginAdjust() {
+function beginAdjust(label, fromSlider) {
+    if (label) _adjLabel = label;
+    if (fromSlider) _sliderAdjusting = true;
     isAdjusting = true;
     scheduleFullRes();
     scheduleRender();
@@ -1517,6 +1527,41 @@ function loadFile(file) {
         _dbBase = null; // clear erase base on new image load
         const warn = document.getElementById('size-warn');
         if (warn) warn.style.display = img.naturalWidth * img.naturalHeight > 20e6 ? '' : 'none';
+        // ── Full reset on new image ───────────────────────────────
+        resetAdjust(); resetAllCurves(); resetHSL(); resetColorGrading(); resetLM();
+        // Vignette + feather + roundness
+        ['sl-vignette','sl-vig-feather','sl-vig-round'].forEach(id => {
+            const sl = document.getElementById(id); if (!sl) return;
+            sl.value = sl.dataset.default || 0;
+            const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = sl.value;
+        });
+        // Straighten + perspective
+        straightenAngle = 0;
+        const stSl = document.getElementById('sl-straighten');
+        if (stSl) { stSl.value = 0; const stVi = document.getElementById('v-straighten'); if (stVi) stVi.value = 0; }
+        perspCorners = null; perspDragging = -1; perspHover = -1;
+        // Border
+        ['sl-bx','sl-by'].forEach(id => {
+            const sl = document.getElementById(id); if (!sl) return;
+            sl.value = 0; const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = 0;
+        });
+        // Lens corrections
+        ['sl-distortion','sl-ca-red','sl-ca-blue'].forEach(id => {
+            const sl = document.getElementById(id); if (!sl) return;
+            sl.value = 0; const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = 0;
+        });
+        // Label
+        const labelOn = document.getElementById('label-on'); if (labelOn) labelOn.checked = false;
+        const labelTxt = document.getElementById('label-text'); if (labelTxt) labelTxt.value = '';
+        // Masks + layers
+        masks = []; activeMaskId = null; maskBrushMode = null; maskBrushPainting = false;
+        overlayLayers = []; _layerIdCtr = 0;
+        if (typeof renderMaskList === 'function') renderMaskList();
+        if (typeof renderLayerList === 'function') renderLayerList();
+        // Overlay canvas cursor/mode cleanup
+        const ovC = document.getElementById('overlay-canvas');
+        if (ovC) ovC.className = '';
+        // ────────────────────────────────────────────────────────────
         history = [{ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState(), label: 'open' }]; historyIdx = 0; updateUndoUI();
         cancelCrop(); resetZoom();
         document.getElementById('drop-hint').style.display = 'none';
@@ -2875,7 +2920,7 @@ function syncVigVal(key, el) {
     const isSlider = el.type === 'range';
     const paired   = document.getElementById((isSlider ? 'v-' : 'sl-') + key);
     if (paired) paired.value = el.value;
-    scheduleRender();
+    beginAdjust('vignette', true);
 }
 
 function applyVignette(canvas, strength, feather = 50, roundness = 0) {
@@ -3932,7 +3977,7 @@ function onAdjust() {
     ADJUST_KEYS.forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
     });
-    beginAdjust();
+    beginAdjust('adjust', true);
 }
 
 // ── Lens correction sliders ────────────────────────────────────
@@ -3942,7 +3987,7 @@ function onCASlider() {
         const vi = document.getElementById('v-'  + k);
         if (sl && vi) vi.value = sl.value;
     });
-    beginAdjust();
+    beginAdjust('lens', true);
 }
 function syncCAVal(key, input) {
     const limits = { distortion: [-100, 100], 'ca-red': [-3, 3], 'ca-blue': [-3, 3] };
@@ -3951,7 +3996,7 @@ function syncCAVal(key, input) {
     input.value = val;
     const sl = document.getElementById('sl-' + key);
     if (sl) sl.value = val;
-    beginAdjust();
+    beginAdjust('lens', true);
 }
 
 // ── Auto adjustments ──────────────────────────────────────────
@@ -3981,7 +4026,7 @@ function onStraighten() {
     straightenAngle=parseFloat(document.getElementById('sl-straighten').value);
     document.getElementById('v-straighten').value=straightenAngle;
     renderOverlay();
-    beginAdjust();
+    beginAdjust('straighten', true);
 }
 function startHorizDraw() {
     if (!workCanvas) return;
@@ -3999,7 +4044,7 @@ function cancelHorizDraw() {
 }
 function onVignette() {
     document.getElementById('v-vignette').value=document.getElementById('sl-vignette').value;
-    beginAdjust();
+    beginAdjust('vignette', true);
 }
 
 // ── Luminosity Mask ───────────────────────────────────────────
@@ -4012,7 +4057,7 @@ function onLMSlider() {
     document.getElementById('v-lm-ceiling').value = ce.value;
     document.getElementById('v-lm-feather').value = document.getElementById('sl-lm-feather').value;
     updateLMRangeFill();
-    beginAdjust();
+    beginAdjust('luma mask', true);
 }
 function syncLMVal(input, which) {
     let v = Math.max(0, Math.min(parseInt(input.value)||0, 100));
@@ -4026,7 +4071,7 @@ function syncLMVal(input, which) {
     input.value = v;
     document.getElementById('sl-lm-' + (which === 'feather' ? 'feather' : which === 'floor' ? 'floor' : 'ceiling')).value = v;
     updateLMRangeFill();
-    beginAdjust();
+    beginAdjust('luma mask', true);
 }
 function updateLMRangeFill() {
     const fl = parseInt(document.getElementById('sl-lm-floor').value);
@@ -4114,7 +4159,7 @@ function _wbPickHandler(e) {
     document.getElementById('v-temperature').value = Math.round(newTemp);
     document.getElementById('v-tint').value = Math.round(newTint);
     toggleWBEyedropper();
-    beginAdjust();
+    beginAdjust('white balance', true);
 }
 document.getElementById('output-canvas').addEventListener('click', _wbPickHandler);
 function onBorder(axis) {
@@ -4123,11 +4168,11 @@ function onBorder(axis) {
     if (locked) { if(axis==='x') byEl.value=bxEl.value; else bxEl.value=byEl.value; }
     document.getElementById('v-bx').value=bxEl.value;
     document.getElementById('v-by').value=byEl.value;
-    beginAdjust();
+    beginAdjust('border', true);
 }
 function onLabelSlider(id, vid) {
     document.getElementById(vid).value=document.getElementById('sl-'+id).value;
-    beginAdjust();
+    beginAdjust('label', true);
 }
 
 // ── Dimensions display ────────────────────────────────────────
@@ -6410,7 +6455,7 @@ function onHSL() {
         const vl=document.getElementById('v-hsl-l-'+i); if(vl) vl.value=hslL[i];
     }
     hslActive = hslH.some(v=>v!==0) || hslS.some(v=>v!==0) || hslL.some(v=>v!==0);
-    beginAdjust();
+    beginAdjust('hsl', true);
 }
 function resetHSL() {
     for (let i = 0; i < 8; i++) {
@@ -6454,7 +6499,7 @@ function onColorGrading() {
     splitBalance=parseFloat(document.getElementById('sl-st-bal').value);
     const vi=document.getElementById('v-st-bal'); if(vi) vi.value=splitBalance;
     splitActive=shadowStr>0||highlightStr>0;
-    beginAdjust();
+    beginAdjust('color grade', true);
 }
 function resetColorGrading() {
     shadowHue=0; shadowStr=0; midHue=0; midStr=0; highlightHue=0; highlightStr=0;
@@ -6610,7 +6655,7 @@ function hitPt(e) {
 (function initCurve(){
     const cv=document.getElementById('curve-canvas');
     cv.addEventListener('mousedown',e=>{ if(e.button!==0)return; const hit=hitPt(e); if(hit){dragPt=hit;}else{const c=cvCoords(e);const p={x:c.x,y:c.y};activeCurvePoints().push(p);dragPt=p;} drawCurve();e.preventDefault(); });
-    cv.addEventListener('mousemove',e=>{ if(!dragPt)return; const c=cvCoords(e); dragPt.x=c.x;dragPt.y=c.y; drawCurve();beginAdjust(); });
+    cv.addEventListener('mousemove',e=>{ if(!dragPt)return; const c=cvCoords(e); dragPt.x=c.x;dragPt.y=c.y; drawCurve();beginAdjust('curve', true); });
     cv.addEventListener('mouseup',()=>dragPt=null);
     cv.addEventListener('mouseleave',()=>dragPt=null);
     cv.addEventListener('dblclick',e=>{ const hit=hitPt(e); const ap=activeCurvePoints(); if(!hit||ap.length<=2)return; const filtered=ap.filter(p=>p!==hit); ap.length=0; filtered.forEach(p=>ap.push(p)); drawCurve();scheduleRender(); });
@@ -6652,13 +6697,13 @@ function onLevelSlider(sl, vid) {
     const v = document.getElementById(vid);
     if (v) v.value = sl.value;
     _curveLUTCache = null;
-    scheduleRender();
+    beginAdjust('levels', true);
 }
 function onLevelInput(inp, slid) {
     const sl = document.getElementById(slid);
     if (sl) sl.value = inp.value;
     _curveLUTCache = null;
-    scheduleRender();
+    beginAdjust('levels', true);
 }
 function resetLevelSlider(sl, vid, def) {
     sl.value = def;
