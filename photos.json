@@ -67,7 +67,8 @@
   ],
   "peru/bolivia": [
     {
-      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/perubolivia/1775407006333_dscf2797.jpeg"
+      "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/perubolivia/1775407006333_dscf2797.jpeg",
+      "pinned": true
     }
   ],
   "the desert": []
