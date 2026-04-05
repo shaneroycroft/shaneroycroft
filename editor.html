@@ -245,6 +245,9 @@
         .mask-thumb { width: 28px; height: 22px; border-radius: 2px; border: 1px solid var(--border); flex-shrink: 0; background: #888; image-rendering: pixelated; }
         .mask-name { font-size: 0.7rem; color: var(--secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .mask-card.active .mask-name { color: var(--text); font-weight: 500; }
+        .mask-name-input { font-size: 0.7rem; color: var(--secondary); flex: 1; min-width: 0; font-family: inherit; background: none; border: none; outline: none; cursor: pointer; padding: 0; white-space: nowrap; overflow: hidden; }
+        .mask-card.active .mask-name-input { color: var(--text); font-weight: 500; cursor: text; }
+        .mask-name-input:focus { background: rgba(128,128,128,0.1); border-radius: 2px; padding: 0 3px; margin: 0 -3px; }
         .mask-eye-btn:hover { color: var(--text) !important; opacity: 1 !important; }
         .mask-has-edits { width: 6px; height: 6px; border-radius: 50%; background: #4a9eff; flex-shrink: 0; }
         .mask-enable { accent-color: var(--text); cursor: pointer; flex-shrink: 0; }
@@ -4838,7 +4841,7 @@ function addMask(type) {
     if (!workCanvas) return;
     const id = 'mask_' + (++_maskIdCtr);
     const m = {
-        id, type, enabled: true, inverted: false, feather: 50,
+        id, type, name: '', enabled: true, inverted: false, feather: 50,
         x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,   // gradient: p1→p2
         cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,    // radial: center + radii
         lumLo: 0, lumHi: 100,                      // luminosity range (0-100)
@@ -5145,6 +5148,7 @@ function renderMaskList() {
         const hasEdits  = _maskHasEdits(mask);
         const thumbSrc  = _makeMaskThumb(mask);
         const typeName  = mask.type === 'brush' ? 'brush' : mask.type === 'gradient' ? 'gradient' : mask.type === 'radial' ? 'radial' : mask.type === 'luminosity' ? 'luminosity' : mask.type === 'colour' ? 'colour' : mask.type;
+        const displayName = mask.name || (typeName + ' ' + (i + 1));
         const card = document.createElement('div');
         card.className = 'mask-card' + (isActive ? ' active' : '');
         card.id = 'mask-card-' + mask.id;
@@ -5201,7 +5205,7 @@ function renderMaskList() {
             <div class="mask-card-header" onclick="selectMask('${isActive ? 'null_deselect' : mask.id}')">
                 <input type="checkbox" class="mask-enable" ${mask.enabled ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleMaskEnabled('${mask.id}',this.checked)" title="enable/disable">
                 <img class="mask-thumb" src="${thumbSrc}" alt="">
-                <span class="mask-name">${typeName} ${i + 1}</span>
+                <input class="mask-name-input" type="text" id="mi-name-${mask.id}" value="${displayName.replace(/"/g,'&quot;')}" title="click to select · click again to rename" readonly>
                 ${hasEdits ? '<span class="mask-has-edits" title="has adjustments"></span>' : ''}
                 <label style="font-size:0.65rem;color:var(--secondary);display:flex;align-items:center;gap:0.2rem;cursor:pointer;" onclick="event.stopPropagation()">
                     <input type="checkbox" id="mi-invert-${mask.id}" ${mask.inverted ? 'checked' : ''} onchange="_mInvert('${mask.id}',this.checked)"> inv
@@ -5217,10 +5221,30 @@ function renderMaskList() {
                 ${featherRow}
             </div>`;
 
-        // Fix "null_deselect" onclick — use real toggle
+        // Header click: name input selects card; second click enables editing
+        const nameInp = card.querySelector('.mask-name-input');
         card.querySelector('.mask-card-header').addEventListener('click', function(e) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+            if (e.target.tagName === 'BUTTON') return;
+            if (e.target === nameInp) {
+                if (activeMaskId !== mask.id) { selectMask(mask.id); return; }
+                // Already active — enable editing
+                nameInp.removeAttribute('readonly'); nameInp.select();
+                return;
+            }
+            if (e.target.tagName === 'INPUT') return; // checkboxes
             selectMask(activeMaskId === mask.id ? null : mask.id);
+        });
+        nameInp.addEventListener('blur', () => {
+            _mRename(mask.id, nameInp.value);
+            nameInp.setAttribute('readonly', '');
+        });
+        nameInp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); nameInp.blur(); }
+            if (e.key === 'Escape') {
+                const m = masks.find(m => m.id === mask.id);
+                nameInp.value = (m && m.name) || displayName;
+                nameInp.blur();
+            }
         });
         el.appendChild(card);
     });
@@ -5294,6 +5318,19 @@ function _mBrushSize(val, peerId) {
     if (vi) vi.value = brushSize;
     if (peer) peer.value = brushSize;
     renderOverlay();
+}
+
+function _mRename(id, rawVal) {
+    const mask = masks.find(m => m.id === id);
+    if (!mask) return;
+    mask.name = rawVal.trim();
+    // Keep input value in sync (in case trim changed it)
+    const inp = document.getElementById('mi-name-' + id);
+    if (inp) {
+        const i = masks.indexOf(mask);
+        const auto = (mask.type === 'brush' ? 'brush' : mask.type) + ' ' + (i + 1);
+        inp.value = mask.name || auto;
+    }
 }
 
 function _mLum(id, which, rawVal) {
@@ -5497,7 +5534,7 @@ function confirmAISelect() {
     blurMaskEdges(_aiMaskPixels, workCanvas.width, workCanvas.height);
     const id = 'mask_' + (++_maskIdCtr);
     const m = {
-        id, type: 'brush', enabled: true, inverted: false, feather: 0,
+        id, type: 'brush', name: 'AI select', enabled: true, inverted: false, feather: 0,
         x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,
         cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,
         lumLo: 0, lumHi: 100,
@@ -5737,7 +5774,7 @@ async function _runAISegMask(targetLabel, btnId) {
         // Push to masks list
         const id = 'mask_' + (++_maskIdCtr);
         masks.push({
-            id, type: 'brush', enabled: true, inverted: false, feather: 0,
+            id, type: 'brush', name: 'AI ' + targetLabel, enabled: true, inverted: false, feather: 0,
             x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,
             cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,
             lumLo: 0, lumHi: 100,
@@ -7109,23 +7146,23 @@ function autoEnhance() {
 
     // Highlights: pull back if scaled p99 threatens clipping
     const p99s    = p99 * expScale;
-    const autoHL  = p99s > 0.82 ? Math.max(-80, Math.round(-(p99s - 0.82) / 0.18 * 90)) : 0;
+    const autoHL  = p99s > 0.78 ? Math.max(-85, Math.round(-(p99s - 0.78) / 0.22 * 90)) : 0;
 
     // Shadows: lift if scaled p01 is crushed
     const p01s    = p01 * expScale;
-    const autoSH  = p01s < 0.04 ? Math.min(70, Math.round((0.04 - p01s) / 0.05 * 70)) : 0;
+    const autoSH  = p01s < 0.04 ? Math.min(75, Math.round((0.04 - p01s) / 0.05 * 75)) : 0;
 
     // Whites: expand upper range if scaled p99.8 has headroom
     const p998s      = p998 * expScale;
-    const autoWhites = p998s < 0.72 ? Math.min(50, Math.round((0.80 - p998s) / 0.25 * 50)) : 0;
+    const autoWhites = p998s < 0.82 ? Math.min(65, Math.round((0.90 - p998s) / 0.18 * 65)) : 0;
 
     // Blacks: deepen if scaled p0.2 is lifted (foggy/hazy blacks)
     const p002s      = p002 * expScale;
-    const autoBlacks = p002s > 0.025 ? Math.max(-40, -Math.round((p002s / 0.04) * 25)) : 0;
+    const autoBlacks = p002s > 0.015 ? Math.max(-55, -Math.round((p002s / 0.04) * 32)) : 0;
 
     // Contrast: mild boost for low-dynamic-range scenes
     const dynRange    = p99 > 0.001 ? Math.log2(p99 / Math.max(p01, 0.0001)) : 0;
-    const autoContrast = dynRange < 5 ? Math.round((5 - dynRange) / 5 * 20) : 0;
+    const autoContrast = Math.round(Math.max(0, Math.min(28, (8 - dynRange) / 8 * 28)));
 
     // White balance: grey-world Bradford
     const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
@@ -7144,17 +7181,22 @@ function autoEnhance() {
         const g = (ratioLM - ratioLM*t*0.127 - 1 - t*0.266) / (ratioLM * 0.20);
         autoTint = Math.max(-50, Math.min(50, g * 100));
     }
-    // Dampen grey-world WB — blends correction back 50% to prevent
-    // overcorrection on images with dominant colours (sky, foliage, etc.)
-    autoTemp = Math.round(autoTemp * 0.5);
-    autoTint  = Math.round(autoTint  * 0.5);
+    // Dampen grey-world WB — less dampening when cast is strong, more when subtle
+    const tempDamp = Math.abs(autoTemp) > 45 ? 0.6 : 0.45;
+    const tintDamp = Math.abs(autoTint)  > 30 ? 0.6 : 0.45;
+    autoTemp = Math.round(autoTemp * tempDamp);
+    autoTint  = Math.round(autoTint  * tintDamp);
     // Dead zone: skip trivial shifts that would only add noise
     if (Math.abs(autoTemp) < 4) autoTemp = 0;
     if (Math.abs(autoTint)  < 3) autoTint  = 0;
 
-    // Vibrance: boost muted images
+    // Vibrance: boost muted images; minimum 5 for all images, max 45 for very flat ones
     const avgSat      = totalSat / n;
-    const autoVibrance = Math.round(Math.max(0, Math.min(35, (0.38 - avgSat) * 80)));
+    const autoVibrance = Math.round(Math.max(5, Math.min(45, (0.38 - avgSat) * 90)));
+
+    // Sharpening and clarity: mild defaults applied to nearly all images
+    const autoSharpen = 18;
+    const autoClarity = avgSat < 0.15 ? 12 : 8; // slightly more for flat/low-sat images
 
     // Reset all tone/colour sliders to defaults first
     ADJUST_KEYS.forEach(k => {
@@ -7183,6 +7225,8 @@ function autoEnhance() {
     set('temperature', autoTemp);
     set('tint',        autoTint);
     set('vibrance',    autoVibrance);
+    set('sharpen',     autoSharpen);
+    set('clarity',     autoClarity);
 
     beginAdjust();
     finishAdjust();
