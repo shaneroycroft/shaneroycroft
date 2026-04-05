@@ -69,6 +69,8 @@
             .then(data => { categories = data; initPage(); })
             .catch(() => initPage());
 
+        let activeCat = 'portfolio';
+
         function initPage() {
             const keys = Object.keys(categories);
             const hiddenCats = categories._hidden || [];
@@ -88,13 +90,11 @@
 
             buildSubNav(visible);
             buildSections(visible);
-            setupScrollHighlight(visible);
 
-            // Scroll to hash on load
+            // Switch to hash category on load, else default to first (portfolio)
             const hash = window.location.hash.replace('#', '').replace(/-/g, ' ');
-            if (hash && categories[hash] !== undefined) {
-                setTimeout(() => scrollToSection(hash), 80);
-            }
+            const initial = (hash && visible.includes(hash)) ? hash : visible[0];
+            switchTo(initial);
         }
 
         function buildSubNav(sections) {
@@ -104,9 +104,21 @@
                 const span = document.createElement('span');
                 span.textContent = cat;
                 span.id = 'subnav-' + slugify(cat);
-                span.onclick = () => scrollToSection(cat);
+                span.onclick = () => switchTo(cat);
                 nav.appendChild(span);
             });
+        }
+
+        function switchTo(cat) {
+            activeCat = cat;
+            document.querySelectorAll('.photo-section').forEach(s => {
+                s.style.display = s.dataset.cat === cat ? '' : 'none';
+            });
+            document.querySelectorAll('#sub-nav span').forEach(s => {
+                s.classList.toggle('active', s.id === 'subnav-' + slugify(cat));
+            });
+            window.location.hash = slugify(cat);
+            window.scrollTo({ top: 0, behavior: 'instant' });
         }
 
         // Portfolio = explicit portfolio entries + pinned photos from other categories
@@ -130,11 +142,6 @@
                 section.className = 'photo-section reveal';
                 section.id = 'section-' + slugify(cat);
                 section.dataset.cat = cat;
-
-                const label = document.createElement('h2');
-                label.className = 'photo-section-label serif';
-                label.textContent = cat;
-                section.appendChild(label);
 
                 const grid = document.createElement('div');
                 grid.className = 'gallery';
@@ -181,32 +188,6 @@
             }
 
             container.appendChild(div);
-        }
-
-        function scrollToSection(cat) {
-            window.location.hash = slugify(cat);
-            const section = document.getElementById('section-' + slugify(cat));
-            if (section) {
-                const navH = document.querySelector('nav').offsetHeight;
-                const top = section.getBoundingClientRect().top + window.scrollY - navH - 24;
-                window.scrollTo({ top, behavior: 'smooth' });
-            }
-        }
-
-        function setupScrollHighlight(sections) {
-            const navH = document.querySelector('nav').offsetHeight;
-            const observer = new IntersectionObserver(entries => {
-                entries.forEach(entry => {
-                    const cat = entry.target.dataset.cat;
-                    const span = document.getElementById('subnav-' + slugify(cat));
-                    if (span) span.classList.toggle('active', entry.isIntersecting);
-                });
-            }, { rootMargin: `-${navH + 8}px 0px -55% 0px` });
-
-            sections.forEach(cat => {
-                const el = document.getElementById('section-' + slugify(cat));
-                if (el) observer.observe(el);
-            });
         }
 
         function slugify(str) { return str.replace(/\s+/g, '-'); }
