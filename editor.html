@@ -7218,8 +7218,17 @@ function autoEnhance() {
     const autoHL = p99 > 0.90 ? Math.max(-60, Math.round(-(p99 - 0.90) / 0.10 * 60)) : 0;
 
     // ── 6. Shadows ───────────────────────────────────────────────
-    // Only lift near-clipped shadows — normal deep blacks (p01 0.003–0.015) must be untouched
-    const autoSH = p01 < 0.003 ? Math.min(20, Math.round((0.003 - p01) / 0.003 * 20)) : 0;
+    // p01 near zero just means the photo HAS dark areas — that's normal and correct.
+    // We can only meaningfully lift shadows when the photo is also underexposed; otherwise
+    // we're lifting intentional blacks. For flat/hazy photos, push shadows DOWN instead.
+    let autoSH = 0;
+    if (isFlat && p01 > 0.010) {
+        // Hazy/flat: shadow tones are lifted above black — crush them down
+        autoSH = Math.max(-20, -Math.round((p01 / 0.04) * 20));
+    } else if (!isHighKey && !isLowKey && autoExp > 20 && p01 < 0.001) {
+        // Genuinely underexposed (we're boosting exp by >20) with truly clipped shadows
+        autoSH = Math.min(15, Math.round((0.001 - p01) / 0.001 * 12));
+    }
 
     // ── 7. Whites ────────────────────────────────────────────────
     // Expand range if source is clearly flat (p99.8 well below a proper white point)
