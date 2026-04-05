@@ -47,7 +47,6 @@
       "caption": "yanagawa - fukuoka"
     }
   ],
-  "the desert": [],
   "nights": [
     {
       "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/nights/1774715714496_dscf4876.jpeg",
@@ -70,5 +69,6 @@
     {
       "src": "https://raw.githubusercontent.com/shaneroycroft/shaneroycroft/main/images/perubolivia/1775407006333_dscf2797.jpeg"
     }
-  ]
+  ],
+  "the desert": []
 }
