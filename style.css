@@ -270,7 +270,7 @@ body::before {
     grid-template-columns: repeat(3, 1fr);
     gap: 0.6rem;
     margin-top: 2.5rem;
-    max-width: 540px;
+    max-width: 720px;
 }
 
 .featured-item {

@@ -74,13 +74,13 @@
                 if (explicit.length) {
                     const anchor = explicit[Math.floor(Math.random() * explicit.length)];
                     const rest = shuffle(explicit.filter(e => norm(e).src !== norm(anchor).src).concat(pinned));
-                    photos = [anchor, ...rest].slice(0, 3);
+                    photos = [anchor, ...rest].slice(0, 6);
                 } else {
-                    photos = shuffle([...pinned]).slice(0, 3);
+                    photos = shuffle([...pinned]).slice(0, 6);
                 }
                 if (!photos.length) {
                     for (const cat of Object.values(data)) {
-                        if (cat.length) { photos = shuffle([...cat]).slice(0, 3); break; }
+                        if (cat.length) { photos = shuffle([...cat]).slice(0, 6); break; }
                     }
                 }
                 if (photos.length) renderFeatured(photos);
