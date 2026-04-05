@@ -312,22 +312,20 @@
     <div class="e-bar">
         <span class="e-bar-title">editor</span>
         <span class="e-bar-sep">|</span>
-        <button class="e-bar-btn" onclick="document.getElementById('open-input').click()">open image</button>
+        <button class="e-bar-btn" onclick="document.getElementById('open-input').click()">open</button>
         <input type="file" id="open-input" accept="image/*,.cr2,.cr3,.nef,.nrw,.arw,.dng,.orf,.rw2,.raf,.pef,.srw,.x3f,.3fr,.mef,.mos,.rwl,.raw,.iiq,.cap" style="display:none">
         <span class="e-bar-sep">|</span>
         <label class="grid-label">
             <input type="checkbox" id="grid-toggle" onchange="renderOverlay()"> grid
         </label>
         <select id="grid-type" onchange="renderOverlay()">
-            <option value="thirds">rule of thirds</option>
-            <option value="golden">golden ratio</option>
+            <option value="thirds">thirds</option>
+            <option value="golden">golden</option>
             <option value="diagonal">diagonals</option>
             <option value="4x4">4×4</option>
         </select>
-        <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" id="split-btn" onclick="toggleSplit()" title="drag the divider to compare before/after (W)">compare</button>
         <span id="compare-ind" style="display:none;font-size:0.65rem;color:var(--secondary);">· before (\ to exit)</span>
-        <span class="e-bar-sep">|</span>
         <label class="grid-label" title="highlight clipping: red=blown, blue=crushed">
             <input type="checkbox" id="clip-toggle" onchange="renderOverlay()"> clipping
         </label>
@@ -335,20 +333,18 @@
         <span id="zoom-ind"></span>
         <button class="e-bar-btn" id="zoom-100-btn" onclick="zoomTo100()" style="display:none" title="toggle 1:1 pixel view (Z)">1:1</button>
         <button class="e-bar-btn" id="zoom-reset-btn" onclick="resetZoom()" style="display:none" title="fit to window">fit</button>
-        <span class="e-bar-sep">|</span>
         <span id="img-info"></span>
         <span class="e-bar-sep" id="img-info-sep" style="display:none;">|</span>
-        <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
-        <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
+        <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">undo</button>
+        <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">redo</button>
         <button class="e-bar-btn" id="history-btn" onclick="toggleHistoryPanel(this)" title="browse edit history">history</button>
-        <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="if(confirm('Reset all adjustments to zero?')) resetAllEdits()" title="reset all adjustments to zero">reset</button>
         <span class="e-bar-spacer"></span>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" id="ep-btn" onclick="toggleExportPresetsPanel(this)" title="save or load export presets">presets</button>
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option></select>
-        <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
-        <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
+        <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:44px;display:none;accent-color:var(--text);" title="quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
+        <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:24px;">92%</span>
         <select id="dl-scale" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" title="export size" onchange="onScaleChange()">
             <option value="1">100%</option>
             <option value="0.75">75%</option>
@@ -356,17 +352,14 @@
             <option value="0.25">25%</option>
             <option value="custom">custom px</option>
         </select>
-        <input type="number" id="dl-custom-w" min="1" max="99999" placeholder="width" style="display:none;width:64px;font-family:inherit;font-size:0.7rem;border:1px solid var(--border);padding:0.15rem 0.3rem;background:var(--bg);color:var(--text);" title="export width in pixels">
-        <span style="font-size:0.65rem;color:var(--secondary);white-space:nowrap;" title="output sharpening applied after downscaling on export">out sharpen</span>
-        <input type="range" id="dl-outsharpen" min="0" max="100" value="0" style="width:44px;accent-color:var(--text);" title="output sharpening (applied only on export, after downscaling)" oninput="document.getElementById('dl-outsharpen-val').textContent=this.value+'%'">
-        <span id="dl-outsharpen-val" style="font-size:0.65rem;color:var(--secondary);min-width:28px;text-align:right;">0%</span>
-        <span class="e-bar-sep">|</span>
+        <input type="number" id="dl-custom-w" min="1" max="99999" placeholder="width" style="display:none;width:60px;font-family:inherit;font-size:0.7rem;border:1px solid var(--border);padding:0.15rem 0.3rem;background:var(--bg);color:var(--text);" title="export width in pixels">
+        <input type="range" id="dl-outsharpen" min="0" max="100" value="0" style="width:38px;accent-color:var(--text);" title="output sharpening — applied after downscaling on export" oninput="document.getElementById('dl-outsharpen-val').textContent=this.value>0?this.value+'%':''">
+        <span id="dl-outsharpen-val" style="font-size:0.65rem;color:var(--secondary);min-width:22px;text-align:right;"></span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
-        <button class="e-bar-btn" id="push-btn" onclick="pushToRepo()" disabled style="display:none;">push to repo</button>
+        <button class="e-bar-btn" id="push-btn" onclick="pushToRepo()" disabled style="display:none;">push</button>
         <span id="push-status" style="font-size:0.65rem; color:var(--secondary); display:none;"></span>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="document.getElementById('info-modal').style.display='block'" title="editor guide">?</button>
-        <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
     </div>
 
@@ -425,15 +418,10 @@
                             <button class="ar-btn active" onclick="setAR(this,'free')">free</button>
                             <button class="ar-btn" onclick="setAR(this,'1:1')">1:1</button>
                             <button class="ar-btn" onclick="setAR(this,'4:3')">4:3</button>
-                            <button class="ar-btn" onclick="setAR(this,'3:4')">3:4</button>
                             <button class="ar-btn" onclick="setAR(this,'3:2')">3:2</button>
-                            <button class="ar-btn" onclick="setAR(this,'2:3')">2:3</button>
                             <button class="ar-btn" onclick="setAR(this,'16:9')">16:9</button>
-                            <button class="ar-btn" onclick="setAR(this,'9:16')">9:16</button>
-                            <button class="ar-btn" onclick="setAR(this,'5:4')">5:4</button>
                             <button class="ar-btn" onclick="setAR(this,'4:5')">4:5</button>
-                            <button class="ar-btn" onclick="setAR(this,'7:5')">7:5</button>
-                            <button class="ar-btn" onclick="setAR(this,'5:7')">5:7</button>
+                            <button class="ar-btn" onclick="setAR(this,'9:16')">9:16</button>
                             <button class="ar-btn" onclick="setAR(this,'custom')">custom</button>
                         </div>
                     </div>
@@ -476,7 +464,6 @@
                     <div style="margin-bottom:0.5rem;">
                         <button class="s-link" id="persp-btn" onclick="togglePerspective()">perspective</button>
                     </div>
-                    <p class="s-note">drag the 4 corner handles to correct converging lines — pull corners outside the image to fix buildings. commit bakes the transform.</p>
                     <div class="s-row-btns">
                         <button class="s-btn" onclick="commitTransform()">commit + auto-crop</button>
                         <button class="s-link" onclick="document.getElementById('sl-straighten').value=0;straightenAngle=0;resetPerspective();renderOverlay();scheduleRender()">reset transform</button>
@@ -541,8 +528,7 @@
                         <button class="hsl-tab" id="cv-tab-g" onclick="setCurveChannel('g')" style="color:#27ae60">g</button>
                         <button class="hsl-tab" id="cv-tab-b" onclick="setCurveChannel('b')" style="color:#2980b9">b</button>
                     </div>
-                    <p class="s-note">click to add · drag · double-click to remove</p>
-                    <canvas id="curve-canvas" width="220" height="220"></canvas>
+                    <canvas id="curve-canvas" title="click to add point · drag to reshape · double-click to remove" width="220" height="220"></canvas>
                     <div class="s-row-btns">
                         <button class="s-link" onclick="applyCurvePreset('s')">s-curve</button>
                         <button class="s-link" onclick="applyCurvePreset('gentle')">gentle</button>
@@ -550,10 +536,8 @@
                         <button class="s-link" onclick="applyCurvePreset('fade')">film fade</button>
                         <button class="s-link" onclick="applyCurvePreset('matte')">matte</button>
                     </div>
-                    <p class="s-note" style="margin-top:0.5rem">levels — input clamp</p>
-                    <div class="s-row"><label>in black <input type="number" class="val-input" id="v-in-black" value="0" min="0" max="254" step="1" oninput="onLevelInput(this,'sl-in-black')"></label><input type="range" id="sl-in-black" min="0" max="254" value="0" data-default="0" oninput="onLevelSlider(this,'v-in-black')" ondblclick="resetLevelSlider(this,'v-in-black',0)"></div>
+                    <div class="s-row" style="margin-top:0.5rem"><label>in black <input type="number" class="val-input" id="v-in-black" value="0" min="0" max="254" step="1" oninput="onLevelInput(this,'sl-in-black')"></label><input type="range" id="sl-in-black" min="0" max="254" value="0" data-default="0" oninput="onLevelSlider(this,'v-in-black')" ondblclick="resetLevelSlider(this,'v-in-black',0)"></div>
                     <div class="s-row"><label>in white <input type="number" class="val-input" id="v-in-white" value="255" min="1" max="255" step="1" oninput="onLevelInput(this,'sl-in-white')"></label><input type="range" id="sl-in-white" min="1" max="255" value="255" data-default="255" oninput="onLevelSlider(this,'v-in-white')" ondblclick="resetLevelSlider(this,'v-in-white',255)"></div>
-                    <p class="s-note">output clamp</p>
                     <div class="s-row"><label>out black <input type="number" class="val-input" id="v-out-black" value="0" min="0" max="127" step="1" oninput="onLevelInput(this,'sl-out-black')"></label><input type="range" id="sl-out-black" min="0" max="127" value="0" data-default="0" oninput="onLevelSlider(this,'v-out-black')" ondblclick="resetLevelSlider(this,'v-out-black',0)"></div>
                     <div class="s-row"><label>out white <input type="number" class="val-input" id="v-out-white" value="255" min="128" max="255" step="1" oninput="onLevelInput(this,'sl-out-white')"></label><input type="range" id="sl-out-white" min="128" max="255" value="255" data-default="255" oninput="onLevelSlider(this,'v-out-white')" ondblclick="resetLevelSlider(this,'v-out-white',255)"></div>
                 </div>
@@ -648,7 +632,7 @@
             <details class="e-sec" id="sec-tools">
                 <summary>dodge, burn &amp; clone</summary>
                 <div class="e-body">
-                    <p class="s-note">paint directly on the image to locally lighten (dodge), darken (burn), restore (erase), copy pixels (clone — <strong>alt+click</strong> to set source), or remove distractions (heal — paint area then release).</p>
+                    <p class="s-note">dodge · burn · erase · clone (<strong>alt+click</strong> sets source) · heal</p>
                     <div class="s-row-btns" style="margin-bottom:1rem;">
                         <button id="tool-dodge" class="s-btn-ghost" onclick="setTool('dodge')">dodge</button>
                         <button id="tool-burn"  class="s-btn-ghost" onclick="setTool('burn')">burn</button>
@@ -673,7 +657,7 @@
             <details class="e-sec" id="layers-sec">
                 <summary>layers</summary>
                 <div class="e-body">
-                    <p class="s-note" style="margin-bottom:0.8rem;">composite a second image over the base — sky replacement, texture overlay, double exposure.</p>
+                    <p class="s-note" style="margin-bottom:0.8rem;">overlay a second image — sky swap, texture, double exposure.</p>
                     <div class="s-row-btns" style="margin-bottom:0.5rem;">
                         <button class="s-btn-ghost" onclick="document.getElementById('layer-file-input').click()" id="add-layer-btn">+ add image</button>
                         <input type="file" id="layer-file-input" accept="image/*" style="display:none" onchange="addOverlayLayer(this)">
@@ -685,20 +669,17 @@
             <details class="e-sec" id="masks-sec">
                 <summary>masks</summary>
                 <div class="e-body">
-                    <p class="s-note" style="margin-bottom:0.8rem;">apply local adjustments to targeted areas of the image.</p>
-                    <div class="s-row-btns" style="margin-bottom:0.5rem;">
+                    <div class="s-row-btns" style="margin-bottom:0.75rem;margin-top:0.25rem;">
                         <button class="s-btn-ghost" onclick="addMask('gradient')">+ gradient</button>
                         <button class="s-btn-ghost" onclick="addMask('radial')">+ radial</button>
                         <button class="s-btn-ghost" onclick="addMask('brush')">+ brush</button>
                         <button class="s-btn-ghost" onclick="addMask('luminosity')">+ luma</button>
                         <button class="s-btn-ghost" onclick="addMask('colour')">+ colour</button>
-                    </div>
-                    <div class="s-row-btns" style="margin-bottom:0.75rem;">
                         <button class="s-btn-ghost" id="ai-select-btn" onclick="startAISelect()" title="click a point on the image to select any object">+ ai select</button>
                         <button class="s-btn-ghost" id="ai-sky-btn" onclick="startAISky()" title="auto-detect and select sky">+ ai sky</button>
                         <button class="s-btn-ghost" id="ai-people-btn" onclick="startAIPeople()" title="auto-detect and select people">+ ai people</button>
                     </div>
-                    <p class="s-note" id="ai-select-note">ai select ~94mb · ai sky &amp; people ~15mb — models download once and cache on your device</p>
+                    <p class="s-note" id="ai-select-note">models download on first use and cache on device</p>
                     <!-- AI select panel (interactive point-click) -->
                     <div id="ai-select-panel" style="display:none;margin-bottom:0.75rem;">
                         <div id="ai-status" class="ai-status"></div>
