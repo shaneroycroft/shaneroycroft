@@ -140,13 +140,23 @@
         .preset-del { background: none; border: none; cursor: pointer; color: var(--secondary); font-size: 0.8rem; line-height: 1; padding: 0.2rem 0.15rem; transition: color 0.15s; flex-shrink: 0; }
         .preset-del:hover { color: #c0392b; }
 
-        /* HSL tabs */
+        /* HSL tabs + Scope tabs (shared styling) */
         .hsl-tabs { display: flex; margin-bottom: 0.75rem; }
         .hsl-tab { flex: 1; padding: 0.3rem; font-size: 0.68rem; text-transform: lowercase; letter-spacing: 1px; cursor: pointer; text-align: center; border: 1px solid var(--border); background: none; font-family: inherit; color: var(--secondary); transition: 0.15s; }
         .hsl-tab:not(:first-child) { border-left: none; }
         .hsl-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
         .hsl-panel { display: none; }
         .hsl-panel.active { display: block; }
+
+        /* Scope tabs (histogram / waveform / vectorscope) */
+        .scope-tabs { display: flex; margin-bottom: 0.35rem; }
+        .scope-tab { flex: 1; padding: 0.22rem 0.3rem; font-size: 0.62rem; text-transform: lowercase; letter-spacing: 0.8px; cursor: pointer; text-align: center; border: 1px solid var(--border); background: none; font-family: inherit; color: var(--secondary); transition: 0.15s; }
+        .scope-tab:not(:first-child) { border-left: none; }
+        .scope-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+        #wave-canvas, #vector-canvas { display: none; border: 1px solid var(--border); }
+
+        /* Kelvin readout */
+        .wb-kelvin { font-size: 0.6rem; color: var(--secondary); margin-left: 0.3rem; opacity: 0.7; }
 
         /* Adjust sub-group labels */
         .adj-group { font-size: 0.58rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin: 0.85rem 0 0.45rem; border-top: 1px solid var(--border); padding-top: 0.65rem; }
@@ -342,7 +352,7 @@
         <span class="e-bar-spacer"></span>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" id="ep-btn" onclick="toggleExportPresetsPanel(this)" title="save or load export presets">presets</button>
-        <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option></select>
+        <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option><option value="p3png">p3 png</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:44px;display:none;accent-color:var(--text);" title="quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:24px;">92%</span>
         <select id="dl-scale" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" title="export size" onchange="onScaleChange()">
@@ -375,13 +385,20 @@
                 <button class="s-link" style="font-size:0.65rem;" onclick="_dismissSessionRestore()">×</button>
             </div>
 
-            <!-- Histogram -->
+            <!-- Histogram / Scopes -->
             <div class="e-hist">
-                <div class="e-hist-label">histogram
-                    <span id="hist-clip-lo" style="font-size:0.6rem;color:#4a80e8;display:none;margin-left:0.4rem;"></span>
-                    <span id="hist-clip-hi" style="font-size:0.6rem;color:#e84a4a;display:none;margin-left:0.3rem;"></span>
+                <div class="scope-tabs">
+                    <button class="scope-tab active" id="scope-tab-hist"   onclick="setScopeTab('hist')">histogram</button>
+                    <button class="scope-tab"        id="scope-tab-wave"   onclick="setScopeTab('wave')">waveform</button>
+                    <button class="scope-tab"        id="scope-tab-vector" onclick="setScopeTab('vector')">vectorscope</button>
                 </div>
-                <canvas id="hist-canvas" width="222" height="66"></canvas>
+                <div style="min-height:0.9rem;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.3rem;">
+                    <span id="hist-clip-lo" style="font-size:0.6rem;color:#4a80e8;display:none;"></span>
+                    <span id="hist-clip-hi" style="font-size:0.6rem;color:#e84a4a;display:none;"></span>
+                </div>
+                <canvas id="hist-canvas"   width="222" height="66" style="display:block;border:1px solid var(--border);"></canvas>
+                <canvas id="wave-canvas"   width="222" height="66"></canvas>
+                <canvas id="vector-canvas" width="66"  height="66"></canvas>
                 <div style="margin-top:0.4rem;display:flex;justify-content:space-between;align-items:center;">
                     <button class="s-link" onclick="autoEnhance()">auto enhance</button>
                     <span id="img-dims" style="font-size:0.62rem;color:var(--secondary);"></span>
@@ -493,7 +510,7 @@
                     <div class="s-row"><label>blacks <input type="number" class="val-input" id="v-blacks" value="0" min="-100" max="100" step="1" data-key="blacks" oninput="syncVal(this)"></label><input type="range" id="sl-blacks" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
 
                     <div class="adj-group">color</div>
-                    <div class="s-row"><label>temperature <input type="number" class="val-input" id="v-temperature" value="0" min="-100" max="100" step="1" data-key="temperature" oninput="syncVal(this)"></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>temperature<span id="wb-kelvin" class="wb-kelvin">5500K</span> <input type="number" class="val-input" id="v-temperature" value="0" min="-100" max="100" step="1" data-key="temperature" oninput="syncVal(this)"></label><input type="range" id="sl-temperature" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>tint <input type="number" class="val-input" id="v-tint" value="0" min="-100" max="100" step="1" data-key="tint" oninput="syncVal(this)"></label><input type="range" id="sl-tint" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row-btns" style="margin-top:-0.3rem;margin-bottom:0.6rem;"><button id="wb-pick-btn" class="ar-btn" onclick="toggleWBEyedropper()" title="click a neutral area to set white balance">✛ pick neutral</button></div>
                     <div class="s-row"><label>vibrance <input type="number" class="val-input" id="v-vibrance" value="0" min="-100" max="100" step="1" data-key="vibrance" oninput="syncVal(this)"></label><input type="range" id="sl-vibrance" min="-100" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
@@ -1150,6 +1167,7 @@ function syncVal(numEl) {
     v = Math.max(parseFloat(slEl.min), Math.min(parseFloat(slEl.max), v));
     numEl.value = v;
     slEl.value = v;
+    if (key === 'temperature') updateKelvinDisplay();
     slEl.dispatchEvent(new Event('input')); // triggers the slider's oninput handler
 }
 // Called on dblclick of a range slider — resets to its data-default value
@@ -1836,6 +1854,7 @@ function render() {
     ov.height = out.height;
     renderOverlay();
     drawHistogram();
+    drawScopes();
     drawCurve();
     if (!isAdjusting) updateDimsDisplay();
     updateMinimap();
@@ -3309,6 +3328,204 @@ function drawHistogram() {
     ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
 }
 
+// ── Scope tab switching ───────────────────────────────────────
+let _activeScopeTab = 'hist';
+function setScopeTab(tab) {
+    _activeScopeTab = tab;
+    ['hist','wave','vector'].forEach(t => {
+        document.getElementById('scope-tab-' + t)?.classList.toggle('active', t === tab);
+        const cv = document.getElementById(t === 'hist' ? 'hist-canvas' : t + '-canvas');
+        if (cv) cv.style.display = t === tab ? 'block' : 'none';
+    });
+    // Clipping labels only visible on histogram tab
+    if (tab !== 'hist') {
+        document.getElementById('hist-clip-lo').style.display = 'none';
+        document.getElementById('hist-clip-hi').style.display = 'none';
+    }
+    // On switch back to hist, drawHistogram (called by drawScopes → render) will restore them
+    drawScopes();
+}
+
+// Draw whichever scope is active (called every render, and on tab switch)
+function drawScopes() {
+    if (_activeScopeTab === 'wave')   drawWaveform();
+    if (_activeScopeTab === 'vector') drawVectorscope();
+    // hist is always drawn via drawHistogram() in render(); on tab switch we trigger it here too
+    if (_activeScopeTab === 'hist')   drawHistogram();
+}
+
+// ── Waveform monitor ──────────────────────────────────────────
+// Plots R, G, B values of every pixel vs its horizontal position.
+// Screen-blended so overlapping regions show yellow/cyan/magenta/white.
+function drawWaveform() {
+    const cv = document.getElementById('wave-canvas');
+    const out = document.getElementById('output-canvas');
+    if (!cv || !out.width) return;
+    const {x1, y1, x2, y2} = imageBounds;
+    const iw = Math.max(1, x2 - x1), ih = Math.max(1, y2 - y1);
+    const W = cv.width, H = cv.height;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    // Sample image into a canvas scaled to W columns for speed
+    const sw = W, sh = Math.max(1, Math.round(W * ih / iw));
+    const sc = mkCanvas(sw, sh);
+    sc.getContext('2d').drawImage(out, x1, y1, iw, ih, 0, 0, sw, sh);
+    const id = sc.getContext('2d').getImageData(0, 0, sw, sh).data;
+
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = isDark ? '#1a1a1a' : '#f4f4f4';
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw IRE guide lines at 0%, 25%, 50%, 75%, 100%
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+        const y = Math.round((1 - f) * (H - 1)) + 0.5;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    });
+
+    // For each channel, build a temp canvas and draw with screen blend
+    // chIdx: 0=R, 1=G, 2=B
+    const alpha = isDark ? 70 : 55;
+    const chColors = [[210,0,0],[0,185,0],[0,0,230]];
+    [0, 1, 2].forEach(chIdx => {
+        const tmp = mkCanvas(W, H);
+        const tCtx = tmp.getContext('2d');
+        const buf = new Uint8ClampedArray(W * H * 4);
+        for (let px = 0; px < id.length; px += 4) {
+            const xc = (px / 4) % sw;
+            const v  = id[px + chIdx] / 255;
+            const yp = Math.min(H - 1, Math.round((1 - v) * (H - 1)));
+            const bi = (yp * W + xc) * 4;
+            buf[bi]   = chColors[chIdx][0];
+            buf[bi+1] = chColors[chIdx][1];
+            buf[bi+2] = chColors[chIdx][2];
+            buf[bi+3] = Math.min(255, buf[bi+3] + alpha);
+        }
+        const imgData = tCtx.createImageData(W, H);
+        imgData.data.set(buf);
+        tCtx.putImageData(imgData, 0, 0);
+        ctx.globalCompositeOperation = 'screen';
+        ctx.drawImage(tmp, 0, 0);
+    });
+    ctx.globalCompositeOperation = 'source-over';
+
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+}
+
+// ── Vectorscope ───────────────────────────────────────────────
+// Plots chrominance (U, V) of every pixel on a colour wheel.
+// Target boxes mark where fully-saturated sRGB primaries/secondaries fall.
+function drawVectorscope() {
+    const cv  = document.getElementById('vector-canvas');
+    const out = document.getElementById('output-canvas');
+    if (!cv || !out.width) return;
+    const {x1, y1, x2, y2} = imageBounds;
+    const iw = Math.max(1, x2 - x1), ih = Math.max(1, y2 - y1);
+    const W = cv.width, H = cv.height;
+    const cx = W / 2, cy = H / 2;
+    const R = Math.min(cx, cy) * 0.88; // plot radius
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    // Sample at 128×128 for speed
+    const ss = 128;
+    const sc = mkCanvas(ss, Math.max(1, Math.round(ss * ih / iw)));
+    sc.getContext('2d').drawImage(out, x1, y1, iw, ih, 0, 0, sc.width, sc.height);
+    const id = sc.getContext('2d').getImageData(0, 0, sc.width, sc.height).data;
+
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    // Background circle
+    ctx.beginPath(); ctx.arc(cx, cy, R + 2, 0, Math.PI * 2);
+    ctx.fillStyle = isDark ? '#1a1a1a' : '#f4f4f4'; ctx.fill();
+
+    // Subtle colour wheel background
+    const grad = ctx.createConicGradient ? ctx.createConicGradient(0, cx, cy) : null;
+    if (grad) {
+        ['#ff0000','#ffff00','#00ff00','#00ffff','#0000ff','#ff00ff','#ff0000'].forEach((c, i) => grad.addColorStop(i/6, c));
+        ctx.save();
+        ctx.globalAlpha = isDark ? 0.08 : 0.06;
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.restore();
+    }
+
+    // Guide circles at 50% and 100% chroma
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    [0.5, 1].forEach(f => { ctx.beginPath(); ctx.arc(cx, cy, R * f, 0, Math.PI * 2); ctx.stroke(); });
+    // Cross-hair
+    ctx.beginPath(); ctx.moveTo(cx, cy - R - 2); ctx.lineTo(cx, cy + R + 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - R - 2, cy); ctx.lineTo(cx + R + 2, cy); ctx.stroke();
+
+    // sRGB primary/secondary targets (U, V from BT.601)
+    // U = (B-Y)/1.772, V = (R-Y)/1.402  normalised to ±0.5
+    const targets = [
+        { label:'R', r:1, g:0, b:0, col:'#ff4444' },
+        { label:'Y', r:1, g:1, b:0, col:'#cccc00' },
+        { label:'G', r:0, g:1, b:0, col:'#44cc44' },
+        { label:'C', r:0, g:1, b:1, col:'#00cccc' },
+        { label:'B', r:0, g:0, b:1, col:'#4444ff' },
+        { label:'M', r:1, g:0, b:1, col:'#cc44cc' },
+    ];
+    const toUV = (r,g,b) => {
+        const Y = 0.299*r + 0.587*g + 0.114*b;
+        const U = (b - Y) / 1.772;
+        const V = (r - Y) / 1.402;
+        return [U, V];
+    };
+    targets.forEach(t => {
+        const [U, V] = toUV(t.r, t.g, t.b);
+        // Map U→x, V→y (V up = red direction)
+        const px = cx + U * R * 2;
+        const py = cy - V * R * 2;
+        ctx.strokeStyle = t.col; ctx.lineWidth = 1.5;
+        ctx.strokeRect(px - 3, py - 3, 6, 6);
+    });
+
+    // Plot pixels
+    const imgData = ctx.createImageData(W, H);
+    const buf = imgData.data;
+    const alpha = isDark ? 80 : 65;
+    for (let i = 0; i < id.length; i += 4) {
+        const r = id[i]/255, g = id[i+1]/255, b = id[i+2]/255;
+        const [U, V] = toUV(r, g, b);
+        const px = Math.round(cx + U * R * 2);
+        const py = Math.round(cy - V * R * 2);
+        if (px < 0 || px >= W || py < 0 || py >= H) continue;
+        const bi = (py * W + px) * 4;
+        // Colour by dominant hue
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        const sat = mx > 0 ? (mx - mn) / mx : 0;
+        buf[bi]   = Math.round(r * 220);
+        buf[bi+1] = Math.round(g * 220);
+        buf[bi+2] = Math.round(b * 220);
+        buf[bi+3] = Math.min(255, (buf[bi+3] || 0) + alpha);
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Border
+    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, R + 2, 0, Math.PI * 2); ctx.stroke();
+}
+
+// ── Kelvin conversion ─────────────────────────────────────────
+// Maps temperature slider (−100…+100) to an approximate colour temperature.
+// 0 → 5500K (daylight), +100 → 2000K (warm), −100 → 10000K (cool)
+function tempToKelvin(t) {
+    if (t >= 0) return Math.round(5500 - 3500 * t / 100);
+    return Math.round(5500 + 4500 * (-t) / 100);
+}
+function updateKelvinDisplay() {
+    const sl = document.getElementById('sl-temperature');
+    const el = document.getElementById('wb-kelvin');
+    if (sl && el) el.textContent = tempToKelvin(parseFloat(sl.value)) + 'K';
+}
+
 // ── Overlay ───────────────────────────────────────────────────
 function renderOverlay() {
     const ov = document.getElementById('overlay-canvas');
@@ -4136,6 +4353,7 @@ function onAdjust() {
     ADJUST_KEYS.forEach(k => {
         const el=document.getElementById('v-'+k); if(el) el.value=document.getElementById('sl-'+k).value;
     });
+    updateKelvinDisplay();
     beginAdjust('adjust', true);
 }
 
@@ -4168,6 +4386,7 @@ function resetAdjust() {
         sl.value = def;
         const el = document.getElementById('v-'+k); if (el) el.value = def;
     });
+    updateKelvinDisplay();
     scheduleRender();
 }
 
@@ -4317,6 +4536,7 @@ function _wbPickHandler(e) {
     tintSl.value = Math.round(newTint);
     document.getElementById('v-temperature').value = Math.round(newTemp);
     document.getElementById('v-tint').value = Math.round(newTint);
+    updateKelvinDisplay();
     toggleWBEyedropper();
     beginAdjust('white balance', true);
 }
@@ -4613,6 +4833,206 @@ function injectIccIntoPng(dataUrl) {
     } catch(e) { return dataUrl; }
 }
 
+// ── Display P3 ICC profile ────────────────────────────────────
+// Minimal Display P3 v2 profile — same structure as sRGB but with DCI-P3 primaries
+// (D65 white point, same TRC as sRGB).
+let _p3IccProfile = null;
+function getDisplayP3Profile() {
+    if (_p3IccProfile) return _p3IccProfile;
+    const enc = new TextEncoder();
+    function u32be(v) { return [(v>>>24)&0xFF,(v>>>16)&0xFF,(v>>>8)&0xFF,v&0xFF]; }
+    function u16be(v) { return [(v>>>8)&0xFF,v&0xFF]; }
+    function s15f16(v) { const i=Math.round(v*65536); return u32be(i>>>0); }
+    function mluc(str) {
+        const ucs2=[]; for(let c of str){ucs2.push(0,c.charCodeAt(0));}
+        const rec=[...u32be(1),...u32be(12),...enc.encode('enUS'),...u32be(ucs2.length),...u32be(28),...ucs2];
+        return [...enc.encode('mluc'),...u32be(0),...rec];
+    }
+    function para(g,a,b,c,d) {
+        return [...enc.encode('para'),...u32be(0),...u16be(3),...u16be(0),
+            ...s15f16(g),...s15f16(a),...s15f16(b),...s15f16(c),...s15f16(d)];
+    }
+    function xyzTag(x,y,z) { return [...enc.encode('XYZ '),...u32be(0),...s15f16(x),...s15f16(y),...s15f16(z)]; }
+    // Display P3 primaries (D50-adapted XYZ, Bradford)
+    const rXYZ=[0.5150, 0.2412, 0.0000];
+    const gXYZ=[0.2920, 0.6922, 0.0419];
+    const bXYZ=[0.1571, 0.0666, 0.7842];
+    const wXYZ=[0.9642957, 1.0, 0.8251046]; // D50
+    const trc = para(2.4, 1/1.055, 0.055/1.055, 1/12.92, 0.04045);
+    const tags = [
+        { sig:'rXYZ', data: xyzTag(...rXYZ) },
+        { sig:'gXYZ', data: xyzTag(...gXYZ) },
+        { sig:'bXYZ', data: xyzTag(...bXYZ) },
+        { sig:'wtpt', data: xyzTag(...wXYZ) },
+        { sig:'rTRC', data: trc }, { sig:'gTRC', data: trc }, { sig:'bTRC', data: trc },
+        { sig:'desc', data: mluc('Display P3') },
+        { sig:'cprt', data: mluc('Copyright Apple Inc., 2015') },
+        { sig:'bkpt', data: xyzTag(0,0,0) },
+    ];
+    const aligned = d => d + (4 - d%4)%4;
+    const tagTableOffset = 128, tagTableSize = 4 + tags.length * 12;
+    let dataOffset = tagTableOffset + tagTableSize;
+    const offsets = [];
+    for (const t of tags) { offsets.push(dataOffset); dataOffset += aligned(t.data.length); }
+    const profileSize = dataOffset;
+    const buf = new Uint8Array(profileSize); let p = 0;
+    const wr = bytes => { for(const b of bytes) buf[p++]=b; };
+    wr(u32be(profileSize)); wr(u32be(0)); wr([0x02,0x20,0x00,0x00]);
+    wr(enc.encode('mntr')); wr(enc.encode('RGB ')); wr(enc.encode('XYZ '));
+    p = 24; wr([0x07,0xD1,0,1,0,0,0,0,0,0,0,0]); p = 36;
+    wr(enc.encode('acsp')); wr(enc.encode('APPL')); wr(u32be(0)); wr(u32be(0)); wr(u32be(0));
+    wr([0,0,0,0,0,0,0,0]); wr(u32be(0));
+    wr(s15f16(wXYZ[0])); wr(s15f16(wXYZ[1])); wr(s15f16(wXYZ[2]));
+    wr(enc.encode('APPL')); p = 128;
+    wr(u32be(tags.length));
+    tags.forEach((t, i) => { wr(enc.encode(t.sig)); wr(u32be(offsets[i])); wr(u32be(aligned(t.data.length))); });
+    tags.forEach((t, i) => { p = offsets[i]; wr(t.data); });
+    _p3IccProfile = buf;
+    return buf;
+}
+
+// Export a canvas as Display P3 PNG.
+// Converts sRGB pixel values → linear → Display P3 → P3-encoded, then injects P3 ICC profile.
+function exportAsP3Png(srcCanvas) {
+    // sRGB → linear (exact IEC 61966-2-1)
+    const toLinear = v => v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4);
+    // linear → sRGB-TRC (same TRC used for P3)
+    const toGamma  = v => v <= 0.0031308 ? v*12.92 : 1.055*Math.pow(v,1/2.4)-0.055;
+    // sRGB primaries → XYZ(D65) → Display P3 primaries  (row-major 3×3)
+    // Combined matrix from ICC primaries (exact values)
+    const M = [
+         0.82246654,  0.17753346,  0.00000000,
+         0.03319562,  0.96680438,  0.00000000,
+         0.01708233,  0.07239922,  0.91051845,
+    ];
+    const W = srcCanvas.width, H = srcCanvas.height;
+    const tmpC = document.createElement('canvas');
+    tmpC.width = W; tmpC.height = H;
+    const ctx = tmpC.getContext('2d');
+    ctx.drawImage(srcCanvas, 0, 0);
+    const id = ctx.getImageData(0, 0, W, H);
+    const d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+        const rl = toLinear(d[i]/255), gl = toLinear(d[i+1]/255), bl = toLinear(d[i+2]/255);
+        const pr = M[0]*rl + M[1]*gl + M[2]*bl;
+        const pg = M[3]*rl + M[4]*gl + M[5]*bl;
+        const pb = M[6]*rl + M[7]*gl + M[8]*bl;
+        d[i]   = Math.round(Math.max(0,Math.min(1,toGamma(pr)))*255);
+        d[i+1] = Math.round(Math.max(0,Math.min(1,toGamma(pg)))*255);
+        d[i+2] = Math.round(Math.max(0,Math.min(1,toGamma(pb)))*255);
+    }
+    ctx.putImageData(id, 0, 0);
+    // Export and inject P3 ICC profile
+    let dataUrl = tmpC.toDataURL('image/png');
+    try {
+        const icc = getDisplayP3Profile();
+        const b64 = dataUrl.split(',')[1];
+        const bin = atob(b64);
+        const src = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) src[i] = bin.charCodeAt(i);
+        // Build sRGB chunk tag to find/replace: we'll inject iCCP chunk after IHDR
+        // PNG signature(8) + IHDR chunk(25) = offset 33
+        const sig  = new Uint8Array([137,80,78,71,13,10,26,10]);
+        const name = new TextEncoder().encode('Display P3\0'); // null-terminated name
+        const compMethod = new Uint8Array([0]); // deflate
+        // Compress ICC with pako if available, else raw (browsers accept uncompressed iCCP if deflate flag is correct)
+        // We'll store uncompressed wrapped in a deflate non-compressed block
+        const deflated = _deflateRaw(icc);
+        const nameBytes = [...name, ...compMethod];
+        const chunkData = new Uint8Array(nameBytes.length + deflated.length);
+        chunkData.set(nameBytes); chunkData.set(deflated, nameBytes.length);
+        const iccpChunk = _pngChunk('iCCP', chunkData);
+        // Remove any existing sRGB / iCCP chunks, insert new iCCP after IHDR
+        const out = _pngReplaceMeta(src, iccpChunk);
+        let s = '';
+        const chunkSz = 8192;
+        for (let i = 0; i < out.length; i += chunkSz)
+            s += String.fromCharCode.apply(null, out.subarray(i, i + chunkSz));
+        return 'data:image/png;base64,' + btoa(s);
+    } catch(e) { return dataUrl; }
+}
+
+// Build a deflate non-compressed block wrapping `data` (zlib format)
+function _deflateRaw(data) {
+    // zlib header: CM=8 (deflate), CINFO=7 (32KB window), FCHECK
+    const CMF = 0x78, FLG = 0x9C; // preset dict=0, level=6
+    // Non-compressed deflate block: BFINAL=1, BTYPE=00, LEN, NLEN, data
+    const out = [];
+    out.push(CMF, FLG);
+    let i = 0;
+    while (i < data.length) {
+        const chunkLen = Math.min(65535, data.length - i);
+        const last = (i + chunkLen >= data.length) ? 1 : 0;
+        out.push(last); // BFINAL | BTYPE(00)
+        out.push(chunkLen & 0xFF, (chunkLen >> 8) & 0xFF);
+        out.push(~chunkLen & 0xFF, (~chunkLen >> 8) & 0xFF);
+        for (let j = 0; j < chunkLen; j++) out.push(data[i + j]);
+        i += chunkLen;
+    }
+    // Adler-32 checksum
+    let s1 = 1, s2 = 0;
+    for (let j = 0; j < data.length; j++) { s1 = (s1 + data[j]) % 65521; s2 = (s2 + s1) % 65521; }
+    const adler = (s2 << 16) | s1;
+    out.push((adler>>>24)&0xFF,(adler>>>16)&0xFF,(adler>>>8)&0xFF,adler&0xFF);
+    return new Uint8Array(out);
+}
+
+// Build a PNG chunk: 4-byte length + 4-byte type + data + 4-byte CRC
+function _pngChunk(type, data) {
+    const typeBytes = new TextEncoder().encode(type);
+    const chunk = new Uint8Array(4 + 4 + data.length + 4);
+    const dv = new DataView(chunk.buffer);
+    dv.setUint32(0, data.length);
+    chunk.set(typeBytes, 4);
+    chunk.set(data, 8);
+    // CRC32 over type + data
+    const crc = _crc32(chunk.subarray(4, 8 + data.length));
+    dv.setUint32(8 + data.length, crc);
+    return chunk;
+}
+
+// Strip sRGB/iCCP chunks from a PNG and insert newChunk after IHDR
+function _pngReplaceMeta(src, newChunk) {
+    const parts = [];
+    parts.push(src.subarray(0, 8)); // PNG signature
+    let i = 8;
+    let insertedAfterIHDR = false;
+    while (i < src.length - 8) {
+        const len  = (src[i]<<24|src[i+1]<<16|src[i+2]<<8|src[i+3])>>>0;
+        const type = String.fromCharCode(src[i+4],src[i+5],src[i+6],src[i+7]);
+        const total = 4 + 4 + len + 4;
+        if (type === 'IHDR') {
+            parts.push(src.subarray(i, i + total));
+            parts.push(newChunk);
+            insertedAfterIHDR = true;
+        } else if (type !== 'sRGB' && type !== 'iCCP' && type !== 'gAMA') {
+            parts.push(src.subarray(i, i + total));
+        }
+        i += total;
+    }
+    if (!insertedAfterIHDR) parts.push(newChunk); // fallback
+    const totalLen = parts.reduce((a,b) => a + b.length, 0);
+    const out = new Uint8Array(totalLen); let p = 0;
+    parts.forEach(part => { out.set(part, p); p += part.length; });
+    return out;
+}
+
+// CRC32 lookup table
+const _crcTable = (() => {
+    const t = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        t[i] = c;
+    }
+    return t;
+})();
+function _crc32(data) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < data.length; i++) crc = _crcTable[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
 // Inject an EXIF APP1 segment into a JPEG data URL, replacing any existing APP1.
 // Returns a new data URL with EXIF embedded, or the original if anything fails.
 function injectExifIntoJpeg(dataUrl, exifSeg) {
@@ -4671,6 +5091,7 @@ function _doDownload() {
     const quality    = parseInt(document.getElementById('dl-quality').value) / 100;
     const scale      = _getExportScale();
     const outSharpen = parseInt(document.getElementById('dl-outsharpen').value);
+    const isP3       = fmt === 'p3png';
     const ext        = fmt === 'jpeg' ? 'jpg' : fmt === 'webp' ? 'webp' : 'png';
     const src = document.getElementById('output-canvas');
     let exportCanvas;
@@ -4688,16 +5109,22 @@ function _doDownload() {
         applySharpening(ec.getContext('2d'), ec.width, ec.height, outSharpen, 0);
         exportCanvas = ec;
     }
-    let dataURL = exportCanvas.toDataURL('image/' + fmt, quality);
-    // Inject ICC sRGB profile for colour-accurate display across apps
-    if (fmt === 'jpeg') {
-        dataURL = injectIccIntoJpeg(dataURL);
-    } else if (fmt === 'png') {
-        dataURL = injectIccIntoPng(dataURL);
-    }
-    // Inject original EXIF metadata (with orientation corrected to 1) for JPEG exports
-    if (fmt === 'jpeg' && rawExifSegment) {
-        dataURL = injectExifIntoJpeg(dataURL, fixExifOrientation(rawExifSegment));
+    let dataURL;
+    if (isP3) {
+        // Convert pixel data to Display P3 encoding and embed P3 ICC profile
+        dataURL = exportAsP3Png(exportCanvas);
+    } else {
+        dataURL = exportCanvas.toDataURL('image/' + fmt, quality);
+        // Inject ICC sRGB profile for colour-accurate display across apps
+        if (fmt === 'jpeg') {
+            dataURL = injectIccIntoJpeg(dataURL);
+        } else if (fmt === 'png') {
+            dataURL = injectIccIntoPng(dataURL);
+        }
+        // Inject original EXIF metadata (with orientation corrected to 1) for JPEG exports
+        if (fmt === 'jpeg' && rawExifSegment) {
+            dataURL = injectExifIntoJpeg(dataURL, fixExifOrientation(rawExifSegment));
+        }
     }
     const a = document.createElement('a');
     a.download = origName + '_edited.' + ext;
@@ -4707,7 +5134,7 @@ function _doDownload() {
 function onFormatChange() {
     const fmt = document.getElementById('dl-format').value;
     const showQ = fmt === 'jpeg' || fmt === 'webp';
-    document.getElementById('dl-quality').style.display    = showQ ? '' : 'none';
+    document.getElementById('dl-quality').style.display     = showQ ? '' : 'none';
     document.getElementById('dl-quality-val').style.display = showQ ? '' : 'none';
 }
 function onScaleChange() {
