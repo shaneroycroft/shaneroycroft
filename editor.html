@@ -1639,12 +1639,28 @@ function _finishLoad(srcCanvas, file) {
 }
 
 let _librawMod = null;
+let _librawWorkerPatched = false;
 async function _loadRawFile(file) {
     const loadingEl = document.getElementById('raw-loading');
     if (loadingEl) { loadingEl.style.display = 'flex'; }
     document.getElementById('drop-hint').style.display = 'none';
     try {
         if (!_librawMod) {
+            // Browsers block new Worker(crossOriginUrl). Patch window.Worker to redirect
+            // libraw-wasm's internal worker through a same-origin blob that uses importScripts
+            // (importScripts can load cross-origin scripts when the CDN sends CORS headers).
+            if (!_librawWorkerPatched) {
+                _librawWorkerPatched = true;
+                const cdnWorker = 'https://cdn.jsdelivr.net/npm/libraw-wasm@1.1.2/dist/worker.js';
+                const proxyBlob = new Blob([`importScripts('${cdnWorker}')`], { type: 'application/javascript' });
+                const proxyUrl = URL.createObjectURL(proxyBlob);
+                const _OrigWorker = window.Worker;
+                window.Worker = function(url, opts) {
+                    const u = (url instanceof URL ? url.href : url);
+                    return new _OrigWorker(typeof u === 'string' && u.includes('libraw-wasm') ? proxyUrl : url, opts);
+                };
+                window.Worker.prototype = _OrigWorker.prototype;
+            }
             const mod = await import('https://cdn.jsdelivr.net/npm/libraw-wasm@1.1.2/dist/index.js');
             _librawMod = mod.default || mod;
         }
