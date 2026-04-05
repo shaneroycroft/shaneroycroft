@@ -151,6 +151,15 @@
         .adj-group { font-size: 0.58rem; text-transform: lowercase; letter-spacing: 1.5px; color: var(--secondary); margin: 0.85rem 0 0.45rem; border-top: 1px solid var(--border); padding-top: 0.65rem; }
         .adj-group:first-child { margin-top: 0; border-top: none; padding-top: 0; }
 
+        /* Modified-state dot on accordion headers */
+        .e-sec.modified > summary::before {
+            content: ''; width: 5px; height: 5px; border-radius: 50%;
+            background: var(--text); opacity: 0.45; flex-shrink: 0; align-self: center;
+        }
+
+        /* Sharpen sub-control indentation */
+        .sub-row { padding-left: 0.85rem; border-left: 1px solid var(--border); margin-left: 0.1rem; }
+
         /* Transform */
         .transform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
         .transform-grid button { font-size: 0.7rem; padding: 0.4rem 0.5rem; text-align: center; background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; color: var(--text); transition: border-color 0.2s; }
@@ -247,8 +256,9 @@
         .ai-status { font-size: 0.65rem; color: var(--secondary); line-height: 1.5; margin-bottom: 0.4rem; min-height: 1.1em; }
         .ai-status.working { animation: ai-pulse 1.3s ease-in-out infinite; }
         @keyframes ai-pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
-        #ai-progress-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 0.6rem; display: none; overflow: hidden; }
-        #ai-progress-bar  { height: 100%; background: var(--text); border-radius: 2px; width: 0%; transition: width 0.35s ease; }
+        #ai-progress-wrap, #ai-seg-progress-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 0.6rem; display: none; overflow: hidden; }
+        #ai-progress-bar, #ai-seg-progress-bar   { height: 100%; background: var(--text); border-radius: 2px; width: 0%; transition: width 0.35s ease; }
+        .ai-status-err { color: #c0392b; }
         .ai-point-row { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
         #split-btn.active { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
         /* Zoom indicator in top bar */
@@ -290,9 +300,8 @@
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="if(confirm('Reset all adjustments to zero?')) resetAllEdits()" title="reset all adjustments to zero">reset</button>
-        <span class="e-bar-sep">|</span>
-        <button class="e-bar-btn" onclick="document.getElementById('info-modal').style.display='block'" title="editor guide">?</button>
         <span class="e-bar-spacer"></span>
+        <span class="e-bar-sep">|</span>
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
@@ -304,11 +313,15 @@
             <option value="custom">custom px</option>
         </select>
         <input type="number" id="dl-custom-w" min="1" max="99999" placeholder="width" style="display:none;width:64px;font-family:inherit;font-size:0.7rem;border:1px solid var(--border);padding:0.15rem 0.3rem;background:var(--bg);color:var(--text);" title="export width in pixels">
-        <input type="range" id="dl-outsharpen" min="0" max="100" value="0" style="width:44px;accent-color:var(--text);" title="output sharpening (applied only on export, after downscaling)" oninput="document.getElementById('dl-outsharpen-val').textContent='s:'+this.value">
-        <span id="dl-outsharpen-val" style="font-size:0.65rem;color:var(--secondary);min-width:26px;text-align:right;">s:0</span>
+        <span style="font-size:0.65rem;color:var(--secondary);white-space:nowrap;" title="output sharpening applied after downscaling on export">out sharpen</span>
+        <input type="range" id="dl-outsharpen" min="0" max="100" value="0" style="width:44px;accent-color:var(--text);" title="output sharpening (applied only on export, after downscaling)" oninput="document.getElementById('dl-outsharpen-val').textContent=this.value+'%'">
+        <span id="dl-outsharpen-val" style="font-size:0.65rem;color:var(--secondary);min-width:28px;text-align:right;">0%</span>
+        <span class="e-bar-sep">|</span>
         <button class="e-bar-btn primary" id="dl-btn" onclick="downloadImage()" disabled>download</button>
         <button class="e-bar-btn" id="push-btn" onclick="pushToRepo()" disabled style="display:none;">push to repo</button>
         <span id="push-status" style="font-size:0.65rem; color:var(--secondary); display:none;"></span>
+        <span class="e-bar-sep">|</span>
+        <button class="e-bar-btn" onclick="document.getElementById('info-modal').style.display='block'" title="editor guide">?</button>
         <span class="e-bar-sep">|</span>
         <a id="back-link" href="index.html" class="e-bar-btn" onclick="return confirmLeave(event)">← home</a>
     </div>
@@ -451,15 +464,17 @@
                     <div class="s-row"><label>clarity <input type="number" class="val-input" id="v-clarity" value="0" min="0" max="100" step="1" data-key="clarity" oninput="syncVal(this)"></label><input type="range" id="sl-clarity" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>texture <input type="number" class="val-input" id="v-texture" value="0" min="0" max="100" step="1" data-key="texture" oninput="syncVal(this)"></label><input type="range" id="sl-texture" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>fade <input type="number" class="val-input" id="v-fade" value="0" min="0" max="100" step="1" data-key="fade" oninput="syncVal(this)"></label><input type="range" id="sl-fade" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
 
                     <div class="adj-group">detail</div>
                     <div class="s-row"><label>sharpen <input type="number" class="val-input" id="v-sharpen" value="0" min="0" max="100" step="1" data-key="sharpen" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>radius <input type="number" class="val-input" id="v-sharpen-radius" value="1" min="0.5" max="3" step="0.5" data-key="sharpenRadius" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen-radius" min="0.5" max="3" step="0.5" value="1" data-default="1" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>detail <input type="number" class="val-input" id="v-sharpen-detail" value="0" min="0" max="100" step="1" data-key="sharpenDetail" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen-detail" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>masking <input type="number" class="val-input" id="v-sharpmask" value="0" min="0" max="100" step="1" data-key="sharpmask" oninput="syncVal(this)"></label><input type="range" id="sl-sharpmask" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    <div class="sub-row">
+                        <div class="s-row"><label>radius <input type="number" class="val-input" id="v-sharpen-radius" value="1" min="0.5" max="3" step="0.5" data-key="sharpenRadius" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen-radius" min="0.5" max="3" step="0.5" value="1" data-default="1" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>detail <input type="number" class="val-input" id="v-sharpen-detail" value="0" min="0" max="100" step="1" data-key="sharpenDetail" oninput="syncVal(this)"></label><input type="range" id="sl-sharpen-detail" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                        <div class="s-row"><label>masking <input type="number" class="val-input" id="v-sharpmask" value="0" min="0" max="100" step="1" data-key="sharpmask" oninput="syncVal(this)"></label><input type="range" id="sl-sharpmask" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
+                    </div>
                     <div class="s-row"><label>luma NR <input type="number" class="val-input" id="v-lumanr" value="0" min="0" max="100" step="1" data-key="lumanr" oninput="syncVal(this)"></label><input type="range" id="sl-lumanr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                     <div class="s-row"><label>color NR <input type="number" class="val-input" id="v-colornr" value="0" min="0" max="100" step="1" data-key="colornr" oninput="syncVal(this)"></label><input type="range" id="sl-colornr" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
-                    <div class="s-row"><label>grain <input type="number" class="val-input" id="v-grain" value="0" min="0" max="100" step="1" data-key="grain" oninput="syncVal(this)"></label><input type="range" id="sl-grain" min="0" max="100" value="0" data-default="0" oninput="onAdjust()" ondblclick="resetSlider(this)"></div>
                 </div>
             </details>
 
@@ -564,7 +579,7 @@
             <details class="e-sec" id="lm-sec">
                 <summary>luminosity mask <span class="sec-reset" onclick="event.stopPropagation();resetLM()">reset</span></summary>
                 <div class="e-body">
-                    <p class="s-note">limit all adjustments to a tonal range. 0=shadows, 100=highlights.</p>
+                    <p class="s-note">global tonal range limiter — restricts <em>all</em> adjustments above to a brightness range. 0 = shadows, 100 = highlights.</p>
                     <div class="lm-range-wrap">
                         <div id="lm-range-track"></div>
                         <div id="lm-range-fill"></div>
@@ -618,16 +633,20 @@
                 <summary>masks</summary>
                 <div class="e-body">
                     <p class="s-note" style="margin-bottom:0.8rem;">apply local adjustments to targeted areas of the image.</p>
-                    <div class="s-row-btns" style="margin-bottom:0.75rem;">
+                    <div class="s-row-btns" style="margin-bottom:0.5rem;">
                         <button class="s-btn-ghost" onclick="addMask('gradient')">+ gradient</button>
                         <button class="s-btn-ghost" onclick="addMask('radial')">+ radial</button>
                         <button class="s-btn-ghost" onclick="addMask('brush')">+ brush</button>
                         <button class="s-btn-ghost" onclick="addMask('luminosity')">+ luma</button>
                         <button class="s-btn-ghost" onclick="addMask('colour')">+ colour</button>
-                        <button class="s-btn" id="ai-select-btn" onclick="startAISelect()" title="click a point on the image to select an object — downloads ~94mb on first use">+ ai select</button>
                     </div>
-                    <p class="s-note" id="ai-select-note">ai select uses a local model — first use downloads ~94mb (cached after)</p>
-                    <!-- AI select panel -->
+                    <div class="s-row-btns" style="margin-bottom:0.75rem;">
+                        <button class="s-btn-ghost" id="ai-select-btn" onclick="startAISelect()" title="click a point on the image to select any object">+ ai select</button>
+                        <button class="s-btn-ghost" id="ai-sky-btn" onclick="startAISky()" title="auto-detect and select sky">+ ai sky</button>
+                        <button class="s-btn-ghost" id="ai-people-btn" onclick="startAIPeople()" title="auto-detect and select people">+ ai people</button>
+                    </div>
+                    <p class="s-note" id="ai-select-note">ai select ~94mb · ai sky &amp; people ~15mb — models download once and cache on your device</p>
+                    <!-- AI select panel (interactive point-click) -->
                     <div id="ai-select-panel" style="display:none;margin-bottom:0.75rem;">
                         <div id="ai-status" class="ai-status"></div>
                         <div id="ai-progress-wrap"><div id="ai-progress-bar"></div></div>
@@ -638,6 +657,11 @@
                         </div>
                         <button class="s-btn-ghost" onclick="cancelAISelect()" style="margin-bottom:0.4rem;">cancel</button>
                         <p class="s-note" id="ai-hint-note" style="margin-bottom:0;display:none;">click = add &nbsp;·&nbsp; shift+click = exclude &nbsp;·&nbsp; backspace = undo</p>
+                    </div>
+                    <!-- AI sky / people panel (one-shot, no interaction needed) -->
+                    <div id="ai-seg-panel" style="display:none;margin-bottom:0.75rem;">
+                        <div id="ai-seg-status" class="ai-status"></div>
+                        <div id="ai-seg-progress-wrap"><div id="ai-seg-progress-bar"></div></div>
                     </div>
                     <div class="mask-list" id="mask-list"></div>
                 </div>
@@ -972,11 +996,62 @@ function hueToHex(h) {
     return '#'+[hr,hg,hb].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
 }
 
+// ── Section modified-state dots ───────────────────────────────
+function updateSectionDots() {
+    // adjust
+    const adjMod = ADJUST_KEYS.some(k => {
+        const sl = document.getElementById('sl-' + k); if (!sl) return false;
+        return parseFloat(sl.value) !== (sl.dataset.default !== undefined ? Number(sl.dataset.default) : 0);
+    });
+    document.getElementById('sec-adjust')?.classList.toggle('modified', adjMod);
+
+    // curve & levels
+    const defPts = p => p.length === 2 && p[0].x===0 && p[0].y===0 && p[1].x===255 && p[1].y===255;
+    const lvlMod = () => {
+        const ib=document.getElementById('sl-in-black'), iw=document.getElementById('sl-in-white');
+        const ob=document.getElementById('sl-out-black'), ow=document.getElementById('sl-out-white');
+        return (ib&&+ib.value!==0)||(iw&&+iw.value!==255)||(ob&&+ob.value!==0)||(ow&&+ow.value!==255);
+    };
+    document.getElementById('sec-curve')?.classList.toggle('modified',
+        !defPts(curvePoints)||!defPts(curvePointsR)||!defPts(curvePointsG)||!defPts(curvePointsB)||lvlMod());
+
+    // hsl
+    document.getElementById('sec-hsl')?.classList.toggle('modified', hslActive);
+
+    // color grading
+    document.getElementById('sec-colorgrade')?.classList.toggle('modified',
+        shadowStr>0||midStr>0||highlightStr>0||splitBalance!==0);
+
+    // vignette
+    const vigSl = document.getElementById('sl-vignette');
+    document.getElementById('sec-vignette')?.classList.toggle('modified', !!vigSl && +vigSl.value !== 0);
+
+    // luminosity mask
+    const lmF=document.getElementById('sl-lm-floor'), lmC=document.getElementById('sl-lm-ceiling');
+    document.getElementById('lm-sec')?.classList.toggle('modified', (lmF&&+lmF.value!==0)||(lmC&&+lmC.value!==100));
+
+    // lens corrections
+    document.getElementById('sec-lens')?.classList.toggle('modified',
+        ['sl-distortion','sl-ca-red','sl-ca-blue'].some(id => { const el=document.getElementById(id); return el&&+el.value!==0; }));
+
+    // transform
+    document.getElementById('sec-transform')?.classList.toggle('modified', straightenAngle !== 0 || perspCorners !== null);
+
+    // border
+    const bx=document.getElementById('sl-bx'), by=document.getElementById('sl-by');
+    document.getElementById('sec-border')?.classList.toggle('modified', (bx&&+bx.value!==0)||(by&&+by.value!==0));
+
+    // masks
+    document.getElementById('masks-sec')?.classList.toggle('modified', masks.length > 0);
+
+    // presets: no dot — it's a launcher, not an edit state
+}
+
 // rAF debounce
 let renderRAF = null;
 function scheduleRender() {
     if (renderRAF) cancelAnimationFrame(renderRAF);
-    renderRAF = requestAnimationFrame(() => { renderRAF = null; render(); });
+    renderRAF = requestAnimationFrame(() => { renderRAF = null; updateSectionDots(); render(); });
 }
 
 // Live-preview performance
@@ -5189,6 +5264,137 @@ async function _runSAMDecode() {
     }
     renderOverlay();
 }
+
+// ── AI Sky / People (SegFormer semantic segmentation) ────────────────────────
+let _segPipeline = null; // lazy-loaded pipeline, shared by sky + people
+let _segRunning  = false;
+
+async function _loadSegFormer(onProgress) {
+    if (_segPipeline) return;
+    const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js');
+    mod.env.backends.onnx.wasm.proxy = true;
+    _segPipeline = await mod.pipeline(
+        'image-segmentation',
+        'Xenova/segformer-b0-finetuned-ade-512-512',
+        { dtype: 'q8', progress_callback: onProgress }
+    );
+}
+
+function _setSegStatus(msg, isErr, isWorking) {
+    const el = document.getElementById('ai-seg-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'ai-status' + (isErr ? ' ai-status-err' : '') + (isWorking ? ' working' : '');
+}
+function _setSegProgress(pct) {
+    const wrap = document.getElementById('ai-seg-progress-wrap');
+    const bar  = document.getElementById('ai-seg-progress-bar');
+    if (!wrap || !bar) return;
+    if (pct < 0) { wrap.style.display = 'none'; bar.style.width = '0%'; return; }
+    wrap.style.display = '';
+    bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+}
+function _hideSegPanel() {
+    const p = document.getElementById('ai-seg-panel');
+    if (p) p.style.display = 'none';
+    document.getElementById('ai-sky-btn')   && (document.getElementById('ai-sky-btn').disabled   = false);
+    document.getElementById('ai-people-btn') && (document.getElementById('ai-people-btn').disabled = false);
+}
+
+async function _runAISegMask(targetLabel, btnId) {
+    if (!workCanvas || _segRunning) return;
+    _segRunning = true;
+    document.getElementById(btnId).disabled = true;
+    const panel = document.getElementById('ai-seg-panel');
+    panel.style.display = '';
+    const firstLoad = !_segPipeline;
+    if (firstLoad) {
+        _setSegStatus('downloading model\u2026 (~15mb, cached on your device)', false, true);
+        _setSegProgress(0);
+    } else {
+        _setSegStatus('analysing image\u2026', false, true);
+        _setSegProgress(-1);
+    }
+    try {
+        const _dlProgress = {};
+        const onProgress = (p) => {
+            if (p.status === 'progress' && (p.file || p.name)) {
+                _dlProgress[p.file || p.name] = p.progress || 0;
+                const vals = Object.values(_dlProgress);
+                const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                _setSegStatus('downloading model\u2026 ' + Math.round(avg) + '%', false, true);
+                _setSegProgress(avg);
+            } else if (p.status === 'ready') {
+                _setSegStatus('loading model\u2026', false, true);
+            }
+        };
+        await _loadSegFormer(onProgress);
+        _setSegProgress(-1);
+        _setSegStatus('analysing image\u2026', false, true);
+        // Downsample to 512px max — model internally resizes anyway
+        const MAX_SEG = 512;
+        const W = workCanvas.width, H = workCanvas.height;
+        let segCanvas = workCanvas;
+        if (W > MAX_SEG || H > MAX_SEG) {
+            const s = Math.min(MAX_SEG / W, MAX_SEG / H);
+            segCanvas = mkCanvas(Math.round(W * s), Math.round(H * s));
+            segCanvas.getContext('2d').drawImage(workCanvas, 0, 0, segCanvas.width, segCanvas.height);
+        }
+        await new Promise(r => setTimeout(r, 30)); // yield so status repaints
+        const dataURL = segCanvas.toDataURL('image/jpeg', 0.92);
+        const result  = await _segPipeline(dataURL);
+        // Find all segments matching the target label (may be multiple instances)
+        const matches = result.filter(r => r.label.toLowerCase() === targetLabel);
+        if (!matches.length) {
+            _setSegStatus('no ' + targetLabel + ' detected in this image', true);
+            setTimeout(_hideSegPanel, 3500);
+            _segRunning = false;
+            document.getElementById(btnId).disabled = false;
+            return;
+        }
+        // Combine masks (OR) and upsample to workCanvas size
+        const dstW = workCanvas.width, dstH = workCanvas.height;
+        const combined = new Float32Array(dstW * dstH);
+        for (const seg of matches) {
+            const mask = seg.mask; // RawImage: .data Uint8ClampedArray, .width, .height
+            const mW = mask.width, mH = mask.height;
+            for (let y = 0; y < dstH; y++) {
+                const sy = Math.round(y * (mH - 1) / Math.max(dstH - 1, 1));
+                for (let x = 0; x < dstW; x++) {
+                    const sx = Math.round(x * (mW - 1) / Math.max(dstW - 1, 1));
+                    if (mask.data[sy * mW + sx] > 128) combined[y * dstW + x] = 1.0;
+                }
+            }
+        }
+        // Push to masks list
+        const id = 'mask_' + (++_maskIdCtr);
+        masks.push({
+            id, type: 'brush', enabled: true, inverted: false, feather: 0,
+            x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,
+            cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,
+            lumLo: 0, lumHi: 100,
+            width: workCanvas.width, height: workCanvas.height,
+            pixels: combined,
+            adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
+        });
+        const sec = document.getElementById('masks-sec');
+        if (sec && !sec.open) sec.open = true;
+        selectMask(id);
+        scheduleRender();
+        _hideSegPanel();
+        setPushStatus(targetLabel + ' mask created — adjust with sliders · press O to hide overlay', false);
+        setTimeout(() => setPushStatus('', false), 5000);
+    } catch (err) {
+        _setSegStatus('failed: ' + (err.message || err), true);
+        console.error('[SegFormer]', err);
+        setTimeout(_hideSegPanel, 4000);
+    }
+    _segRunning = false;
+    document.getElementById(btnId).disabled = false;
+}
+
+function startAISky()    { _runAISegMask('sky',    'ai-sky-btn'); }
+function startAIPeople() { _runAISegMask('person', 'ai-people-btn'); }
 
 // Normalise: invalidate SAM embedding when workCanvas changes (crop/transform committed)
 const _samOrigPushHistory = typeof pushHistory === 'function' ? pushHistory : null;
