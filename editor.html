@@ -1652,7 +1652,7 @@ async function _loadRawFile(file) {
             if (!_librawWorkerPatched) {
                 _librawWorkerPatched = true;
                 const cdnWorker = 'https://cdn.jsdelivr.net/npm/libraw-wasm@1.1.2/dist/worker.js';
-                const proxyBlob = new Blob([`importScripts('${cdnWorker}')`], { type: 'application/javascript' });
+                const proxyBlob = new Blob([`import '${cdnWorker}'`], { type: 'application/javascript' });
                 const proxyUrl = URL.createObjectURL(proxyBlob);
                 const _OrigWorker = window.Worker;
                 window.Worker = function(url, opts) {
