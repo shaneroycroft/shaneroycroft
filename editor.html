@@ -313,7 +313,7 @@
         <span class="e-bar-title">editor</span>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="document.getElementById('open-input').click()">open image</button>
-        <input type="file" id="open-input" accept="image/*" style="display:none">
+        <input type="file" id="open-input" accept="image/*,.cr2,.cr3,.nef,.nrw,.arw,.dng,.orf,.rw2,.raf,.pef,.srw,.x3f,.3fr,.mef,.mos,.rwl,.raw,.iiq,.cap" style="display:none">
         <span class="e-bar-sep">|</span>
         <label class="grid-label">
             <input type="checkbox" id="grid-toggle" onchange="renderOverlay()"> grid
@@ -757,7 +757,11 @@
             <div id="drop-hint" onclick="document.getElementById('open-input').click()">
                 <p>open an image to start editing</p>
                 <p>or drop it here</p>
-                <p style="margin-top:1.2rem;font-size:0.65rem;color:#aaa;">large files (&gt;20mp) may be slow to process</p>
+                <p style="margin-top:1.2rem;font-size:0.65rem;color:#aaa;">supports JPEG · PNG · WEBP · TIFF · RAW (CR2 CR3 NEF ARW DNG ORF RW2 RAF…)</p>
+            </div>
+            <div id="raw-loading" style="display:none;position:absolute;inset:0;background:var(--bg);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:0.7rem;">
+                <div class="ai-status working" style="font-size:0.9rem;">decoding RAW file…</div>
+                <div style="font-size:0.75rem;color:var(--secondary);">this may take a moment</div>
             </div>
             <div id="canvas-wrap" style="display:none;">
                 <canvas id="output-canvas"></canvas>
@@ -1559,7 +1563,7 @@ document.addEventListener('keyup', e => {
 document.getElementById('open-input').addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
 const eMain = document.getElementById('e-main');
 eMain.addEventListener('dragover', e => e.preventDefault());
-eMain.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); });
+eMain.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && (f.type.startsWith('image/') || _isRawFile(f))) loadFile(f); });
 
 // Preload from ?url= query param (opened from admin manage tab)
 (function checkPreloadURL() {
@@ -1589,80 +1593,127 @@ eMain.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransf
         });
 })();
 
+const _RAW_EXTS = new Set(['cr2','cr3','nef','nrw','arw','dng','orf','rw2','raf','pef','srw','x3f','3fr','mef','mos','rwl','raw','iiq','cap','rw1','dcr','k25','kdc','erf','mrw','srf','sr2','bay','fff']);
+function _isRawFile(file) {
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    return _RAW_EXTS.has(ext);
+}
+
+function _finishLoad(srcCanvas, file) {
+    origCanvas = srcCanvas;
+    workCanvas = cloneCanvas(origCanvas);
+    compareMode = false;
+    _dbBase = null;
+    const warn = document.getElementById('size-warn');
+    if (warn) warn.style.display = origCanvas.width * origCanvas.height > 20e6 ? '' : 'none';
+    // ── Full reset on new image ───────────────────────────────
+    resetAdjust(); resetAllCurves(); resetHSL(); resetColorGrading(); resetLM();
+    // Vignette + feather + roundness
+    ['sl-vignette','sl-vig-feather','sl-vig-round'].forEach(id => {
+        const sl = document.getElementById(id); if (!sl) return;
+        sl.value = sl.dataset.default || 0;
+        const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = sl.value;
+    });
+    // Straighten + perspective
+    straightenAngle = 0;
+    const stSl = document.getElementById('sl-straighten');
+    if (stSl) { stSl.value = 0; const stVi = document.getElementById('v-straighten'); if (stVi) stVi.value = 0; }
+    perspCorners = null; perspDragging = -1; perspHover = -1;
+    // Border
+    ['sl-bx','sl-by'].forEach(id => {
+        const sl = document.getElementById(id); if (!sl) return;
+        sl.value = 0; const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = 0;
+    });
+    // Lens corrections
+    ['sl-distortion','sl-ca-red','sl-ca-blue'].forEach(id => {
+        const sl = document.getElementById(id); if (!sl) return;
+        sl.value = 0; const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = 0;
+    });
+    // Label
+    const labelOn = document.getElementById('label-on'); if (labelOn) labelOn.checked = false;
+    const labelTxt = document.getElementById('label-text'); if (labelTxt) labelTxt.value = '';
+    // Masks + layers
+    masks = []; activeMaskId = null; maskBrushMode = null; maskBrushPainting = false;
+    overlayLayers = []; _layerIdCtr = 0;
+    if (typeof renderMaskList === 'function') renderMaskList();
+    if (typeof renderLayerList === 'function') renderLayerList();
+    // Overlay canvas cursor/mode cleanup
+    const ovC = document.getElementById('overlay-canvas');
+    if (ovC) ovC.className = '';
+    // ────────────────────────────────────────────────────────────
+    history = [{ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState(), label: 'open' }]; historyIdx = 0; updateUndoUI();
+    setTimeout(_checkSessionRestore, 150);
+    cancelCrop(); resetZoom();
+    document.getElementById('drop-hint').style.display = 'none';
+    document.getElementById('canvas-wrap').style.display = 'inline-block';
+    document.getElementById('dl-btn').disabled = false;
+    const z100btn = document.getElementById('zoom-100-btn');
+    if (z100btn) z100btn.style.display = '';
+    document.getElementById('exif-strip').style.display = 'none';
+    render();
+    updateDimsDisplay();
+}
+
+let _librawMod = null;
+async function _loadRawFile(file) {
+    const loadingEl = document.getElementById('raw-loading');
+    if (loadingEl) { loadingEl.style.display = 'flex'; }
+    document.getElementById('drop-hint').style.display = 'none';
+    try {
+        if (!_librawMod) {
+            const mod = await import('https://cdn.jsdelivr.net/npm/libraw-wasm@1.1.2/dist/index.js');
+            _librawMod = mod.default || mod;
+        }
+        const ab = await file.arrayBuffer();
+        const raw = new _librawMod();
+        await raw.open(new Uint8Array(ab));
+        const { width, height, data } = await raw.imageData();
+        // data is RGB Uint8Array — convert to RGBA for ImageData
+        const rgba = new Uint8ClampedArray(width * height * 4);
+        for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
+            rgba[j] = data[i]; rgba[j + 1] = data[i + 1]; rgba[j + 2] = data[i + 2]; rgba[j + 3] = 255;
+        }
+        const canvas = mkCanvas(width, height);
+        canvas.getContext('2d').putImageData(new ImageData(rgba, width, height), 0, 0);
+        _finishLoad(canvas, file);
+    } catch (err) {
+        document.getElementById('drop-hint').style.display = '';
+        console.error('RAW decode error:', err);
+        alert('Could not decode RAW file.\n\n' + (err.message || err));
+    } finally {
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
 function loadFile(file) {
     origName = file.name.replace(/\.[^.]+$/, '');
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-        URL.revokeObjectURL(url);
-        origCanvas = mkCanvas(img.naturalWidth, img.naturalHeight);
-        origCanvas.getContext('2d').drawImage(img, 0, 0);
-        workCanvas = cloneCanvas(origCanvas);
-        compareMode = false; // reset sticky compare on new load
-        _dbBase = null; // clear erase base on new image load
-        const warn = document.getElementById('size-warn');
-        if (warn) warn.style.display = img.naturalWidth * img.naturalHeight > 20e6 ? '' : 'none';
-        // ── Full reset on new image ───────────────────────────────
-        resetAdjust(); resetAllCurves(); resetHSL(); resetColorGrading(); resetLM();
-        // Vignette + feather + roundness
-        ['sl-vignette','sl-vig-feather','sl-vig-round'].forEach(id => {
-            const sl = document.getElementById(id); if (!sl) return;
-            sl.value = sl.dataset.default || 0;
-            const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = sl.value;
-        });
-        // Straighten + perspective
-        straightenAngle = 0;
-        const stSl = document.getElementById('sl-straighten');
-        if (stSl) { stSl.value = 0; const stVi = document.getElementById('v-straighten'); if (stVi) stVi.value = 0; }
-        perspCorners = null; perspDragging = -1; perspHover = -1;
-        // Border
-        ['sl-bx','sl-by'].forEach(id => {
-            const sl = document.getElementById(id); if (!sl) return;
-            sl.value = 0; const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = 0;
-        });
-        // Lens corrections
-        ['sl-distortion','sl-ca-red','sl-ca-blue'].forEach(id => {
-            const sl = document.getElementById(id); if (!sl) return;
-            sl.value = 0; const vi = document.getElementById(id.replace('sl-','v-')); if (vi) vi.value = 0;
-        });
-        // Label
-        const labelOn = document.getElementById('label-on'); if (labelOn) labelOn.checked = false;
-        const labelTxt = document.getElementById('label-text'); if (labelTxt) labelTxt.value = '';
-        // Masks + layers
-        masks = []; activeMaskId = null; maskBrushMode = null; maskBrushPainting = false;
-        overlayLayers = []; _layerIdCtr = 0;
-        if (typeof renderMaskList === 'function') renderMaskList();
-        if (typeof renderLayerList === 'function') renderLayerList();
-        // Overlay canvas cursor/mode cleanup
-        const ovC = document.getElementById('overlay-canvas');
-        if (ovC) ovC.className = '';
-        // ────────────────────────────────────────────────────────────
-        history = [{ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState(), label: 'open' }]; historyIdx = 0; updateUndoUI();
-        setTimeout(_checkSessionRestore, 150);
-        cancelCrop(); resetZoom();
-        document.getElementById('drop-hint').style.display = 'none';
-        document.getElementById('canvas-wrap').style.display = 'inline-block';
-        document.getElementById('dl-btn').disabled = false;
-        const z100btn = document.getElementById('zoom-100-btn');
-        if (z100btn) z100btn.style.display = '';
-        document.getElementById('exif-strip').style.display = 'none';
-        render();
-        updateDimsDisplay();
-    };
-    img.src = url;
-    rawExifSegment = null; // clear on new load
-    // Extract raw EXIF bytes for passthrough on JPEG export
-    if (file && file.type === 'image/jpeg') {
-        file.arrayBuffer().then(ab => {
-            rawExifSegment = extractExifSegment(new Uint8Array(ab));
-        }).catch(() => {});
-    }
-    // Parse EXIF asynchronously for display
+    rawExifSegment = null;
+    // Parse EXIF (works for RAW files too via exifr's TIFF parsing)
     if (typeof exifr !== 'undefined') {
         exifr.parse(file, {
             tiff: true, exif: true, gps: false, interop: false,
             translateKeys: true, translateValues: true, reviveValues: true
         }).then(exif => renderExifStrip(exif)).catch(() => {});
+    }
+    if (_isRawFile(file)) {
+        _loadRawFile(file);
+        return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = mkCanvas(img.naturalWidth, img.naturalHeight);
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        _finishLoad(canvas, file);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); alert('Failed to load image.'); };
+    img.src = url;
+    // Extract raw EXIF bytes for passthrough on JPEG export
+    if (file && file.type === 'image/jpeg') {
+        file.arrayBuffer().then(ab => {
+            rawExifSegment = extractExifSegment(new Uint8Array(ab));
+        }).catch(() => {});
     }
 }
 
@@ -7146,23 +7197,23 @@ function autoEnhance() {
 
     // Highlights: pull back if scaled p99 threatens clipping
     const p99s    = p99 * expScale;
-    const autoHL  = p99s > 0.78 ? Math.max(-85, Math.round(-(p99s - 0.78) / 0.22 * 90)) : 0;
+    const autoHL  = p99s > 0.82 ? Math.max(-80, Math.round(-(p99s - 0.82) / 0.18 * 85)) : 0;
 
     // Shadows: lift if scaled p01 is crushed
     const p01s    = p01 * expScale;
-    const autoSH  = p01s < 0.04 ? Math.min(75, Math.round((0.04 - p01s) / 0.05 * 75)) : 0;
+    const autoSH  = p01s < 0.035 ? Math.min(65, Math.round((0.035 - p01s) / 0.05 * 65)) : 0;
 
     // Whites: expand upper range if scaled p99.8 has headroom
     const p998s      = p998 * expScale;
-    const autoWhites = p998s < 0.82 ? Math.min(65, Math.round((0.90 - p998s) / 0.18 * 65)) : 0;
+    const autoWhites = p998s < 0.68 ? Math.min(45, Math.round((0.82 - p998s) / 0.20 * 45)) : 0;
 
     // Blacks: deepen if scaled p0.2 is lifted (foggy/hazy blacks)
     const p002s      = p002 * expScale;
-    const autoBlacks = p002s > 0.015 ? Math.max(-55, -Math.round((p002s / 0.04) * 32)) : 0;
+    const autoBlacks = p002s > 0.020 ? Math.max(-45, -Math.round((p002s / 0.04) * 28)) : 0;
 
     // Contrast: mild boost for low-dynamic-range scenes
     const dynRange    = p99 > 0.001 ? Math.log2(p99 / Math.max(p01, 0.0001)) : 0;
-    const autoContrast = Math.round(Math.max(0, Math.min(28, (8 - dynRange) / 8 * 28)));
+    const autoContrast = dynRange < 5.5 ? Math.round(Math.min(20, (5.5 - dynRange) / 5.5 * 20)) : 0;
 
     // White balance: grey-world Bradford
     const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
