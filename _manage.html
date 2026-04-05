@@ -474,7 +474,7 @@
         <!-- About editor tab -->
         <div class="tab-panel" id="tab-about">
             <div class="admin-section" style="max-width:600px;">
-                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit the about page. leave photo url blank to use the first portfolio photo. <a href="about.html" target="_blank" style="color:var(--secondary);">view about page →</a></p>
+                <p style="font-size:0.8rem; color:var(--secondary); margin-bottom:1.5rem; line-height:1.8;">edit the about page. <a href="about.html" target="_blank" style="color:var(--secondary);">view about page →</a></p>
                 <div class="contact-form">
                     <div class="form-field">
                         <label>tagline</label>
@@ -485,12 +485,20 @@
                         <textarea id="about-bio-input" rows="5" placeholder="bio text..."></textarea>
                     </div>
                     <div class="form-field">
-                        <label>about photo url (optional)</label>
-                        <input type="text" id="about-photo-input" placeholder="https://raw.githubusercontent.com/...">
+                        <label>about photo</label>
+                        <div id="about-photo-drop" class="drop-zone" style="padding:1.5rem; margin-bottom:0.5rem;"
+                             onclick="document.getElementById('about-photo-file').click()">
+                            <p style="margin:0;">drop a photo here or click to browse</p>
+                            <input type="file" id="about-photo-file" accept="image/*" style="display:none" onchange="uploadAboutPhoto(this.files[0])">
+                        </div>
+                        <div id="about-photo-preview" style="margin-bottom:0.5rem;"></div>
+                        <input type="text" id="about-photo-input" placeholder="or paste a url…"
+                               style="width:100%; font-family:inherit; font-size:0.8rem; border:1px solid var(--border); padding:0.35rem 0.5rem; background:var(--bg); color:var(--text); outline:none; box-sizing:border-box;"
+                               oninput="updateAboutPhotoPreview()">
+                        <p style="font-size:0.68rem; color:var(--secondary); margin-top:0.35rem;">leave blank to use the first portfolio photo</p>
                     </div>
-                    <div id="about-photo-preview" style="margin-top:0.5rem; margin-bottom:0.5rem;"></div>
                 </div>
-                <div style="display:flex; gap:1rem; align-items:center; margin-top:2rem;">
+                <div style="display:flex; gap:1rem; align-items:center; margin-top:2rem; flex-wrap:wrap;">
                     <button class="btn-sm" onclick="saveAboutTab()">save about</button>
                     <span class="log" id="about-log" style="display:inline-block;"></span>
                 </div>
@@ -1844,6 +1852,35 @@
             if (cls === 'ok') setTimeout(() => { if (el) el.innerHTML = ''; }, 3000);
         }
 
+        // ─── About photo upload ────────────────────────────
+
+        async function uploadAboutPhoto(file) {
+            if (!file) return;
+            if (!getPAT()) { aboutLog('no token saved — configure your github PAT above.', 'err'); return; }
+            aboutLog('compressing…', '');
+            const { file: compressed } = await compressImage(file);
+            const name = compressed.name.replace(/[^a-zA-Z0-9._-]/g, '_').toLowerCase();
+            const path = `images/about/${Date.now()}_${name}`;
+            aboutLog('uploading…', '');
+            try {
+                const b64 = await toBase64(compressed);
+                let sha;
+                const checkRes = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${path}`);
+                if (checkRes.ok) { const d = await checkRes.json(); sha = d.sha; }
+                const body = { message: `add about photo: ${name}`, content: b64, branch: BRANCH };
+                if (sha) body.sha = sha;
+                const res = await ghFetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'upload failed'); }
+                const rawUrl = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/${path}`;
+                const input = document.getElementById('about-photo-input');
+                if (input) input.value = rawUrl;
+                updateAboutPhotoPreview();
+                aboutLog('uploaded — click save about to apply.', 'ok');
+            } catch(e) { aboutLog('upload failed: ' + e.message, 'err'); }
+        }
+
         async function saveAboutTab() {
             aboutData = {
                 tagline: (document.getElementById('about-tagline-input') || {}).value.trim() || '',
@@ -1875,6 +1912,17 @@
                 verifyPAT();
             } else {
                 document.getElementById('pat-form').classList.add('visible');
+            }
+            // About photo drop zone drag-and-drop
+            const dz = document.getElementById('about-photo-drop');
+            if (dz) {
+                dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+                dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+                dz.addEventListener('drop', e => {
+                    e.preventDefault(); dz.classList.remove('dragover');
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith('image/')) uploadAboutPhoto(file);
+                });
             }
         });
 
