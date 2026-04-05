@@ -35,6 +35,7 @@
     <div class="container fade-in">
         <h1 class="serif">hello.</h1>
         <a id="featured-grid" class="featured-grid" href="photography.html" style="display:none; text-decoration:none;"></a>
+        <p id="home-tagline" class="home-tagline" style="display:none;"></p>
     </div>
 
     <footer>
@@ -45,15 +46,25 @@
     <script src="reveal.js"></script>
     <script src="theme.js"></script>
     <script>
+        // Load tagline from content.json
+        fetch('content.json?t=' + Date.now())
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('home-tagline');
+                if (el && data.tagline) { el.textContent = data.tagline; el.style.display = ''; }
+            })
+            .catch(() => {});
+
         // Load featured photos: portfolio + pinned from other categories
         fetch('photos.json?t=' + Date.now())
             .then(r => r.json())
             .then(data => {
+                const hiddenCats = data._hidden || [];
                 const explicit = (data.portfolio || []).filter(e => !(typeof e === 'object' && e.hidden));
                 const seen = new Set(explicit.map(e => norm(e).src));
                 const pinned = [];
                 Object.entries(data).forEach(([cat, photos]) => {
-                    if (cat === 'portfolio') return;
+                    if (cat === 'portfolio' || cat.startsWith('_') || hiddenCats.includes(cat)) return;
                     (photos || []).forEach(e => {
                         const p = norm(e);
                         if (e.pinned && !(typeof e === 'object' && e.hidden) && !seen.has(p.src)) { seen.add(p.src); pinned.push(e); }

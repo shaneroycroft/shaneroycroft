@@ -294,6 +294,14 @@ body::before {
 .featured-item img.loaded { opacity: 1; filter: grayscale(100%) blur(0px); transform: scale(1); }
 .featured-item:hover img { filter: grayscale(0%) blur(0px); transform: scale(1.02); }
 
+.home-tagline {
+    margin-top: 1.4rem;
+    font-size: 0.95rem;
+    color: var(--secondary);
+    max-width: 540px;
+    line-height: 1.6;
+}
+
 /* ── About Page ──────────────────────────────────────────── */
 .about-bio {
     max-width: 560px;

@@ -71,10 +71,13 @@
 
         function initPage() {
             const keys = Object.keys(categories);
+            const hiddenCats = categories._hidden || [];
 
-            // Show portfolio always + any category with photos
+            // Show portfolio always + any non-hidden category with photos
             const visible = keys.filter(k =>
-                k === 'portfolio' || (categories[k] || []).length > 0
+                !k.startsWith('_') &&
+                !hiddenCats.includes(k) &&
+                (k === 'portfolio' || (categories[k] || []).length > 0)
             );
 
             if (visible.length === 0) {
