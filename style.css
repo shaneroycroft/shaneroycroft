@@ -318,9 +318,7 @@ body::before {
 }
 
 .about-section {
-    margin-bottom: 3rem;
-    border-top: 1px solid var(--border);
-    padding-top: 2rem;
+    margin-bottom: 0;
 }
 
 .about-section-label {
@@ -329,6 +327,16 @@ body::before {
     letter-spacing: 1.5px;
     color: var(--secondary);
     margin-bottom: 1rem;
+}
+
+.about-contact-row {
+    display: grid;
+    grid-template-columns: 35fr 65fr;
+    gap: 4rem;
+    align-items: start;
+    border-top: 1px solid var(--border);
+    padding-top: 2rem;
+    margin-bottom: 3rem;
 }
 
 .about-links {
@@ -615,6 +623,7 @@ footer {
     .project-card { grid-template-columns: 1fr; gap: 0.5rem; }
     .about-split { grid-template-columns: 1fr; gap: 2rem; }
     .about-photo { order: 2; }
+    .about-contact-row { grid-template-columns: 1fr; gap: 0; }
 
     h1.serif, h2.serif { font-size: 1.8rem; }
     #lightbox-prev, #lightbox-next { font-size: 1.2rem; padding: 0.75rem; }
