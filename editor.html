@@ -160,6 +160,43 @@
         /* Sharpen sub-control indentation */
         .sub-row { padding-left: 0.85rem; border-left: 1px solid var(--border); margin-left: 0.1rem; }
 
+        /* History panel */
+        #history-panel {
+            position: fixed; top: 46px; z-index: 400;
+            background: var(--bg); border: 1px solid var(--border);
+            width: 200px; max-height: 340px; overflow-y: auto;
+            display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+        }
+        .hist-entry {
+            display: flex; align-items: center; gap: 0.45rem;
+            padding: 0.38rem 0.8rem; cursor: pointer;
+            font-size: 0.68rem; color: var(--secondary);
+            border-bottom: 1px solid var(--border); user-select: none;
+        }
+        .hist-entry:hover { background: rgba(128,128,128,0.08); color: var(--text); }
+        .hist-entry.current { color: var(--text); background: rgba(128,128,128,0.05); font-weight: 500; }
+        .hist-entry.future  { opacity: 0.35; pointer-events: none; }
+        .hist-entry-idx { font-size: 0.58rem; color: var(--secondary); min-width: 16px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+        .hist-entry-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text); flex-shrink: 0; }
+        .hist-entry:not(.current) .hist-entry-dot { display: none; }
+
+        /* Export presets panel */
+        #export-presets-panel {
+            position: fixed; top: 46px; z-index: 400;
+            background: var(--bg); border: 1px solid var(--border);
+            width: 230px; max-height: 320px; overflow-y: auto;
+            display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+        }
+        .ep-row { display: flex; align-items: center; gap: 0.35rem; padding: 0.32rem 0.8rem; border-bottom: 1px solid var(--border); }
+        .ep-name { flex: 1; font-size: 0.68rem; color: var(--secondary); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ep-name:hover { color: var(--text); }
+        .ep-del { background: none; border: none; cursor: pointer; color: var(--secondary); font-size: 0.88rem; padding: 0.1rem 0.15rem; line-height: 1; flex-shrink: 0; }
+        .ep-del:hover { color: #c0392b; }
+        .ep-save-row { padding: 0.5rem 0.8rem; display: flex; gap: 0.35rem; align-items: center; border-bottom: 1px solid var(--border); }
+        .ep-save-input { flex: 1; font-family: inherit; font-size: 0.7rem; border: 1px solid var(--border); padding: 0.2rem 0.35rem; background: var(--bg); color: var(--text); outline: none; }
+        .ep-save-input:focus { border-color: var(--text); }
+        .ep-empty { padding: 0.65rem 0.8rem; font-size: 0.68rem; color: var(--secondary); }
+
         /* Transform */
         .transform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
         .transform-grid button { font-size: 0.7rem; padding: 0.4rem 0.5rem; text-align: center; background: none; border: 1px solid var(--border); cursor: pointer; font-family: inherit; color: var(--text); transition: border-color 0.2s; }
@@ -298,10 +335,12 @@
         <span class="e-bar-sep" id="img-info-sep" style="display:none;">|</span>
         <button class="e-bar-btn" id="undo-btn" onclick="undo()" disabled title="Ctrl+Z">↩ undo</button>
         <button class="e-bar-btn" id="redo-btn" onclick="redo()" disabled title="Ctrl+Y">↪ redo</button>
+        <button class="e-bar-btn" id="history-btn" onclick="toggleHistoryPanel(this)" title="browse edit history">history</button>
         <span class="e-bar-sep">|</span>
         <button class="e-bar-btn" onclick="if(confirm('Reset all adjustments to zero?')) resetAllEdits()" title="reset all adjustments to zero">reset</button>
         <span class="e-bar-spacer"></span>
         <span class="e-bar-sep">|</span>
+        <button class="e-bar-btn" id="ep-btn" onclick="toggleExportPresetsPanel(this)" title="save or load export presets">presets</button>
         <select id="dl-format" class="e-bar-btn" style="border:1px solid var(--border);cursor:pointer;padding:0.15rem 0.25rem;" onchange="onFormatChange()"><option value="png">png</option><option value="jpeg">jpeg</option><option value="webp">webp</option></select>
         <input type="range" id="dl-quality" min="60" max="100" value="92" style="width:48px;display:none;accent-color:var(--text);" title="quality" oninput="document.getElementById('dl-quality-val').textContent=this.value+'%'">
         <span id="dl-quality-val" style="font-size:0.65rem;color:var(--secondary);display:none;min-width:26px;text-align:right;">92%</span>
@@ -716,6 +755,11 @@
         <div id="color-sampler"><div class="cs-swatch" id="cs-swatch"></div><span id="cs-rgb"></span>&nbsp;&nbsp;<span id="cs-hsl"></span></div>
         </div>
     </div>
+
+    <!-- History panel -->
+    <div id="history-panel"></div>
+    <!-- Export presets panel -->
+    <div id="export-presets-panel"></div>
 
 <script>
 // ── State ─────────────────────────────────────────────────────
@@ -1186,16 +1230,16 @@ function _restoreAdjState(snap) {
     scheduleRender();
 }
 
-function pushHistory() {
+function pushHistory(label = '') {
     if (!workCanvas) return;
     history = history.slice(0, historyIdx + 1);
-    history.push({ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState() });
+    history.push({ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState(), label });
     if (history.length > HIST_MAX) history.shift(); else historyIdx++;
     updateUndoUI();
 }
-function pushAdjHistory() {
+function pushAdjHistory(label = '') {
     history = history.slice(0, historyIdx + 1);
-    history.push({ type: 'adj', adj: _captureAdjState() });
+    history.push({ type: 'adj', adj: _captureAdjState(), label });
     if (history.length > HIST_MAX) history.shift(); else historyIdx++;
     updateUndoUI();
 }
@@ -1231,7 +1275,81 @@ function redo() {
 function updateUndoUI() {
     document.getElementById('undo-btn').disabled = historyIdx <= 0;
     document.getElementById('redo-btn').disabled = historyIdx >= history.length - 1;
+    // Refresh panel if visible
+    const panel = document.getElementById('history-panel');
+    if (panel && panel.style.display !== 'none') renderHistoryPanel();
 }
+
+// ── History panel ─────────────────────────────────────────────
+let _histPanelOpen = false;
+
+function toggleHistoryPanel(btn) {
+    const panel = document.getElementById('history-panel');
+    if (!panel) return;
+    _histPanelOpen = !_histPanelOpen;
+    if (_histPanelOpen) {
+        renderHistoryPanel();
+        const rect = btn.getBoundingClientRect();
+        panel.style.left = rect.left + 'px';
+        panel.style.display = 'block';
+        btn.style.color = 'var(--text)';
+    } else {
+        panel.style.display = 'none';
+        btn.style.color = '';
+    }
+}
+
+function renderHistoryPanel() {
+    const panel = document.getElementById('history-panel');
+    if (!panel) return;
+    if (!history.length) { panel.innerHTML = '<div style="padding:0.65rem 0.8rem;font-size:0.68rem;color:var(--secondary);">no history yet</div>'; return; }
+    panel.innerHTML = '';
+    // Show newest first
+    for (let i = history.length - 1; i >= 0; i--) {
+        const entry = history[i];
+        const isCurrent = i === historyIdx;
+        const isFuture  = i > historyIdx;
+        const label = entry.label || (entry.type === 'adj' ? 'adjust' : 'edit');
+        const row = document.createElement('div');
+        row.className = 'hist-entry' + (isCurrent ? ' current' : '') + (isFuture ? ' future' : '');
+        row.innerHTML = `<span class="hist-entry-idx">${i + 1}</span><span class="hist-entry-dot"></span><span style="flex:1">${label}</span>`;
+        if (!isFuture) row.addEventListener('click', () => jumpToHistory(i));
+        panel.appendChild(row);
+    }
+}
+
+function jumpToHistory(idx) {
+    if (idx === historyIdx) return;
+    historyIdx = idx;
+    const entry = history[historyIdx];
+    if (!entry) return;
+    if (entry.type === 'adj') {
+        _restoreAdjState(entry.adj);
+    } else {
+        workCanvas = cloneCanvas(entry.canvas || entry);
+        if (entry.adj) _restoreAdjState(entry.adj);
+        cancelCrop(); render();
+    }
+    updateUndoUI();
+}
+
+// Close panels on outside click
+document.addEventListener('mousedown', e => {
+    const hPanel = document.getElementById('history-panel');
+    const hBtn   = document.getElementById('history-btn');
+    if (_histPanelOpen && hPanel && !hPanel.contains(e.target) && e.target !== hBtn) {
+        hPanel.style.display = 'none';
+        _histPanelOpen = false;
+        if (hBtn) hBtn.style.color = '';
+    }
+    const epPanel = document.getElementById('export-presets-panel');
+    const epBtn   = document.getElementById('ep-btn');
+    if (_epPanelOpen && epPanel && !epPanel.contains(e.target) && e.target !== epBtn) {
+        epPanel.style.display = 'none';
+        _epPanelOpen = false;
+        if (epBtn) epBtn.style.color = '';
+    }
+});
 document.addEventListener('keydown', e => {
     const tag = document.activeElement?.tagName;
     const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
@@ -1399,7 +1517,7 @@ function loadFile(file) {
         _dbBase = null; // clear erase base on new image load
         const warn = document.getElementById('size-warn');
         if (warn) warn.style.display = img.naturalWidth * img.naturalHeight > 20e6 ? '' : 'none';
-        history = [{ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState() }]; historyIdx = 0; updateUndoUI();
+        history = [{ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState(), label: 'open' }]; historyIdx = 0; updateUndoUI();
         cancelCrop(); resetZoom();
         document.getElementById('drop-hint').style.display = 'none';
         document.getElementById('canvas-wrap').style.display = 'inline-block';
@@ -2219,7 +2337,7 @@ function applySpotHeal(ctx, w, h, mask) {
 
 function finalizeHeal() {
     if (!workCanvas || !healMaskPixels) return;
-    pushHistory();
+    pushHistory('heal');
     applySpotHeal(workCanvas.getContext('2d'), workCanvas.width, workCanvas.height, healMaskPixels);
     healMaskPixels = new Float32Array(workCanvas.width * workCanvas.height); // clear for next stroke
     renderOverlay();
@@ -2670,7 +2788,7 @@ function commitTransform() {
     const hasStraighten = straightenAngle !== 0;
     const hasPersp = perspCorners !== null;
     if (!workCanvas || (!hasStraighten && !hasPersp)) return;
-    pushHistory();
+    pushHistory(hasStraighten && hasPersp ? 'straighten + perspective' : hasStraighten ? 'straighten' : 'perspective');
     let c = workCanvas;
     if (hasStraighten) {
         const W = c.width, H = c.height;
@@ -2823,7 +2941,7 @@ function applyTextOverlay(ctx, outW, outH, bx, by) {
 
 function rotateWork(deg) {
     if (!workCanvas) return;
-    pushHistory();
+    pushHistory(deg === 90 ? 'rotate cw' : deg === -90 ? 'rotate ccw' : 'rotate');
     const nW = (deg===90||deg===-90) ? workCanvas.height : workCanvas.width;
     const nH = (deg===90||deg===-90) ? workCanvas.width  : workCanvas.height;
     const out = mkCanvas(nW, nH);
@@ -2835,7 +2953,7 @@ function rotateWork(deg) {
 
 function flipWork(axis) {
     if (!workCanvas) return;
-    pushHistory();
+    pushHistory(axis === 'h' ? 'flip horizontal' : 'flip vertical');
     const out = mkCanvas(workCanvas.width, workCanvas.height);
     const ctx = out.getContext('2d');
     if (axis==='h') { ctx.translate(workCanvas.width,0); ctx.scale(-1,1); }
@@ -3262,7 +3380,7 @@ function applyCrop() {
     const iy2 = Math.min(workCanvas.height, Math.round(cropBox.y + cropBox.h - by));
     const iw = ix2-ix, ih = iy2-iy;
     if (iw<2||ih<2) { cancelCrop(); return; }
-    pushHistory();
+    pushHistory('crop');
     const nc = mkCanvas(iw, ih);
     nc.getContext('2d').drawImage(workCanvas, ix, iy, iw, ih, 0, 0, iw, ih);
     workCanvas = nc; _dbBase = null; cancelCrop(); render();
@@ -3270,7 +3388,7 @@ function applyCrop() {
 }
 
 function resetToOriginal() {
-    pushHistory();
+    pushHistory('reset to original');
     workCanvas = cloneCanvas(origCanvas);
     cancelCrop(); render();
     document.getElementById('crop-info').textContent = 'reset to original.';
@@ -3496,7 +3614,7 @@ ovEl.addEventListener('mousedown', e => {
         e.preventDefault();
         brushPainting = true; brushLastPos = null;
         if (!_dbBase) _dbBase = cloneCanvas(workCanvas); // capture pre-D&B state once
-        pushHistory();
+        pushHistory(activeTool);
         beginAdjust();
         applyBrushStroke(e.clientX, e.clientY);
         return;
@@ -3700,7 +3818,7 @@ ovEl.addEventListener('touchstart', e => {
     if (!activeTool) return;
     e.preventDefault();
     brushPainting = true; brushLastPos = null;
-    pushHistory(); beginAdjust();
+    pushHistory(activeTool); beginAdjust();
     const t = e.touches[0];
     applyBrushStroke(t.clientX, t.clientY);
 }, { passive: false });
@@ -4405,6 +4523,86 @@ function _getExportScale() {
     return customW / srcW;
 }
 
+// ── Export presets ────────────────────────────────────────────
+let _exportPresets = JSON.parse(localStorage.getItem('sr_export_presets') || '[]');
+let _epPanelOpen   = false;
+
+function _saveExportPresets() {
+    localStorage.setItem('sr_export_presets', JSON.stringify(_exportPresets));
+}
+function _captureExportSettings() {
+    return {
+        format:    document.getElementById('dl-format').value,
+        quality:   parseInt(document.getElementById('dl-quality').value),
+        scale:     document.getElementById('dl-scale').value,
+        sharpen:   parseInt(document.getElementById('dl-outsharpen').value),
+    };
+}
+function _applyExportPreset(p) {
+    const fmt = document.getElementById('dl-format');
+    const ql  = document.getElementById('dl-quality');
+    const sc  = document.getElementById('dl-scale');
+    const sh  = document.getElementById('dl-outsharpen');
+    if (fmt) fmt.value = p.format;
+    if (ql)  ql.value  = p.quality;
+    if (sc)  sc.value  = p.scale;
+    if (sh)  { sh.value = p.sharpen; document.getElementById('dl-outsharpen-val').textContent = p.sharpen + '%'; }
+    onFormatChange(); onScaleChange();
+}
+function saveExportPreset() {
+    const input = document.getElementById('ep-name-input');
+    const name  = (input ? input.value.trim() : '') || 'preset ' + (_exportPresets.length + 1);
+    _exportPresets.push({ name, ..._captureExportSettings() });
+    _saveExportPresets();
+    if (input) input.value = '';
+    renderExportPresetsPanel();
+}
+function deleteExportPreset(idx) {
+    _exportPresets.splice(idx, 1);
+    _saveExportPresets();
+    renderExportPresetsPanel();
+}
+function toggleExportPresetsPanel(btn) {
+    const panel = document.getElementById('export-presets-panel');
+    if (!panel) return;
+    _epPanelOpen = !_epPanelOpen;
+    if (_epPanelOpen) {
+        renderExportPresetsPanel();
+        const rect = btn.getBoundingClientRect();
+        panel.style.right = (window.innerWidth - rect.right) + 'px';
+        panel.style.left  = 'auto';
+        panel.style.display = 'block';
+        btn.style.color = 'var(--text)';
+    } else {
+        panel.style.display = 'none';
+        btn.style.color = '';
+    }
+}
+function renderExportPresetsPanel() {
+    const panel = document.getElementById('export-presets-panel');
+    if (!panel) return;
+    const settings = _captureExportSettings();
+    const settingsSummary = `${settings.format} · ${settings.scale === 'custom' ? 'custom' : Math.round(parseFloat(settings.scale)*100)+'%'} · q${settings.quality} · s${settings.sharpen}`;
+    let html = `<div class="ep-save-row">
+        <input class="ep-save-input" id="ep-name-input" type="text" placeholder="preset name…" onkeydown="if(event.key==='Enter')saveExportPreset()">
+        <button class="s-btn" style="font-size:0.68rem;padding:0.2rem 0.5rem;" onclick="saveExportPreset()">save</button>
+    </div>
+    <div style="padding:0.35rem 0.8rem 0.25rem;font-size:0.62rem;color:var(--secondary);">current: ${settingsSummary}</div>`;
+    if (_exportPresets.length === 0) {
+        html += '<div class="ep-empty">no presets saved yet</div>';
+    } else {
+        _exportPresets.forEach((p, i) => {
+            const summary = `${p.format} · ${p.scale === 'custom' ? 'custom' : Math.round(parseFloat(p.scale)*100)+'%'} · q${p.quality} · s${p.sharpen}`;
+            html += `<div class="ep-row">
+                <span class="ep-name" onclick="_applyExportPreset(_exportPresets[${i}]);renderExportPresetsPanel()" title="${summary}">${p.name}</span>
+                <span style="font-size:0.6rem;color:var(--secondary);white-space:nowrap;">${summary}</span>
+                <button class="ep-del" onclick="deleteExportPreset(${i})" title="delete">×</button>
+            </div>`;
+        });
+    }
+    panel.innerHTML = html;
+}
+
 // ── Push to repo ──────────────────────────────────────────────
 async function pushToRepo() {
     if (!sourceUrl) return;
@@ -4523,7 +4721,7 @@ function addMask(type) {
         x1: 0.5, y1: 0.12, x2: 0.5, y2: 0.55,   // gradient: p1→p2
         cx: 0.5, cy: 0.5, rx: 0.27, ry: 0.22,    // radial: center + radii
         lumLo: 0, lumHi: 100,                      // luminosity range (0-100)
-        adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
+        adj: { exposure: 0, contrast: 0, highlights: 0, shadows: 0, saturation: 0, vibrance: 0, temperature: 0 }
     };
     if (type === 'brush') {
         m.width  = workCanvas.width;
@@ -4829,7 +5027,7 @@ function renderMaskList() {
         card.id = 'mask-card-' + mask.id;
 
         // Build inline body HTML based on type
-        const adjRows = ['exposure','highlights','shadows','saturation','temperature'].map(f => `
+        const adjRows = ['exposure','contrast','highlights','shadows','saturation','vibrance','temperature'].map(f => `
             <div class="s-row" style="margin-bottom:0.25rem;">
                 <label style="min-width:70px;">${f} <input type="number" class="val-input" id="mi-v-${f}-${mask.id}" value="${mask.adj[f]}" min="-100" max="100" step="1" oninput="_mVal('${mask.id}','${f}',this.value)"></label>
                 <input type="range" id="mi-sl-${f}-${mask.id}" min="-100" max="100" value="${mask.adj[f]}" oninput="_mSlider('${mask.id}','${f}',this.value)">
@@ -5138,7 +5336,7 @@ function confirmAISelect() {
         lumLo: 0, lumHi: 100,
         width: workCanvas.width, height: workCanvas.height,
         pixels: new Float32Array(_aiMaskPixels),
-        adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
+        adj: { exposure: 0, contrast: 0, highlights: 0, shadows: 0, saturation: 0, vibrance: 0, temperature: 0 }
     };
     masks.push(m);
     const sec = document.getElementById('masks-sec');
@@ -5375,7 +5573,7 @@ async function _runAISegMask(targetLabel, btnId) {
             lumLo: 0, lumHi: 100,
             width: workCanvas.width, height: workCanvas.height,
             pixels: combined,
-            adj: { exposure: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }
+            adj: { exposure: 0, contrast: 0, highlights: 0, shadows: 0, saturation: 0, vibrance: 0, temperature: 0 }
         });
         const sec = document.getElementById('masks-sec');
         if (sec && !sec.open) sec.open = true;
@@ -5654,12 +5852,16 @@ function applyMasks(canvas) {
         const hasHL   = a.highlights  !== 0;
         const hasSH   = a.shadows     !== 0;
         const hasSat  = a.saturation  !== 0;
+        const hasVib  = (a.vibrance   || 0) !== 0;
+        const hasCon  = (a.contrast   || 0) !== 0;
         const hasTemp = a.temperature !== 0;
-        if (!hasExp && !hasHL && !hasSH && !hasSat && !hasTemp) continue;
+        if (!hasExp && !hasHL && !hasSH && !hasSat && !hasVib && !hasCon && !hasTemp) continue;
         const expF   = Math.pow(2, a.exposure * 3 / 100);
         const hlStr  = a.highlights  / 100 * 80;
         const shStr  = a.shadows     / 100 * 80;
         const satF   = 1 + a.saturation  / 100;
+        const vibF   = (a.vibrance  || 0) / 100;
+        const conF   = (a.contrast  || 0) / 100;
         const tShift = a.temperature / 100 * 0.12;
         // Pre-compute luminosity mask params (only used for type='luminosity')
         const isLumMask    = mask.type === 'luminosity';
@@ -5721,9 +5923,23 @@ function applyMasks(canvas) {
                                 + shStr * Math.pow(Math.max(0, 1 - lum/255), 1.8);
                     nr += delta; ng += delta; nb += delta;
                 }
+                if (hasCon) {
+                    // S-curve contrast: push away from midpoint (128)
+                    nr = 128 + (nr - 128) * (1 + conF);
+                    ng = 128 + (ng - 128) * (1 + conF);
+                    nb = 128 + (nb - 128) * (1 + conF);
+                }
                 if (hasSat) {
                     const gr = 0.2126*nr + 0.7152*ng + 0.0722*nb;
                     nr = gr + satF*(nr-gr); ng = gr + satF*(ng-gr); nb = gr + satF*(nb-gr);
+                }
+                if (hasVib) {
+                    // Vibrance: boost low-saturation pixels more than already-saturated ones
+                    const gr2 = 0.2126*nr + 0.7152*ng + 0.0722*nb;
+                    const mx2 = Math.max(nr, ng, nb), mn2 = Math.min(nr, ng, nb);
+                    const sat2 = mx2 > 0 ? (mx2 - mn2) / mx2 : 0; // rough HSV saturation 0-1
+                    const boost = vibF * (1 - sat2); // boost less saturated more
+                    nr = gr2 + (1 + boost)*(nr-gr2); ng = gr2 + (1 + boost)*(ng-gr2); nb = gr2 + (1 + boost)*(nb-gr2);
                 }
                 if (hasTemp) { nr *= (1 + tShift); nb *= (1 - tShift); }
                 nr = Math.max(0, Math.min(255, nr));
@@ -6500,7 +6716,7 @@ const _BUILT_IN_PRESETS = [
 ];
 
 function _applyPreset(preset) {
-    pushAdjHistory(); // save state before applying so Ctrl+Z can undo
+    pushAdjHistory(preset.name ? 'preset: ' + preset.name : 'preset'); // save state before applying so Ctrl+Z can undo
     const KEYS = ['exposure','contrast','highlights','shadows','whites','blacks','fade','vibrance','saturation','temperature','tint','dehaze','clarity','texture','sharpen','sharpmask','sharpen-radius','sharpen-detail','lumanr','colornr','grain'];
     KEYS.forEach(k => {
         const sl = document.getElementById('sl-'+k); if (!sl) return;
@@ -6677,7 +6893,7 @@ function pasteAdjustments() {
 // ── Auto-enhance ──────────────────────────────────────────────
 function autoEnhance() {
     if (!workCanvas) return;
-    pushAdjHistory(); // save state before auto-enhance so Ctrl+Z can undo
+    pushAdjHistory('auto enhance'); // save state before auto-enhance so Ctrl+Z can undo
 
     // Sample workCanvas (pre-adjustment original) in linear light
     const sW = Math.min(workCanvas.width, 400);
