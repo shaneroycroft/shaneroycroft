@@ -7160,9 +7160,9 @@ function pasteAdjustments() {
 // ── Auto-enhance ──────────────────────────────────────────────
 function autoEnhance() {
     if (!workCanvas) return;
-    pushAdjHistory('auto enhance'); // save state before auto-enhance so Ctrl+Z can undo
+    pushAdjHistory('auto enhance');
 
-    // Sample workCanvas (pre-adjustment original) in linear light
+    // ── 1. Sample workCanvas in linear light ────────────────────
     const sW = Math.min(workCanvas.width, 400);
     const sH = Math.min(workCanvas.height, Math.round(400 * workCanvas.height / workCanvas.width));
     const sc = mkCanvas(sW, sH);
@@ -7172,7 +7172,7 @@ function autoEnhance() {
 
     const toLin = v => { const f = v / 255; return f <= 0.04045 ? f / 12.92 : Math.pow((f + 0.055) / 1.055, 2.4); };
 
-    let sumR = 0, sumG = 0, sumB = 0, totalSat = 0;
+    let sumR = 0, sumG = 0, sumB = 0, totalSat = 0, edgeEnergy = 0;
     const lums = new Float32Array(n);
     for (let i = 0; i < n; i++) {
         const r = toLin(d[i*4]), g = toLin(d[i*4+1]), b = toLin(d[i*4+2]);
@@ -7181,43 +7181,65 @@ function autoEnhance() {
         const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
         totalSat += mx > 0.001 ? (mx - mn) / mx : 0;
     }
+    // Edge energy: proxy for existing sharpness (high = already sharp)
+    for (let row = 0; row < sH; row++) {
+        for (let col = 1; col < sW - 1; col++) {
+            const idx = (row * sW + col) * 4;
+            edgeEnergy += Math.abs((d[idx+4]-d[idx-4]) + (d[idx+5]-d[idx-3]) + (d[idx+6]-d[idx-2])) / 765;
+        }
+    }
+    edgeEnergy /= Math.max(1, (sW - 2) * sH);
     lums.sort();
 
-    // Key percentiles in linear light
+    // ── 2. Key statistics ────────────────────────────────────────
     const p002 = lums[Math.max(0, Math.floor(n * 0.002))];
     const p01  = lums[Math.max(0, Math.floor(n * 0.01))];
     const p50  = lums[Math.floor(n * 0.50)];
     const p99  = lums[Math.min(n-1, Math.floor(n * 0.99))];
     const p998 = lums[Math.min(n-1, Math.floor(n * 0.998))];
+    const avgSat   = totalSat / n;
+    const dynRange = p99 > 0.001 ? Math.log2(p99 / Math.max(p01, 0.0001)) : 0;
 
-    // Exposure: nudge toward 18% grey — capped and dampened so we correct direction, not fully remap
-    const expEV  = Math.log2(0.18 / Math.max(p50, 0.001));
-    const expRaw = expEV / 3 * 100;
-    // Dead zone: don't touch exposure if median is already in a reasonable range (0.09–0.28)
-    const autoExp = (p50 >= 0.09 && p50 <= 0.28)
-        ? 0
-        : Math.round(Math.max(-45, Math.min(45, expRaw * 0.5)));
+    // ── 3. Scene classification ──────────────────────────────────
+    const isFlat    = dynRange < 4.5 && p002 > 0.015; // hazy / flat / low-contrast source
+    const isHighKey = p50 > 0.38;                      // intentionally bright (snow, overcast, white bg)
+    const isLowKey  = p50 < 0.055;                     // intentionally dark (night, noir, moody)
 
-    // Highlights: work on RAW percentiles (not scaled) — only pull back genuinely bright tops
-    const autoHL = p99 > 0.88 ? Math.max(-65, Math.round(-(p99 - 0.88) / 0.12 * 65)) : 0;
+    // ── 4. Exposure ──────────────────────────────────────────────
+    // Skip for intentional high/low key; only nudge normal photos clearly off 18% grey
+    let autoExp = 0;
+    if (!isHighKey && !isLowKey && (p50 < 0.07 || p50 > 0.35)) {
+        const ev = Math.log2(0.18 / p50);
+        autoExp = Math.round(Math.max(-45, Math.min(45, ev / 3 * 100 * 0.45)));
+    }
 
-    // Shadows: only lift truly near-clipped shadows — intentional deep blacks must not be touched
+    // ── 5. Highlights ────────────────────────────────────────────
+    // Only pull back if top 1% is genuinely high — work on raw percentile, no scaling
+    const autoHL = p99 > 0.90 ? Math.max(-60, Math.round(-(p99 - 0.90) / 0.10 * 60)) : 0;
+
+    // ── 6. Shadows ───────────────────────────────────────────────
+    // Only lift near-clipped shadows — normal deep blacks (p01 0.003–0.015) must be untouched
     const autoSH = p01 < 0.003 ? Math.min(20, Math.round((0.003 - p01) / 0.003 * 20)) : 0;
 
-    // Whites: expand if p99.8 is genuinely low (flat/hazy source)
-    const autoWhites = p998 < 0.60 ? Math.min(35, Math.round((0.75 - p998) / 0.20 * 35)) : 0;
+    // ── 7. Whites ────────────────────────────────────────────────
+    // Expand range if source is clearly flat (p99.8 well below a proper white point)
+    const autoWhites = p998 < 0.55 ? Math.min(35, Math.round((0.72 - p998) / 0.22 * 35)) : 0;
 
-    // Blacks: deepen if p0.2 is clearly lifted above black (foggy/hazy)
-    const autoBlacks = p002 > 0.025 ? Math.max(-40, -Math.round((p002 / 0.05) * 25)) : 0;
+    // ── 8. Blacks ────────────────────────────────────────────────
+    // Deepen if blacks are clearly lifted — sign of haze, fog, or gamma lift
+    const autoBlacks = p002 > 0.025 ? Math.max(-38, -Math.round((p002 / 0.05) * 25)) : 0;
 
-    // Contrast: mild boost for low-dynamic-range scenes
-    const dynRange    = p99 > 0.001 ? Math.log2(p99 / Math.max(p01, 0.0001)) : 0;
-    const autoContrast = dynRange < 5.0 ? Math.round(Math.min(18, (5.0 - dynRange) / 5.0 * 18)) : 0;
+    // ── 9. Contrast ──────────────────────────────────────────────
+    // Flat scenes get a real boost; mildly low-DR scenes get a light touch; good photos get nothing
+    const autoContrast = isFlat            ? Math.round(Math.min(22, (5.0 - Math.min(dynRange, 5.0)) / 5.0 * 22))
+                       : dynRange < 4.0    ? Math.round(Math.min(12, (4.0 - dynRange) / 4.0 * 12))
+                       : 0;
 
-    // White balance: grey-world Bradford
+    // ── 10. White balance ────────────────────────────────────────
+    // Grey-world Bradford — skip for near-greyscale images (avgSat < 0.08) where grey-world is unreliable
     const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
     let autoTemp = 0, autoTint = 0;
-    if (meanR > 0.001 && meanG > 0.001 && meanB > 0.001) {
+    if (meanR > 0.001 && meanG > 0.001 && meanB > 0.001 && avgSat > 0.08) {
         const lmsL  = M_SRGB2LMS[0]*meanR + M_SRGB2LMS[1]*meanG + M_SRGB2LMS[2]*meanB;
         const lmsM  = M_SRGB2LMS[3]*meanR + M_SRGB2LMS[4]*meanG + M_SRGB2LMS[5]*meanB;
         const lmsS  = M_SRGB2LMS[6]*meanR + M_SRGB2LMS[7]*meanG + M_SRGB2LMS[8]*meanB;
@@ -7230,35 +7252,37 @@ function autoEnhance() {
         const ratioLM = (lmsWL * lmsM) / (lmsWM * lmsL);
         const g = (ratioLM - ratioLM*t*0.127 - 1 - t*0.266) / (ratioLM * 0.20);
         autoTint = Math.max(-50, Math.min(50, g * 100));
+        // Dampen: apply 40–55% of computed correction; more only for strong casts
+        autoTemp = Math.round(autoTemp * (Math.abs(autoTemp) > 50 ? 0.55 : 0.40));
+        autoTint = Math.round(autoTint  * (Math.abs(autoTint)  > 30 ? 0.55 : 0.40));
+        // Dead zone: skip subtle shifts that would only introduce noise
+        if (Math.abs(autoTemp) < 7) autoTemp = 0;
+        if (Math.abs(autoTint)  < 5) autoTint  = 0;
     }
-    // Dampen grey-world WB — less dampening when cast is strong, more when subtle
-    const tempDamp = Math.abs(autoTemp) > 45 ? 0.6 : 0.45;
-    const tintDamp = Math.abs(autoTint)  > 30 ? 0.6 : 0.45;
-    autoTemp = Math.round(autoTemp * tempDamp);
-    autoTint  = Math.round(autoTint  * tintDamp);
-    // Dead zone: skip trivial shifts that would only add noise
-    if (Math.abs(autoTemp) < 4) autoTemp = 0;
-    if (Math.abs(autoTint)  < 3) autoTint  = 0;
 
-    // Vibrance: boost muted images; skip if already saturated
-    const avgSat      = totalSat / n;
-    const autoVibrance = Math.round(Math.max(0, Math.min(40, (0.32 - avgSat) * 80)));
+    // ── 11. Vibrance ─────────────────────────────────────────────
+    // Lift muted images; zero for already-rich colours
+    const autoVibrance = Math.round(Math.max(0, Math.min(38, (0.30 - avgSat) * 75)));
 
-    // Sharpening and clarity: mild defaults applied to nearly all images
-    const autoSharpen = 18;
-    const autoClarity = avgSat < 0.15 ? 12 : 8; // slightly more for flat/low-sat images
+    // ── 12. Sharpening ───────────────────────────────────────────
+    // Reduce if the image already shows strong edge energy (likely already sharpened)
+    const autoSharpen = edgeEnergy > 0.06 ? 8 : edgeEnergy > 0.03 ? 12 : 18;
 
-    // Reset all tone/colour sliders to defaults first
+    // ── 13. Clarity ──────────────────────────────────────────────
+    // Only add for flat/hazy sources; skip for well-processed photos
+    const autoClarity = isFlat ? 14 : dynRange < 4.5 ? 6 : 0;
+
+    // ── 14. Full reset before applying ───────────────────────────
     ADJUST_KEYS.forEach(k => {
-        const sl = document.getElementById('sl-' + k);
-        if (!sl) return;
+        const sl = document.getElementById('sl-' + k); if (!sl) return;
         const def = sl.dataset.default !== undefined ? Number(sl.dataset.default) : 0;
         sl.value = def;
-        const vi = document.getElementById('v-' + k);
-        if (vi) vi.value = def;
+        const vi = document.getElementById('v-' + k); if (vi) vi.value = def;
     });
+    resetAllCurves(); // clear custom curves so they don't compound with fresh slider values
+    resetHSL();       // clear HSL so hue/sat/lum shifts don't conflict
 
-    // Apply computed values
+    // ── 15. Apply ────────────────────────────────────────────────
     const set = (id, val) => {
         const sl = document.getElementById('sl-' + id);
         const vi = document.getElementById('v-' + id);
@@ -7281,7 +7305,6 @@ function autoEnhance() {
     beginAdjust();
     finishAdjust();
 
-    // Open the adjust panel so the user can see what changed
     const adjDetails = document.getElementById('sl-exposure') && document.getElementById('sl-exposure').closest('details');
     if (adjDetails && !adjDetails.open) adjDetails.open = true;
 }
