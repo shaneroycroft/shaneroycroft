@@ -7190,33 +7190,29 @@ function autoEnhance() {
     const p99  = lums[Math.min(n-1, Math.floor(n * 0.99))];
     const p998 = lums[Math.min(n-1, Math.floor(n * 0.998))];
 
-    // Exposure: map median → 18% grey, dampened for near-correct images
-    const expScale = p50 > 0.001 ? 0.18 / p50 : 1;
-    const expEV    = Math.log2(expScale);
-    const expRaw   = Math.max(-80, Math.min(80, expEV / 3 * 100));
-    // Dampen more when the image is close to correct — avoid pushing well-exposed photos
-    const expDamp  = Math.abs(expRaw) > 40 ? 0.75 : 0.55;
-    const autoExp  = Math.round(expRaw * expDamp);
+    // Exposure: nudge toward 18% grey — capped and dampened so we correct direction, not fully remap
+    const expEV  = Math.log2(0.18 / Math.max(p50, 0.001));
+    const expRaw = expEV / 3 * 100;
+    // Dead zone: don't touch exposure if median is already in a reasonable range (0.09–0.28)
+    const autoExp = (p50 >= 0.09 && p50 <= 0.28)
+        ? 0
+        : Math.round(Math.max(-45, Math.min(45, expRaw * 0.5)));
 
-    // Highlights: pull back if scaled p99 threatens clipping
-    const p99s    = p99 * expScale;
-    const autoHL  = p99s > 0.82 ? Math.max(-80, Math.round(-(p99s - 0.82) / 0.18 * 85)) : 0;
+    // Highlights: work on RAW percentiles (not scaled) — only pull back genuinely bright tops
+    const autoHL = p99 > 0.88 ? Math.max(-65, Math.round(-(p99 - 0.88) / 0.12 * 65)) : 0;
 
-    // Shadows: only lift truly clipped/crushed shadows — good blacks (p01 0.003–0.015) must not be touched
-    const p01s    = p01 * expScale;
-    const autoSH  = p01s < 0.005 ? Math.min(25, Math.round((0.005 - p01s) / 0.005 * 25)) : 0;
+    // Shadows: only lift truly near-clipped shadows — intentional deep blacks must not be touched
+    const autoSH = p01 < 0.003 ? Math.min(20, Math.round((0.003 - p01) / 0.003 * 20)) : 0;
 
-    // Whites: expand upper range if scaled p99.8 has headroom
-    const p998s      = p998 * expScale;
-    const autoWhites = p998s < 0.68 ? Math.min(45, Math.round((0.82 - p998s) / 0.20 * 45)) : 0;
+    // Whites: expand if p99.8 is genuinely low (flat/hazy source)
+    const autoWhites = p998 < 0.60 ? Math.min(35, Math.round((0.75 - p998) / 0.20 * 35)) : 0;
 
-    // Blacks: deepen if scaled p0.2 is lifted (foggy/hazy blacks)
-    const p002s      = p002 * expScale;
-    const autoBlacks = p002s > 0.020 ? Math.max(-45, -Math.round((p002s / 0.04) * 28)) : 0;
+    // Blacks: deepen if p0.2 is clearly lifted above black (foggy/hazy)
+    const autoBlacks = p002 > 0.025 ? Math.max(-40, -Math.round((p002 / 0.05) * 25)) : 0;
 
     // Contrast: mild boost for low-dynamic-range scenes
     const dynRange    = p99 > 0.001 ? Math.log2(p99 / Math.max(p01, 0.0001)) : 0;
-    const autoContrast = dynRange < 5.5 ? Math.round(Math.min(20, (5.5 - dynRange) / 5.5 * 20)) : 0;
+    const autoContrast = dynRange < 5.0 ? Math.round(Math.min(18, (5.0 - dynRange) / 5.0 * 18)) : 0;
 
     // White balance: grey-world Bradford
     const meanR = sumR / n, meanG = sumG / n, meanB = sumB / n;
