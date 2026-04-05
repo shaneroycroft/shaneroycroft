@@ -28,6 +28,7 @@
             padding: 0; transition: color 0.2s; text-decoration: none; white-space: nowrap; flex-shrink: 0;
         }
         .e-bar-btn:hover { color: var(--text); }
+        .e-bar-btn.active { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
         .e-bar-btn.primary { background: var(--text); color: var(--bg); padding: 0.3rem 0.85rem; }
         .e-bar-btn.primary:hover { opacity: 0.7; }
         .e-bar-btn:disabled, button:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
@@ -321,7 +322,8 @@
             <option value="4x4">4×4</option>
         </select>
         <span class="e-bar-sep">|</span>
-        <button class="e-bar-btn" id="split-btn" onclick="toggleSplit()" title="drag the divider to compare before/after">compare</button>
+        <button class="e-bar-btn" id="split-btn" onclick="toggleSplit()" title="drag the divider to compare before/after (W)">compare</button>
+        <span id="compare-ind" style="display:none;font-size:0.65rem;color:var(--secondary);">· before (\ to exit)</span>
         <span class="e-bar-sep">|</span>
         <label class="grid-label" title="highlight clipping: red=blown, blue=crushed">
             <input type="checkbox" id="clip-toggle" onchange="renderOverlay()"> clipping
@@ -370,6 +372,12 @@
 
             <!-- Size warning -->
             <div id="size-warn" class="size-warn" style="display:none">large image · adjustments may be slow</div>
+            <!-- Session restore banner -->
+            <div id="session-restore-banner" style="display:none;align-items:center;gap:0.5rem;padding:0.45rem 1.2rem;border-bottom:1px solid var(--border);font-size:0.65rem;color:var(--secondary);background:var(--bg);">
+                <span style="flex:1">restore previous session?</span>
+                <button class="s-btn" style="font-size:0.65rem;padding:0.15rem 0.55rem;" onclick="_applySessionRestore(this)">restore</button>
+                <button class="s-link" style="font-size:0.65rem;" onclick="_dismissSessionRestore()">×</button>
+            </div>
 
             <!-- Histogram -->
             <div class="e-hist">
@@ -1265,12 +1273,49 @@ function pushHistory(label = '') {
     history.push({ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState(), label });
     if (history.length > HIST_MAX) history.shift(); else historyIdx++;
     updateUndoUI();
+    _saveSession();
 }
 function pushAdjHistory(label = '') {
     history = history.slice(0, historyIdx + 1);
     history.push({ type: 'adj', adj: _captureAdjState(), label });
     if (history.length > HIST_MAX) history.shift(); else historyIdx++;
     updateUndoUI();
+    _saveSession();
+}
+
+// ── Session auto-save ─────────────────────────────────────────
+function _saveSession() {
+    if (!workCanvas || !origName) return;
+    try {
+        const snap = _captureAdjState();
+        // Strip pixel data so localStorage stays small
+        snap.masks = snap.masks.map(m => ({ ...m, pixels: null }));
+        localStorage.setItem('sr_session_v1', JSON.stringify({ name: origName, adj: snap }));
+    } catch(e) {}
+}
+
+function _checkSessionRestore() {
+    try {
+        const raw = localStorage.getItem('sr_session_v1');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (!data || data.name !== origName) return;
+        const banner = document.getElementById('session-restore-banner');
+        if (banner) { banner._adj = data.adj; banner.style.display = 'flex'; }
+    } catch(e) {}
+}
+
+function _applySessionRestore(btn) {
+    const banner = btn.parentElement;
+    if (banner && banner._adj) { _restoreAdjState(banner._adj); pushAdjHistory('restore session'); }
+    if (banner) banner.style.display = 'none';
+    localStorage.removeItem('sr_session_v1');
+}
+
+function _dismissSessionRestore() {
+    const banner = document.getElementById('session-restore-banner');
+    if (banner) banner.style.display = 'none';
+    localStorage.removeItem('sr_session_v1');
 }
 function undo() {
     if (historyIdx <= 0) return;
@@ -1590,6 +1635,7 @@ function loadFile(file) {
         if (ovC) ovC.className = '';
         // ────────────────────────────────────────────────────────────
         history = [{ type: 'canvas', canvas: cloneCanvas(workCanvas), adj: _captureAdjState(), label: 'open' }]; historyIdx = 0; updateUndoUI();
+        setTimeout(_checkSessionRestore, 150);
         cancelCrop(); resetZoom();
         document.getElementById('drop-hint').style.display = 'none';
         document.getElementById('canvas-wrap').style.display = 'inline-block';
@@ -3048,6 +3094,9 @@ function showOriginal(on) {
 
 function toggleCompare() {
     compareMode = !compareMode;
+    // Show a top-bar indicator when viewing original
+    const cmpInd = document.getElementById('compare-ind');
+    if (cmpInd) cmpInd.style.display = compareMode ? '' : 'none';
     if (compareMode) {
         // Show true original (origCanvas) without any adjustments or retouching
         const src = origCanvas || workCanvas;
@@ -3695,7 +3744,7 @@ ovEl.addEventListener('mousedown', e => {
     if (maskBrushMode && activeMaskId && e.button === 0) {
         e.preventDefault();
         maskBrushPainting = true; maskBrushLastPos = null;
-        beginAdjust();
+        beginAdjust('brush stroke', true);
         applyMaskBrushStroke(e.clientX, e.clientY);
         return;
     }
@@ -7337,6 +7386,10 @@ renderPresetList();
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">Ctrl Z</span> / <span class="info-kbd">Ctrl Y</span></span>
                 <span class="info-item-desc">undo / redo</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key"><span class="info-kbd">Ctrl Alt C</span> / <span class="info-kbd">V</span></span>
+                <span class="info-item-desc">copy / paste all adjustments between images</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key"><span class="info-kbd">Y</span> (hold)</span>
