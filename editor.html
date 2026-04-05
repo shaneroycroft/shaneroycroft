@@ -1326,6 +1326,7 @@ function renderHistoryPanel() {
         if (!isFuture) row.addEventListener('click', () => jumpToHistory(i));
         panel.appendChild(row);
     }
+    panel.querySelector('.hist-entry.current')?.scrollIntoView({ block: 'nearest' });
 }
 
 function jumpToHistory(idx) {
@@ -4817,7 +4818,7 @@ function applyMaskBrushAt(wx, wy) {
     const mask = masks.find(m => m.id === activeMaskId);
     if (!mask || mask.type !== 'brush' || !mask.pixels) return;
     const r   = brushSize / 2;
-    const str = (brushStrength / 100) * 0.12 * (maskBrushMode === 'subtract' ? -1 : 1);
+    const str = (brushStrength / 100) * (maskBrushMode === 'subtract' ? -1 : 1);
     const x0  = Math.max(0, Math.floor(wx - r));
     const y0  = Math.max(0, Math.floor(wy - r));
     const x1  = Math.min(mask.width,  Math.ceil(wx + r));
@@ -5371,8 +5372,38 @@ function clearAIPoints() {
     renderOverlay();
 }
 
+// Separable box blur on a Float32Array mask — used to feather hard AI mask edges.
+// Three-pass box blur approximates a Gaussian. Radius in pixels.
+function blurMaskEdges(pixels, w, h) {
+    const r = Math.max(2, Math.round(Math.max(w, h) * 0.004)); // ~0.4% of longest edge
+    const tmp = new Float32Array(pixels.length);
+    // Horizontal pass
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            let sum = 0, cnt = 0;
+            for (let k = -r; k <= r; k++) {
+                const nx = x + k;
+                if (nx >= 0 && nx < w) { sum += pixels[y * w + nx]; cnt++; }
+            }
+            tmp[y * w + x] = sum / cnt;
+        }
+    }
+    // Vertical pass back into pixels
+    for (let x = 0; x < w; x++) {
+        for (let y = 0; y < h; y++) {
+            let sum = 0, cnt = 0;
+            for (let k = -r; k <= r; k++) {
+                const ny = y + k;
+                if (ny >= 0 && ny < h) { sum += tmp[ny * w + x]; cnt++; }
+            }
+            pixels[y * w + x] = sum / cnt;
+        }
+    }
+}
+
 function confirmAISelect() {
     if (!_aiMaskPixels || !workCanvas) return;
+    blurMaskEdges(_aiMaskPixels, workCanvas.width, workCanvas.height);
     const id = 'mask_' + (++_maskIdCtr);
     const m = {
         id, type: 'brush', enabled: true, inverted: false, feather: 0,
@@ -5609,6 +5640,7 @@ async function _runAISegMask(targetLabel, btnId) {
                 }
             }
         }
+        blurMaskEdges(combined, dstW, dstH);
         // Push to masks list
         const id = 'mask_' + (++_maskIdCtr);
         masks.push({
@@ -6529,6 +6561,7 @@ const resetSplitTone = resetColorGrading;
         cv.addEventListener('touchstart',e=>{dragging=true;interact(e);e.preventDefault();},{passive:false});
         cv.addEventListener('touchmove',e=>{if(dragging){interact(e);e.preventDefault();}},{passive:false});
         cv.addEventListener('touchend',()=>dragging=false);
+        cv.addEventListener('dblclick',()=>{ cfg.setHS(0,0); drawCGWheel(cfg); onColorGrading(); });
     });
 })();
 
@@ -6612,6 +6645,12 @@ function drawCurve() {
     const cv=document.getElementById('curve-canvas'), ctx=cv.getContext('2d');
     ctx.clearRect(0,0,CS,CS);
     ctx.fillStyle='#fff'; ctx.fillRect(0,0,CS,CS);
+    // Tone gradient axes — bottom (input) and left (output)
+    const GW=8;
+    const gx=ctx.createLinearGradient(0,0,CS,0); gx.addColorStop(0,'#000'); gx.addColorStop(1,'#fff');
+    ctx.fillStyle=gx; ctx.fillRect(0,CS-GW,CS,GW);
+    const gy=ctx.createLinearGradient(0,CS,0,0); gy.addColorStop(0,'#000'); gy.addColorStop(1,'#fff');
+    ctx.fillStyle=gy; ctx.fillRect(0,0,GW,CS);
     // Histogram behind the curve
     drawCurveHistogram(ctx);
     ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=1;
