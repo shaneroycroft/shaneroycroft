@@ -7389,6 +7389,18 @@ renderPresetList();
         <div class="info-tab-panel active" data-tab="guide">
 
         <div class="info-section">
+            <div class="info-section-title">opening images</div>
+            <div class="info-item">
+                <span class="info-item-key">supported formats</span>
+                <span class="info-item-desc">JPEG · PNG · WebP · TIFF · and camera RAW files: CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF, PEF, and 25+ more. drag and drop or use the open button.</span>
+            </div>
+            <div class="info-item">
+                <span class="info-item-key">session restore</span>
+                <span class="info-item-desc">adjustments are auto-saved after every edit. if you reopen the same image in a new session, a banner offers to restore your previous adjustments. pixel data (dodge/burn, crop) is not saved — only slider, curve, mask, and HSL values.</span>
+            </div>
+        </div>
+
+        <div class="info-section">
             <div class="info-section-title">composition</div>
             <div class="info-item">
                 <span class="info-item-key">crop</span>
@@ -7396,35 +7408,39 @@ renderPresetList();
             </div>
             <div class="info-item">
                 <span class="info-item-key">transform</span>
-                <span class="info-item-desc">rotate 90° cw/ccw, flip h/v. straighten corrects a tilted horizon. perspective correction drags four corner handles to fix converging lines — commit bakes it and auto-crops black corners.</span>
+                <span class="info-item-desc">rotate 90° cw/ccw, flip h/v. straighten corrects a tilted horizon. use "draw horizon" to click two points along any reference line — roofline, door frame, horizon — and the angle is set automatically. perspective correction drags four corner handles to fix converging lines — commit bakes it and auto-crops black corners.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">grid</span>
-                <span class="info-item-desc">rule of thirds, golden ratio, diagonals, or 4×4. toggle with the checkbox in the top bar.</span>
+                <span class="info-item-desc">thirds, golden ratio, diagonals, or 4×4. toggle in the top bar.</span>
             </div>
         </div>
 
         <div class="info-section">
             <div class="info-section-title">tone &amp; colour</div>
             <div class="info-item">
+                <span class="info-item-key">auto enhance</span>
+                <span class="info-item-desc">analyses the image content and sets exposure, highlights, shadows, whites, blacks, contrast, white balance, vibrance, sharpening, and clarity. scene-aware: high-key and low-key photos are treated differently from normally-exposed ones. curves and HSL are reset to defaults. undo with <span class="info-kbd">Ctrl Z</span>.</span>
+            </div>
+            <div class="info-item">
                 <span class="info-item-key">presets</span>
-                <span class="info-item-desc">12 built-in film looks. save your current adjustments as a named preset and recall them later. presets are stored in your browser.</span>
+                <span class="info-item-desc">12 built-in film looks. save your current adjustments as a named preset and recall them later. import and export presets as JSON files to share between sessions.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">adjust</span>
-                <span class="info-item-desc">exposure · contrast · highlights · shadows · whites · blacks · fade · temperature · tint · vibrance · saturation · clarity · texture · dehaze · sharpen · masking · luma NR · color NR · grain. click any value to type it directly. double-click a slider to reset it.</span>
+                <span class="info-item-desc">exposure · contrast · highlights · shadows · whites · blacks · temperature · tint · vibrance · saturation · dehaze · clarity · texture · fade · grain · sharpen (with radius, detail, masking sub-controls) · luma NR · color NR. click any value to type it directly. double-click a slider to reset it.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">sharpening masking</span>
-                <span class="info-item-desc">limits sharpening to edges only. at 0 every pixel is sharpened equally; at 100 only strong edges are sharpened — smooth areas like sky and skin are left untouched.</span>
+                <span class="info-item-desc">limits sharpening to edges only. at 0 every pixel is sharpened; at 100 only strong edges are sharpened — smooth areas like sky and skin are left untouched.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">luminosity mask</span>
-                <span class="info-item-desc">limits all adjustments to a tonal range. set a floor and ceiling to target shadows, midtones, or highlights. feather softens the transition at each boundary.</span>
+                <span class="info-item-desc">global tonal range limiter — restricts all adjustments to a brightness window. set floor and ceiling to target shadows, midtones, or highlights. feather softens the boundaries.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">tone curve</span>
-                <span class="info-item-desc">click the curve to add points; drag to reshape. double-click a point to remove it. switch channels (composite, R, G, B) with the tabs. the histogram of the current channel is shown behind the curve.</span>
+                <span class="info-item-desc">click to add points · drag to reshape · double-click to remove. switch channels (composite, R, G, B) with the tabs. the channel histogram is shown behind the curve. levels (input/output clamp) sit below the curve.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">hsl</span>
@@ -7432,27 +7448,27 @@ renderPresetList();
             </div>
             <div class="info-item">
                 <span class="info-item-key">color grading</span>
-                <span class="info-item-desc">drag the colour wheel to tint shadows, midtones, and highlights independently. the balance slider shifts the shadow/highlight boundary.</span>
+                <span class="info-item-desc">drag a colour wheel to tint shadows, midtones, or highlights independently. double-click a wheel to reset it. balance shifts the shadow/highlight boundary.</span>
             </div>
         </div>
 
         <div class="info-section">
             <div class="info-section-title">local adjustments</div>
             <div class="info-item">
-                <span class="info-item-key">dodge &amp; burn</span>
-                <span class="info-item-desc">paint directly on the image to lighten (dodge), darken (burn), or restore (erase). erase blends pixels back toward the state before any dodge/burn was applied. adjust size with <span class="info-kbd">[ ]</span>, tonal range with the shadows / midtones / highlights buttons.</span>
+                <span class="info-item-key">dodge, burn &amp; clone</span>
+                <span class="info-item-desc">paint directly on the image to lighten (dodge <span class="info-kbd">D</span>), darken (burn <span class="info-kbd">B</span>), restore (erase), copy pixels (clone — <span class="info-kbd">Alt+click</span> to set source), or patch texture (heal — paint and release). adjust size with <span class="info-kbd">[ ]</span>, tonal range with the shadows / midtones / highlights buttons.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">masks</span>
-                <span class="info-item-desc">non-destructive local adjustments. gradient, radial, brush, luminosity, and colour-range types. each mask has its own exposure, highlights, shadows, saturation, and temperature. drag handles on the canvas to reposition. invert to flip the affected area. feather softens the edge.</span>
+                <span class="info-item-desc">non-destructive local adjustments. eight types: gradient, radial, brush, luminosity, colour range, AI select, AI sky, AI people. each mask has its own exposure, highlights, shadows, saturation, and temperature sliders. drag handles on the canvas to reposition. invert to flip the affected area. feather softens the edge. click a mask name to rename it.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">ai select</span>
-                <span class="info-item-desc">click any point on the image to select the object under your cursor using a local AI model (~94 MB, downloaded once and cached). shift+click to mark exclusion points and refine the edge. click "undo point" or press <span class="info-kbd">Backspace</span> to remove the last point. click "use selection" to convert the result into a brush mask for local adjustments. press <span class="info-kbd">Esc</span> to cancel.</span>
+                <span class="info-item-desc">click any point on the image to select the object under the cursor. shift+click to mark exclusion points and refine the edge. press <span class="info-kbd">Backspace</span> to remove the last point. click "use selection" to convert into a mask for local adjustments. press <span class="info-kbd">Esc</span> to cancel. AI sky and AI people run automatically with one click.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">layers</span>
-                <span class="info-item-desc">composite a second image over the base — sky replacement, texture overlay, double exposure. add an image, set opacity and blend mode (normal, multiply, screen, overlay, soft light, and more). for sky replacement: run ai select on the sky first, then click "use AI mask" on the layer so it only shows through the selected region. invert the mask if needed.</span>
+                <span class="info-item-desc">overlay a second image — sky swap, texture, double exposure. set opacity and blend mode (normal, multiply, screen, overlay, soft light, and more). for sky replacement: run AI sky to select the sky, then click "use AI mask" on the layer to confine it to that region.</span>
             </div>
         </div>
 
@@ -7460,11 +7476,11 @@ renderPresetList();
             <div class="info-section-title">finishing</div>
             <div class="info-item">
                 <span class="info-item-key">vignette</span>
-                <span class="info-item-desc">darkens the edges of the frame. feather controls how soft the gradient is; roundness blends between an ellipse (follows all edges) and a circle.</span>
+                <span class="info-item-desc">darkens the edges of the frame. feather controls softness; roundness blends between an ellipse and a circle.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">border</span>
-                <span class="info-item-desc">solid-colour border around the image. link h &amp; v to resize both axes together. colour picker sets the border colour.</span>
+                <span class="info-item-desc">solid-colour border around the image. link h &amp; v to resize both axes together.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">label</span>
@@ -7475,32 +7491,24 @@ renderPresetList();
         <div class="info-section">
             <div class="info-section-title">tools &amp; view</div>
             <div class="info-item">
+                <span class="info-item-key">histogram</span>
+                <span class="info-item-desc">live RGB histogram using screen blending — channel overlaps render as yellow (R+G), cyan (G+B), magenta (R+B), matching the Lightroom display. clipping percentages appear next to the title when highlights are blown or shadows are crushed.</span>
+            </div>
+            <div class="info-item">
                 <span class="info-item-key">compare</span>
-                <span class="info-item-desc">drag the split divider to compare before and after side by side. press <span class="info-kbd">W</span> to toggle.</span>
+                <span class="info-item-desc">drag the split divider to compare before and after side by side (<span class="info-kbd">W</span>). hold <span class="info-kbd">Y</span> to momentarily view the original; press <span class="info-kbd">\</span> to sticky-toggle.</span>
             </div>
             <div class="info-item">
-                <span class="info-item-key">before / after</span>
-                <span class="info-item-desc">hold <span class="info-kbd">Y</span> to temporarily view the original. press <span class="info-kbd">\</span> to sticky-toggle (stays until you press again).</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key">minimap</span>
-                <span class="info-item-desc">appears in the bottom-right corner when you are zoomed in. shows where you are in the full image. click or drag on the minimap to pan to that position.</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key">draw horizon</span>
-                <span class="info-item-desc">in the transform panel, click "draw horizon" then click two points along any horizontal or vertical reference line — a roofline, horizon, door frame. the straighten angle is calculated automatically. press <span class="info-kbd">Esc</span> to cancel.</span>
-            </div>
-            <div class="info-item">
-                <span class="info-item-key">clipping</span>
-                <span class="info-item-desc">red zebra = blown highlights. blue zebra = crushed shadows. toggle with the checkbox in the top bar.</span>
+                <span class="info-item-key">clipping overlay</span>
+                <span class="info-item-desc">red zebra = blown highlights · blue zebra = crushed shadows. toggle in the top bar. the histogram also shows clipping percentages.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">color sampler</span>
-                <span class="info-item-desc">hover over the image to read the RGB and HSL values under your cursor. useful for checking skin tone ratios and neutral greys.</span>
+                <span class="info-item-desc">hover over the image to read RGB and HSL values under the cursor. useful for checking skin tone ratios and neutral greys.</span>
             </div>
             <div class="info-item">
-                <span class="info-item-key">histogram</span>
-                <span class="info-item-desc">live RGB histogram in the sidebar. auto enhance sets exposure, contrast, highlights, shadows, whites, blacks, and white balance based on the image content.</span>
+                <span class="info-item-key">minimap</span>
+                <span class="info-item-desc">appears when zoomed in. click or drag to pan to a position in the full image.</span>
             </div>
         </div>
 
@@ -7508,15 +7516,15 @@ renderPresetList();
             <div class="info-section-title">export</div>
             <div class="info-item">
                 <span class="info-item-key">format</span>
-                <span class="info-item-desc">PNG for lossless; JPEG with quality 60–100 for sharing; WebP for smaller file sizes. ICC sRGB profile is embedded so colours display accurately in browsers and apps.</span>
+                <span class="info-item-desc">PNG for lossless · JPEG (quality 60–100) for sharing · WebP for smaller files. ICC sRGB profile is embedded for accurate colour in browsers and apps. JPEG exports carry through the original EXIF metadata.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">size</span>
-                <span class="info-item-desc">choose 100/75/50/25% of full resolution, or select "custom px" and type an exact output width in pixels — height is scaled proportionally.</span>
+                <span class="info-item-desc">100 / 75 / 50 / 25% of full resolution, or "custom px" for an exact output width — height scales proportionally.</span>
             </div>
             <div class="info-item">
                 <span class="info-item-key">output sharpening</span>
-                <span class="info-item-desc">applied after downscaling, on export only. compensates for softness introduced by resampling. separate from the adjustment sharpening slider.</span>
+                <span class="info-item-desc">applied after downscaling, on export only — compensates for resampling softness. the slider in the top bar only shows a value when non-zero.</span>
             </div>
         </div>
 
@@ -7592,6 +7600,12 @@ renderPresetList();
         <p style="font-size:0.75rem;color:var(--secondary);line-height:1.7;margin-bottom:2rem;">a suggested order for editing a photograph. you don't have to follow every step — skip what doesn't apply. the order matters because earlier decisions affect how later adjustments look.</p>
 
         <div class="workflow-step">
+            <div class="workflow-step-num">00 · open</div>
+            <div class="workflow-step-title">load your image and get a starting point</div>
+            <div class="workflow-step-body">Drag and drop onto the canvas, or use the open button. Supported formats include JPEG, PNG, WebP, TIFF, and most camera RAW files (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF, and 25+ others). If you've edited this image before, a restore banner will appear — accept it to continue where you left off. Before any manual work, try <strong>auto enhance</strong>: it analyses the scene and sets a starting point for exposure, tone, white balance, sharpening, and clarity. It won't be perfect for every image, but it's often close enough to save several minutes of foundation work. Use it as a baseline and refine from there. Undo with Ctrl Z if you don't like it.</div>
+        </div>
+
+        <div class="workflow-step">
             <div class="workflow-step-num">01 · composition first</div>
             <div class="workflow-step-title">crop and straighten before anything else</div>
             <div class="workflow-step-body">Decide your frame before touching tone or colour. Everything downstream — vignette placement, mask positions, your sense of what's bright or dark — depends on the final composition. Straighten the horizon in transform if the camera was tilted. Correct converging verticals with perspective if you're shooting architecture.</div>
@@ -7600,7 +7614,7 @@ renderPresetList();
         <div class="workflow-step">
             <div class="workflow-step-num">02 · foundation</div>
             <div class="workflow-step-title">set white balance, then exposure</div>
-            <div class="workflow-step-body">White balance first — get the neutrals right (grey should look grey, whites should look white). Use the temperature and tint sliders, or the eyedropper on a neutral area. Then set exposure so the overall brightness feels right. Use the histogram as a guide: avoid clipping the highlights or crushing the shadows unless it's intentional.</div>
+            <div class="workflow-step-body">If you skipped auto enhance, start here. White balance first — get the neutrals right (grey should look grey, whites should look white). Use the temperature and tint sliders, or the eyedropper on a neutral area. Then set exposure so the overall brightness feels right. Use the histogram as a guide: avoid clipping the highlights or crushing the shadows unless it's intentional.</div>
         </div>
 
         <div class="workflow-step">
@@ -7624,7 +7638,7 @@ renderPresetList();
         <div class="workflow-step">
             <div class="workflow-step-num">06 · local adjustments</div>
             <div class="workflow-step-title">dodge, burn, masks, and layers</div>
-            <div class="workflow-step-body">These are your most powerful and time-consuming tools — apply them after global edits are settled. Dodge and burn guide the viewer's eye: lighten where you want attention, darken what's competing. Gradient and radial masks let you apply targeted exposure or colour corrections. Use AI select to click an object and instantly generate a precise brush mask — great for isolating a subject, sky, or specific element. For sky replacement or compositing, add an overlay layer, then use an AI-selected sky mask to confine it to exactly the right region.</div>
+            <div class="workflow-step-body">These are your most powerful and time-consuming tools — apply them after global edits are settled. Dodge and burn guide the viewer's eye: lighten where you want attention, darken what's competing. Gradient and radial masks let you apply targeted exposure or colour corrections. Use AI select to click an object and instantly generate a precise brush mask — great for isolating a subject, sky, or specific element. For sky replacement or compositing, add an overlay layer, then use an AI-selected sky mask to confine it to exactly the right region. If you're building several masks, name them as you go — click a mask's name in the list to rename it — so you can find each one when you return to the image.</div>
         </div>
 
         <div class="workflow-step">
